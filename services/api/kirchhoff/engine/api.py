@@ -6,8 +6,11 @@ import json
 from kirchhoff.contracts import DesignModel
 from kirchhoff.contracts.extra import ClashReport, FixCandidate  # noqa: F401  (re-exported for WS2)
 
+from .boq import derive_boq, derive_pr_lines  # noqa: F401
+from .cooling import size_cooling  # noqa: F401
 from .erp import ErpView, YamlErp, default_erp  # noqa: F401
 from .layout import place_racks  # noqa: F401
+from .options import annotate_options, power_options, power_recheck  # noqa: F401
 from .scenario import Scenario, load_scenario  # noqa: F401
 
 NOT_CHECKED = [

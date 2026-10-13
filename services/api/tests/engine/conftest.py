@@ -28,3 +28,17 @@ def models(scn, racks):
     from kirchhoff.engine.topology import build_model
 
     return {(t, tx): build_model(scn, racks, t, tx) for t in ("2N", "DR", "BLOCK") for tx in ("TX-2500", "TX-3150")}
+
+
+@pytest.fixture(scope="session")
+def options(scn, racks):
+    from kirchhoff.engine.options import power_options
+
+    return {o.id: (o, m) for o, m in power_options(scn, racks)}
+
+
+@pytest.fixture(scope="session")
+def annotated(scn, racks, erp):
+    from kirchhoff.engine.options import annotate_options, power_options
+
+    return {o.id: (o, m) for o, m in annotate_options(scn, power_options(scn, racks), erp)}
