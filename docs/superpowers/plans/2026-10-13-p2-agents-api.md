@@ -24,7 +24,8 @@
 - ADK/Gemini model: `gemini-3.8-flash` only. Pro and flash-lite return 404.
 - Retry Gemini calls with exponential backoff on 429/5xx (`kirchhoff.agents.runner.with_retries`).
 - Firestore discipline (spec §11): events are batched about every 250 ms; `runs/{rid}` gets at most 1 update/s; event payloads are < 10 KB; models never go into Firestore (see ruling R7); one writer per phase assigns `seq`.
-- WS2 creates or modifies only the files that `2026-10-13-interfaces.md` assigns to it, plus two small shared edits listed explicitly: `services/api/pyproject.toml` (one dependency) and removing the P0 hello route and its test.
+- WS2 creates or modifies only the files that `2026-10-13-interfaces.md` assigns to it (incl. `services/api/kirchhoff/store/**`, which WS2 owns after the P0 fix wave), plus these shared edits listed explicitly: `services/api/pyproject.toml` (one dependency), removing the P0 hello route and its test (never `GET /api/whoami`, which is permanent), and the EventWriter hardening in Task 6 (announced to all workstreams).
+- Store and event APIs are the P0 fix-wave ones (interfaces doc, "Conventions"): `Store.transact(read_paths, fn) -> list[Write]` (`fn` gets `{path: doc | None}` and returns `[(path, data | None)]`; an empty list writes nothing), `Store.delete_tree(path)`, `Store.list_docs(collection, order_by=, descending=, limit=)`, deep-merge `update_doc`, `kirchhoff.store.validate.firestore_safe_problems`, and `EventWriter.emit(agent, kind, title, detail="", payload=None, step=None)` plus `fence()`. Never subclass `EventWriter`, never touch private attributes of `EventWriter`, `MemoryStore` or `FirestoreStore`, and never rely on `set_step` across threads: every event passes `step=` explicitly.
 
 ## Rulings on spec ambiguities (binding for this plan; communicated to WS1/WS3/WS4)
 
@@ -53,7 +54,17 @@
 | R21 | `p2.power_recheck` (spec v4.1) | The step calls the facade's `power_recheck(scn, model) -> list[Finding]` (R01, R04 and R04b; WS1 P1 plan Task 8) on each swapped option, and reports `ikss_ka_before`/`ikss_ka_after` from the swap records (`{line, from, to, qty, reason, ikss_ka_before, ikss_ka_after, ...}`). |
 | R22 | Revision identity vs golden capture (spec v4.1 §11) | `Revision.hash` is always `engine.model_hash(model)`, so WS4's `capture.py` gets identical hashes when it recomputes them. Approvals reference the revision through `Approval.revision`. |
 | R23 | Fix-choice criteria (coordinator ruling) | **Cooling** prefers the candidate with the fewest changed pipe segments (`metrics.changed_pipes`, least disruption to coordinated routes) and breaks ties by cost, which selects `H-Z2:local-drop` (+$420) over `H-Z2:reroute` (−$910), matching the storyboard. **Power** prefers the largest ΔV margin per dollar, `(dv_limit_pct − dv_pct) / max(cost_delta, 1)`. Each criterion appears in the agent instruction (`FIX_CRITERIA`), is stored as `finding.fix.criterion`, is named in the fix reason, and drives the deterministic fallback when the agent fails. |
-| R24 | `what_if` payload | The engine returns only `fail`/`warn` findings plus the impact chain. Co-pilot summaries count those. |
+| R24 | `what_if` payload | The engine returns only `fail`/`warn` findings plus the impact chain. Co-pilot summaries count only `fail`. |
+| R25 | Store and event APIs (P0 fix wave, reconciliation 13 Oct) | `Store.transact/delete_tree/list_docs(order_by, descending, limit)`, `kirchhoff.store.validate.firestore_safe_problems`, plain `EventWriter.emit(..., step=...)` and `fence()` on lease loss. No `storeops.py`, no `PhaseEventWriter`, no private attributes. WS2 owns `kirchhoff/store/**` and hardens `EventWriter` in Task 6 (RLock + atomic `set_step`, trailing-flush backoff, close flag). |
+| R26 | Artifact refs (WS3 ruling R7) | `brief` → Firestore path `workspaces/{uid}/runs/{rid}/outputs/p1.intake` (doc `{step, json}`; the UI parses `json` and reads `brief`); `options` → the run doc path (options live on `runs/{rid}.options`, the payload also carries `recommended`); `revision` → `workspaces/{uid}/revisions/{rev}` (ref tail = revision id) plus `changed`; `export` → storage path `exports/{rev}/{file}` served by `/api/files`, emitted only once the file exists (pending stubs emit a `status` event). |
+| R27 | Finding events (WS3 ruling R8) | Each `p3.check.{n}` step emits the revision artifact first, then one `finding` event per failure with payload `{finding_id, rule_id, element_id, status, rev}`; P4's R12 finding also carries `rev`. |
+| R28 | `/api/files` from the browser | `?redirect=0` returns `{url, expires_in}` so the browser fetches the signed URL without auth headers (no CORS preflight); the bare route still 302s. Unsigned local blob stores serve bytes inline. |
+| R29 | Voice response shape (WS3 ruling R9) | `tool_results: [{name, args, result}]`; `explain_finding` accepts `finding_id` or `element_id` (same parameters as WS3's Live declarations). |
+| R30 | Placeholder units | WS1's explanation templates already carry units after `{value}`/`{limit}`; `fill_finding` appends the unit only when the text does not already have it (WS3's `fillPlaceholders` uses the same rule). |
+| R31 | Fix deltas | `fix.deltas` / `rejected_fix.deltas` = candidate metrics + `cost_delta` (the UI lists `deltas`); `cost_delta` also stays top-level. |
+| R32 | Tender chip boxes | The engine cites (page, verbatim quote) without a box; `with_citation_boxes` adds pdfplumber's `bbox` to every finding's `tender_refs` before the revision is written. |
+| R33 | Asset packs | `POST /api/asset/{pack}` returns `{options, recommended, findings, geometry, choice: {option, reason, source}}` and writes nothing to Firestore (no run, no events). The static grid/solar bundles' `evaluate_grid`/`evaluate_solar` `tool_result` events are WS4's (generated from this same dict). |
+| R34 | Plan-gate answers | An answer must be one of `OpenQuestion.options` (`[main-body value, "compare_all"]`), else 422 `invalid_answer`; the UI offers only those options (no free text). |
 
 ---
 
@@ -82,9 +93,9 @@ services/api/
   kirchhoff/agents/docs_export.py     Exporter, StubExporter, BlobExporter, calc_report_pdf, boq_csv
   kirchhoff/runs/__init__.py
   kirchhoff/runs/compat.py            FixCandidate/ClashReport (re-export WS1's; fallback until it lands)
-  kirchhoff/runs/storeops.py          transact, delete_tree, firestore_safe_problems
-  kirchhoff/runs/leases.py            acquire_lease, heartbeat, release_lease, CapReached
-  kirchhoff/runs/events.py            PhaseEventWriter, next_seq
+  kirchhoff/store/events.py           (modify, Task 6) EventWriter hardening: RLock, atomic set_step, flush backoff, close flag
+  kirchhoff/runs/leases.py            acquire_lease, heartbeat, release_lease, CapReached (on Store.transact)
+  kirchhoff/runs/events.py            next_seq (events are written by the P0 EventWriter with emit(..., step=...))
   kirchhoff/runs/blobs.py             BlobStore, MemoryBlobStore, GcsBlobStore
   kirchhoff/runs/outputs.py           pack_outputs, load_outputs
   kirchhoff/runs/deps.py              Deps (all injectable dependencies), InputFiles
@@ -93,7 +104,7 @@ services/api/
   kirchhoff/runs/policy.py            choose_option, OWNER, lead_limit_weeks, PLAN_TEMPLATE
   kirchhoff/runs/revisions.py         build_revision, load_revision_model, diff_elements, latest_revision, gather_ledger
   kirchhoff/runs/phase1.py .. phase4.py
-  kirchhoff/runs/fakes.py             FakeEngine, FakeEnterprise, FAKE_REPLIES, build_fake_scenarios, build_fake_deps
+  kirchhoff/runs/fakes.py             FakeEngine, FakeEnterprise, FAKE_REPLIES, build_fake_scenarios, build_fake_deps, CheckedStore
   kirchhoff/api/app.py                (modify) wire Deps + routers; optional enterprise proxy
   kirchhoff/api/deps.py               build_production_deps, LazyModule
   kirchhoff/api/errors.py             err(status, detail, **extra) -> JSONResponse
@@ -1365,6 +1376,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - `is_clean(text, allowed_ids) -> bool`.
   - `fill(text, values: dict[str, str]) -> str` replaces `{name}` placeholders and leaves unknown ones intact.
   - `fmt_number(x) -> str` and `fmt_value(x, unit) -> str` (`2.16` + `%` → `2.16%`; `1546` + `A` → `1,546 A`).
+  - `fill_finding(text, value, limit, unit) -> str` fills `{value}`, `{limit}` and `{unit}` from an engine record. WS1's templates already write the unit after the placeholder (`"{value}% against a limit of {limit}%"`, `"{value} weeks"`), agent text usually does not (`"a drop of {value}"`), so the unit is appended only when the text right after the placeholder does not already start with it. WS3's `fillPlaceholders` follows the same rule.
   - `allowed_ids_for(*models: DesignModel | None, extra: Iterable[str] = ()) -> set[str]`: rack, row, feed, equipment, system, catalogue, connection (incl. `PF-*` pump supplies), cooling node, zone and pipe ids, plus string values in `Equipment.params` (breaker frames, WS1 ruling 3).
   - Always allowed without listing: rule ids `R\d{2}b?`, clause ids `§\d+(\.\d+)*`, topology names `2N`, `N+1`, `3 + 1`, `4-to-make-3`, and placeholders `{name}`.
 
@@ -1372,7 +1384,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 `services/api/tests/agents/test_agents_trust.py`:
 ```python
-from kirchhoff.agents.trust import allowed_ids_for, fill, fmt_value, is_clean, sanitize
+from kirchhoff.agents.trust import allowed_ids_for, fill, fill_finding, fmt_value, is_clean, sanitize
 from kirchhoff.contracts import Connection, DesignModel, Equipment, Geometry, Pipe, Point3, Rack
 
 IDS = {"FA-01", "FB-03", "H-Z2", "A1", "R1", "CDU-4", "TX-3150"}
@@ -1411,6 +1423,16 @@ def test_fill_and_fmt_value():
     assert fill("{value} exceeds {limit} on {element}", {"value": fmt_value(2.16, "%"), "limit": fmt_value(2.0, "%")}) \
         == "2.16% exceeds 2% on {element}"
     assert fmt_value(1546.0, "A") == "1,546 A" and fmt_value(None, "A") == "n/a"
+
+
+def test_fill_finding_never_doubles_the_unit():
+    engine = "Drop via FA-01 is {value}% against a limit of {limit}%."  # WS1 template style
+    agent = "FA-01 has a drop of {value}, above the {limit} limit."  # agent style
+    assert fill_finding(engine, 2.16, 2.0, "%") == "Drop via FA-01 is 2.16% against a limit of 2%."
+    assert fill_finding(agent, 2.16, 2.0, "%") == "FA-01 has a drop of 2.16%, above the 2% limit."
+    assert fill_finding("TX-2500 ships in {value} weeks, limit {limit}.", 98, 26, "weeks") == \
+        "TX-2500 ships in 98 weeks, limit 26 weeks."
+    assert fill_finding("{value} {unit} vs {limit}", 1546, None, "A") == "1,546 A vs n/a"
 
 
 def test_allowed_ids_for_model():
@@ -1484,6 +1506,24 @@ def fill(text: str, values: dict[str, str]) -> str:
     return _PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), text)
 
 
+def fill_finding(text: str, value: float | None, limit: float | None, unit: str | None) -> str:
+    u = unit or ""
+
+    def repl(m: re.Match) -> str:
+        name = m.group(1)
+        if name == "unit":
+            return u
+        if name not in ("value", "limit"):
+            return m.group(0)
+        x = value if name == "value" else limit
+        rest = text[m.end():]
+        has_unit = bool(u) and (re.match(rf" ?{re.escape(u)}(?![A-Za-z0-9])", rest) is not None
+                                or rest.startswith(" {unit}"))
+        return fmt_number(x) if has_unit or x is None else fmt_value(x, u)
+
+    return _PLACEHOLDER.sub(repl, text)
+
+
 def fmt_number(x: float | None) -> str:
     if x is None:
         return "n/a"
@@ -1523,7 +1563,7 @@ def allowed_ids_for(*models: DesignModel | None, extra: Iterable[str] = ()) -> s
 - [ ] **Step 4: Run tests**
 
 Run: `cd services/api && uv run pytest tests/agents/test_agents_trust.py -q`
-Expected: `8 passed`
+Expected: `9 passed`
 
 - [ ] **Step 5: Commit**
 
@@ -2074,7 +2114,9 @@ ASSET = AgentSpec("asset", thinking="low", timeout_s=5.0, instruction=(
 
 SPECS_BY_AGENT = {s.name: s for s in [ORCHESTRATOR, LAYOUT, POWER, COOLING, PROCUREMENT, DOCS, ASSET]}
 
-# WS3 copies this into the Firebase AI Logic Live session (spec §6.5).
+# WS3 copies this verbatim into the Firebase AI Logic Live session (spec §6.5): Firebase JS SDK 13 renamed the
+# spec's VertexAIBackend to AgentPlatformBackend, so the browser uses new AgentPlatformBackend('us-central1') with
+# model gemini-live-2.5-flash-native-audio and the same three function declarations (WS3 plan ruling R1).
 LIVE_SYSTEM_INSTRUCTION = (
     "You are the Kirchhoff co-pilot in a live voice session about an AI data hall design. Answer with the tools "
     "what_if, explain_finding and focus_element. Speak only numbers that a tool returned; never estimate or invent "
@@ -2084,7 +2126,7 @@ LIVE_SYSTEM_INSTRUCTION = (
 - [ ] **Step 6: Run the unit tests**
 
 Run: `cd services/api && uv run pytest tests/agents -q`
-Expected: `17 passed, 4 skipped` (the live tests are skipped).
+Expected: `18 passed, 4 skipped` (the live tests are skipped).
 
 - [ ] **Step 7: Run the live runner tests once against Vertex**
 
@@ -2104,24 +2146,259 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 6: Store operations and leases with the global live-run cap (Tue 14)
+### Task 6: EventWriter hardening, and leases with the global live-run cap on `Store.transact` (Tue 14)
 
 **Files:**
-- Create: `services/api/kirchhoff/runs/__init__.py`, `services/api/kirchhoff/runs/storeops.py`, `services/api/kirchhoff/runs/leases.py`
+- Modify: `services/api/kirchhoff/store/events.py` (WS2-owned after the P0 fix wave; the change is announced to all workstreams), `services/api/tests/test_events.py` (append)
+- Create: `services/api/kirchhoff/runs/__init__.py`, `services/api/kirchhoff/runs/leases.py`
 - Create: `services/api/tests/runs/conftest.py`, `services/api/tests/runs/test_runs_leases.py`
 
 **Interfaces:**
-- Consumes: `Store`, `MemoryStore`, `FirestoreStore` (P0). The P0 `Store` protocol has no transactions or deletes, so this module adds them by dispatching on the concrete store. It uses `MemoryStore._docs`/`._lock` and `FirestoreStore._db`.
+- Consumes: `Store` (P0 fix wave: `transact(read_paths, fn) -> list[Write]`, `delete_tree`, `list_docs(..., order_by, descending, limit)`, deep-merge `update_doc`), `MemoryStore`, `EventWriter` (P0 fix wave: `emit(..., step=None)`, trailing-edge timer flush, `fence()`). Nothing here touches private attributes of a store.
 - Produces:
-  - `transact(store, reads: list[str], fn: Callable[[list[dict | None]], list[tuple[str, dict]] | None]) -> bool`. `fn` receives the current docs and returns **full documents** to set, or `None` to abort. Exceptions raised by `fn` propagate, and nothing is written.
-  - `delete_tree(store, path) -> int` deletes the doc and every descendant.
-  - `firestore_safe_problems(value) -> list[str]` reports arrays inside arrays, non-string keys and unsupported types (used by tests on every written doc; see R7).
+  - `EventWriter` hardening (same public API): `_lock` is an `RLock` and `set_step` flushes and assigns the step in one critical section; a failed timer-triggered flush re-arms the trailing timer with backoff `min(interval * 2**n, 5 s)` for at most 5 attempts, logging each failure (logger `kirchhoff`); `close()` sets a closed flag under the lock before flushing, after which `emit` raises `RuntimeError("event writer closed")` and no timer can be armed. WS2 code never calls `set_step` from parallel threads: every event passes `step=`.
   - `run_path(uid, rid) -> str`, `STALE_S = 60.0`, `GLOBAL_CAP = 3`, `LIVE_RUNS_DOC = "ops/live_runs"`, `class CapReached(Exception)`.
   - `lease_is_live(lease: dict | None, now: float) -> bool`; `holds_lease(run: dict | None, owner: str, attempt: int) -> bool`.
-  - `acquire_lease(store, uid, rid, owner, now, run_patch: dict | None = None) -> int | None` returns the new attempt; `None` if the run is missing or its lease is live. It raises `CapReached` and merges `run_patch` into the run doc in the same transaction.
+  - `acquire_lease(store, uid, rid, owner, now, run_patch: dict | None = None) -> int | None` returns the new attempt; `None` if the run is missing or its lease is live. It raises `CapReached` (nothing written) and merges `run_patch` into the run doc in the same transaction.
   - `heartbeat(store, uid, rid, owner, attempt, now) -> bool` and `release_lease(store, uid, rid, owner, attempt, run_patch) -> bool`. Release keeps `{"owner": None, "attempt": attempt, "heartbeat_at": 0.0}`.
+  - All three use `store.transact([run_path, LIVE_RUNS_DOC], fn)`; `fn` returns full documents (Firestore `transaction.set`) or `[]` to abort, so the call's truthiness says whether it wrote.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing EventWriter tests**
+
+In `services/api/tests/test_events.py`, add `import threading` and change the writer import to `from kirchhoff.store.events import MAX_FLUSH_RETRIES, EventWriter` at the top of the module, then append:
+```python
+RP = "workspaces/u1/runs/r1"
+
+
+class FlakyStore(MemoryStore):
+    """Fails the first `fails` batch writes (Firestore unavailable), then behaves."""
+
+    def __init__(self, fails: int) -> None:
+        super().__init__()
+        self.fails, self.calls = fails, 0
+
+    def batch_set(self, items):
+        self.calls += 1
+        if self.fails:
+            self.fails -= 1
+            raise RuntimeError("firestore unavailable")
+        super().batch_set(items)
+
+
+def _wait_for(pred, timeout_s=2.0):
+    deadline = time.monotonic() + timeout_s
+    while not pred() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    return pred()
+
+
+def test_set_step_flush_and_assignment_are_one_critical_section():
+    store = MemoryStore()
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=999)
+    w.emit("system", "status", "before")
+    racing, real = [], store.batch_set
+
+    def batch_set(items):  # runs inside set_step's flush; a concurrent default-step emit must wait for it
+        t = threading.Thread(target=lambda: racing.append(w.emit("system", "status", "racing")))
+        racing.append(t)
+        t.start()
+        t.join(0.1)
+        real(items)
+
+    store.batch_set = batch_set
+    w.set_step("p1.b")
+    store.batch_set = real
+    racing[0].join(2.0)
+    assert racing[1].step == "p1.b"
+    w.close()
+    assert [d["step"] for d in store.list_docs(f"{RP}/events")] == ["p1.a", "p1.b"]
+
+
+def test_failed_trailing_flush_rearms_with_backoff():
+    store = FlakyStore(fails=2)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.02)
+    w.emit("system", "status", "only event")
+    assert _wait_for(lambda: store.list_docs(f"{RP}/events"))
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1] and store.calls == 3
+    w.close()
+
+
+def test_trailing_flush_gives_up_after_the_retry_budget_and_close_still_flushes():
+    store = FlakyStore(fails=100)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.001)
+    w.emit("system", "status", "only event")
+    assert _wait_for(lambda: store.calls == 1 + MAX_FLUSH_RETRIES)
+    time.sleep(0.2)
+    assert store.calls == 1 + MAX_FLUSH_RETRIES  # no further timer is armed
+    store.fails = 0
+    w.close()
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1]
+
+
+def test_emit_after_close_raises_and_arms_no_timer():
+    store = MemoryStore()
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.01)
+    w.emit("system", "status", "one")
+    w.close()
+    with pytest.raises(RuntimeError, match="closed"):
+        w.emit("system", "status", "two")
+    time.sleep(0.05)
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1]
+    w.close()  # idempotent
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `cd services/api && uv run pytest tests/test_events.py -q`
+Expected: FAIL with `ImportError: cannot import name 'MAX_FLUSH_RETRIES'`.
+
+- [ ] **Step 3: Harden the EventWriter**
+
+Replace `services/api/kirchhoff/store/events.py` with:
+```python
+import logging
+import threading
+import time
+from typing import Any
+
+from kirchhoff.contracts import RunEvent
+
+from . import Store
+from .validate import firestore_safe_problems, json_size_bytes
+
+logger = logging.getLogger("kirchhoff")
+
+MAX_EVENT_BYTES = 10_000
+MAX_FLUSH_RETRIES = 5
+MAX_BACKOFF_S = 5.0
+
+
+class EventWriter:
+    """Assigns seq and writes RunEvents in batches (spec §11: ~250 ms batching, single writer per phase).
+
+    Parallel steps share one writer and pass `emit(..., step=...)`; `set_step` is for single-threaded callers."""
+
+    def __init__(self, store: Store, run_path: str, phase: str, step: str, attempt: int = 1,
+                 start_seq: int = 1, flush_interval_s: float = 0.25) -> None:
+        self._store, self._run_path = store, run_path
+        self._phase, self._step, self._attempt = phase, step, attempt
+        self._seq = start_seq - 1
+        self._pending: list[RunEvent] = []
+        self._lock = threading.RLock()  # re-entrant: set_step flushes inside its critical section
+        self._interval = flush_interval_s
+        self._last_flush = time.monotonic()
+        self._timer: threading.Timer | None = None
+        self._fenced = False
+        self._closed = False
+        self._retries = 0
+
+    @property
+    def last_seq(self) -> int:
+        return self._seq
+
+    def set_step(self, step: str) -> None:
+        # One critical section: no concurrent default-step emit can land between the flush and the assignment.
+        with self._lock:
+            self.flush()
+            self._step = step
+
+    def emit(self, agent: str, kind: str, title: str, detail: str = "",
+             payload: dict[str, Any] | None = None, step: str | None = None) -> RunEvent:
+        payload = payload or {}
+        due = False
+        with self._lock:
+            if self._fenced:
+                raise RuntimeError("event writer fenced")
+            if self._closed:
+                raise RuntimeError("event writer closed")
+            problems = firestore_safe_problems(payload)
+            if problems:
+                raise ValueError(f"event payload is not Firestore-safe: {problems}")
+            next_seq = self._seq + 1
+            ev = RunEvent(seq=next_seq, phase=self._phase, step=step or self._step, attempt=self._attempt,
+                          agent=agent, kind=kind, title=title, detail=detail, payload=payload,
+                          ts=time.time())
+            size = json_size_bytes(ev.model_dump())
+            if size > MAX_EVENT_BYTES:
+                raise ValueError(f"event payload too large: {size} bytes > {MAX_EVENT_BYTES} byte limit")
+            self._seq = next_seq
+            self._pending.append(ev)
+            if self._interval == 0:
+                due = True
+            elif self._timer is None:
+                self._arm(self._interval)
+        if due:
+            self.flush()
+        return ev
+
+    def _arm(self, delay_s: float) -> None:  # caller holds the lock
+        self._timer = threading.Timer(delay_s, self._timer_flush)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _timer_flush(self) -> None:
+        try:
+            self.flush()
+        except Exception as exc:
+            with self._lock:
+                self._retries += 1
+                n = self._retries
+                rearm = (n <= MAX_FLUSH_RETRIES and not (self._fenced or self._closed)
+                         and self._timer is None and bool(self._pending))
+                if rearm:
+                    self._arm(min(self._interval * 2 ** n, MAX_BACKOFF_S))
+            if rearm:
+                logger.warning("event writer trailing flush failed (%s); retry %d of %d",
+                               type(exc).__name__, n, MAX_FLUSH_RETRIES)
+            else:
+                logger.error("event writer trailing flush failed (%s); pending events wait for the next "
+                             "emit, flush or close", type(exc).__name__)
+
+    def flush(self) -> None:
+        with self._lock:
+            if self._fenced:
+                return
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+            items = [(f"{self._run_path}/events/{e.seq:06d}", e.model_dump()) for e in self._pending]
+            pending_events = self._pending[:]  # Keep a copy to restore on failure
+            self._pending = []
+            self._last_flush = time.monotonic()
+        if items:
+            try:
+                self._store.batch_set(items)
+            except Exception:
+                # Restore pending events at the front, preserving seq order
+                with self._lock:
+                    self._pending = pending_events + self._pending
+                raise
+            with self._lock:
+                self._retries = 0
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True  # set before flushing: a concurrent emit can no longer arm a timer
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+        self.flush()
+
+    def fence(self) -> None:
+        with self._lock:
+            self._fenced = True
+            self._pending = []
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+```
+
+- [ ] **Step 4: Run the event tests**
+
+Run: `cd services/api && uv run pytest tests/test_events.py -q`
+Expected: all pass (the P0 tests unchanged plus 4 new).
+
+- [ ] **Step 5: Write the failing lease tests**
 
 `services/api/tests/runs/conftest.py` (later tasks append fixtures to this file):
 ```python
@@ -2135,7 +2412,6 @@ import pytest
 
 from kirchhoff.runs.leases import (LIVE_RUNS_DOC, CapReached, acquire_lease, heartbeat, holds_lease, release_lease,
                                    run_path)
-from kirchhoff.runs.storeops import delete_tree, firestore_safe_problems, transact
 from kirchhoff.store.memory import MemoryStore
 
 
@@ -2183,118 +2459,24 @@ def test_global_cap_counts_only_live_leases():
     assert acquire_lease(s, "d", "4", "w", now=102.0) == 1
     assert set(s.get_doc(LIVE_RUNS_DOC)["runs"]) == {"b__2", "c__3", "d__4"}
     assert acquire_lease(s, "a", "1", "w", now=200.0) == 2  # b, c, d are stale (> 60 s) by now
-
-
-def test_transact_abort_writes_nothing_and_delete_tree_is_scoped():
-    s = MemoryStore()
-    s.set_doc("workspaces/u1", {"a": 1})
-    s.set_doc("workspaces/u1/runs/r1", {"b": 2})
-    s.set_doc("workspaces/u10/runs/r9", {"c": 3})
-    assert transact(s, ["workspaces/u1"], lambda cur: None) is False
-    assert transact(s, ["workspaces/u1"], lambda cur: [("workspaces/u1", {**cur[0], "a": 5})]) is True
-    assert s.get_doc("workspaces/u1") == {"a": 5}
-    assert delete_tree(s, "workspaces/u1") == 2
-    assert s.get_doc("workspaces/u1/runs/r1") is None and s.get_doc("workspaces/u10/runs/r9") == {"c": 3}
-
-
-def test_firestore_safe_problems_flags_nested_arrays():
-    assert firestore_safe_problems({"a": [1, {"b": [2, 3]}], "c": None}) == []
-    problems = firestore_safe_problems({"geometry": {"columns": [(0.0, 0.0), (12.0, 0.0)]}})
-    assert problems and "array inside array" in problems[0]
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [ ] **Step 6: Run to verify failure**
 
 Run: `cd services/api && uv run pytest tests/runs/test_runs_leases.py -q`
 Expected: FAIL with `ModuleNotFoundError: No module named 'kirchhoff.runs'`
 
-- [ ] **Step 3: Implement store operations**
+- [ ] **Step 7: Implement leases**
 
 `services/api/kirchhoff/runs/__init__.py`:
 ```python
 """Durable four-phase runs: steps, leases, resume, gates (spec §6.2)."""
 ```
 
-`services/api/kirchhoff/runs/storeops.py`:
-```python
-"""Transactions and recursive deletes for the P0 stores (the Store protocol has neither)."""
-import threading
-from collections.abc import Callable
-from typing import Any
-
-from kirchhoff.store import Store
-from kirchhoff.store.memory import MemoryStore
-
-Writes = list[tuple[str, dict]]
-_MEM_LOCK = threading.RLock()
-
-
-def transact(store: Store, reads: list[str], fn: Callable[[list[dict | None]], Writes | None]) -> bool:
-    if isinstance(store, MemoryStore):
-        with _MEM_LOCK:
-            writes = fn([store.get_doc(p) for p in reads])
-            if writes is None:
-                return False
-            store.batch_set(writes)
-            return True
-    db = getattr(store, "_db", None)
-    if db is None:
-        raise TypeError(f"transact: unsupported store {type(store).__name__}")
-    from google.cloud import firestore
-
-    refs = [db.document(p) for p in reads]
-
-    @firestore.transactional
-    def _run(txn) -> bool:
-        snaps = [r.get(transaction=txn) for r in refs]
-        writes = fn([s.to_dict() if s.exists else None for s in snaps])
-        if writes is None:
-            return False
-        for path, data in writes:
-            txn.set(db.document(path), data)
-        return True
-
-    return _run(db.transaction())
-
-
-def delete_tree(store: Store, path: str) -> int:
-    if isinstance(store, MemoryStore):
-        with store._lock:
-            keys = [k for k in store._docs if k == path or k.startswith(path + "/")]
-            for k in keys:
-                del store._docs[k]
-            return len(keys)
-    db = getattr(store, "_db", None)
-    if db is None:
-        raise TypeError(f"delete_tree: unsupported store {type(store).__name__}")
-    return db.recursive_delete(db.document(path))
-
-
-def firestore_safe_problems(value: Any, where: str = "$") -> list[str]:
-    out: list[str] = []
-    if isinstance(value, dict):
-        for k, v in value.items():
-            if not isinstance(k, str):
-                out.append(f"{where}: non-string key {k!r}")
-            out += firestore_safe_problems(v, f"{where}.{k}")
-    elif isinstance(value, (list, tuple)):
-        for i, v in enumerate(value):
-            if isinstance(v, (list, tuple)):
-                out.append(f"{where}[{i}]: array inside array")
-            out += firestore_safe_problems(v, f"{where}[{i}]")
-    elif not (value is None or isinstance(value, (str, int, float, bool))):
-        out.append(f"{where}: unsupported type {type(value).__name__}")
-    return out
-```
-
-- [ ] **Step 4: Implement leases**
-
 `services/api/kirchhoff/runs/leases.py`:
 ```python
-"""Run leases (spec §6.2) and the global live-run cap (spec §11). All writes are transactional."""
+"""Run leases (spec §6.2) and the global live-run cap (spec §11). All writes go through Store.transact."""
 from kirchhoff.store import Store
-
-from .storeops import transact
 
 STALE_S = 60.0
 GLOBAL_CAP = 3
@@ -2329,60 +2511,60 @@ def _fresh_others(live: dict | None, key: str, now: float) -> dict[str, float]:
 
 def acquire_lease(store: Store, uid: str, rid: str, owner: str, now: float,
                   run_patch: dict | None = None) -> int | None:
-    path, key, box = run_path(uid, rid), _key(uid, rid), {}
+    path, key = run_path(uid, rid), _key(uid, rid)
 
-    def fn(cur):
-        run, live = cur
+    def fn(snap: dict[str, dict | None]):
+        run, live = snap[path], snap[LIVE_RUNS_DOC]
         if run is None or lease_is_live(run.get("lease"), now):
-            return None
+            return []
         others = _fresh_others(live, key, now)
         if len(others) >= GLOBAL_CAP:
-            raise CapReached()
+            raise CapReached()  # the transaction writes nothing
         attempt = int((run.get("lease") or {}).get("attempt") or 0) + 1
-        box["attempt"] = attempt
         new_run = {**run, **(run_patch or {}), "lease": {"owner": owner, "attempt": attempt, "heartbeat_at": now}}
         return [(path, new_run), (LIVE_RUNS_DOC, {"runs": {**others, key: now}})]
 
-    return box["attempt"] if transact(store, [path, LIVE_RUNS_DOC], fn) else None
+    writes = store.transact([path, LIVE_RUNS_DOC], fn)
+    return int(writes[0][1]["lease"]["attempt"]) if writes else None
 
 
 def heartbeat(store: Store, uid: str, rid: str, owner: str, attempt: int, now: float) -> bool:
     path, key = run_path(uid, rid), _key(uid, rid)
 
-    def fn(cur):
-        run, live = cur
+    def fn(snap: dict[str, dict | None]):
+        run, live = snap[path], snap[LIVE_RUNS_DOC]
         if not holds_lease(run, owner, attempt):
-            return None
+            return []
         runs = {**_fresh_others(live, key, now), key: now}
         return [(path, {**run, "lease": {**run["lease"], "heartbeat_at": now}}), (LIVE_RUNS_DOC, {"runs": runs})]
 
-    return transact(store, [path, LIVE_RUNS_DOC], fn)
+    return bool(store.transact([path, LIVE_RUNS_DOC], fn))
 
 
 def release_lease(store: Store, uid: str, rid: str, owner: str, attempt: int, run_patch: dict) -> bool:
     path, key = run_path(uid, rid), _key(uid, rid)
 
-    def fn(cur):
-        run, live = cur
+    def fn(snap: dict[str, dict | None]):
+        run, live = snap[path], snap[LIVE_RUNS_DOC]
         if not holds_lease(run, owner, attempt):
-            return None
+            return []
         runs = {k: t for k, t in ((live or {}).get("runs") or {}).items() if k != key}
         new_run = {**run, **run_patch, "lease": {"owner": None, "attempt": attempt, "heartbeat_at": 0.0}}
         return [(path, new_run), (LIVE_RUNS_DOC, {"runs": runs})]
 
-    return transact(store, [path, LIVE_RUNS_DOC], fn)
+    return bool(store.transact([path, LIVE_RUNS_DOC], fn))
 ```
 
-- [ ] **Step 5: Run tests**
+- [ ] **Step 8: Run tests**
 
-Run: `cd services/api && uv run pytest tests/runs/test_runs_leases.py -q`
-Expected: `6 passed`
+Run: `cd services/api && uv run pytest tests/runs/test_runs_leases.py tests/test_events.py tests/test_store.py -q`
+Expected: all pass (`4 passed` for leases).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add services/api/kirchhoff/runs services/api/tests/runs
-git commit -m "feat(runs): transactional store ops, run leases, global live-run cap
+git add services/api/kirchhoff/store/events.py services/api/tests/test_events.py services/api/kirchhoff/runs services/api/tests/runs
+git commit -m "feat(runs): EventWriter hardening (atomic set_step, flush backoff, close flag); leases + live-run cap on Store.transact
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 ```
@@ -2983,24 +3165,25 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 8: Step machinery — phase event writer, blobs, outputs, Deps, PhaseContext and transactional `run_step` (Tue 14)
+### Task 8: Step machinery — event writer wiring, blobs, outputs, Deps, PhaseContext and transactional `run_step` (Tue 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/runs/events.py`, `services/api/kirchhoff/runs/blobs.py`, `services/api/kirchhoff/runs/outputs.py`, `services/api/kirchhoff/runs/deps.py`, `services/api/kirchhoff/runs/steps.py`
-- Modify: `services/api/kirchhoff/runs/fakes.py` (append `build_fake_deps`), `services/api/tests/runs/conftest.py` (append fixtures)
+- Modify: `services/api/kirchhoff/runs/fakes.py` (append `CheckedStore` and `build_fake_deps`), `services/api/tests/runs/conftest.py` (append fixtures)
 - Test: `services/api/tests/runs/test_runs_steps.py`
 
 **Interfaces:**
-- Consumes: `EventWriter` (P0; this task subclasses it and relies on its attributes `_lock, _seq, _pending, _phase, _attempt, _interval, _last_flush`), `transact`, `holds_lease`, `run_path`, `acquire_lease` (Task 6), `sanitize`, `allowed_ids_for` (Task 4), `AgentSpec`, `AgentResult`, `run_json`, `ReplayRunner` (Task 5), `ErpSnapshot`, `EnterpriseClient` (Task 7), `FakeEngine`, `FakeEnterprise`, `FAKE_REPLIES` (Task 7).
+- Consumes: `EventWriter` (P0 fix wave + Task 6: `emit(..., step=...)`, `flush()`, `close()`, `fence()`; never subclassed), `Store.transact`, `Store.list_docs(order_by=, descending=, limit=)`, `firestore_safe_problems`, `json_size_bytes` (`kirchhoff.store.validate`), `holds_lease`, `run_path`, `acquire_lease` (Task 6), `sanitize`, `allowed_ids_for` (Task 4), `AgentSpec`, `AgentResult`, `run_json`, `ReplayRunner` (Task 5), `ErpSnapshot`, `EnterpriseClient` (Task 7), `FakeEngine`, `FakeEnterprise`, `FAKE_REPLIES` (Task 7).
 - Produces:
-  - `PhaseEventWriter(EventWriter).emit_step(step, agent, kind, title, detail="", payload=None) -> RunEvent`: one writer per phase attempt, shared by parallel steps. `next_seq(store, run_path) -> int` returns the highest existing `seq` + 1.
-  - `BlobStore` protocol: `put(path, data, content_type) -> str`, `get(path) -> bytes`, `exists(path) -> bool`, `delete_prefix(prefix) -> int`, `signed_url(path, ttl_s=600) -> str`. Implementations: `MemoryBlobStore` (`.blobs` dict) and `GcsBlobStore(bucket="ordinal-mep.firebasestorage.app")` (lazy client; V4 signed URLs signed through IAM on Cloud Run).
+  - One plain `EventWriter` per phase attempt, shared by parallel steps; every event passes `step=` (no subclass, no `set_step`). `next_seq(store, run_path) -> int` returns the highest existing `seq` + 1 (`list_docs(order_by="seq", descending=True, limit=1)`).
+  - `BlobStore` protocol: `put(path, data, content_type) -> str`, `get(path) -> bytes`, `exists(path) -> bool`, `delete_prefix(prefix) -> int`, `signed_url(path, ttl_s=600) -> str`. Implementations: `MemoryBlobStore(public_base="https://storage.example.test")` (`.blobs` dict; with `public_base=None` it cannot sign and `signed_url` raises `NotImplementedError`, so `/api/files` serves the bytes inline — local `KIRCHHOFF_FAKES=1`/`KIRCHHOFF_BLOBS=memory` development) and `GcsBlobStore(bucket="ordinal-mep.firebasestorage.app")` (lazy client; V4 signed URLs signed through IAM on Cloud Run).
   - `pack_outputs(blobs, run_path, step_id, data) -> tuple[str, dict]` and `load_outputs(store, blobs, run_path, step_id) -> dict | None`. Outputs are stored as `{"step", "json"}` or `{"step", "blob", "sha256"}` (R3).
   - `Deps` dataclass with fields `store, engine, runner, enterprise, blobs, scenarios_dir, seed_dir, voice_runner=None, exporter=None, asset_engines={}, phases=None, spawn=thread_spawn, clock=time.time, owner=<host-pid-rand>, heartbeat_s=15.0, erp_ttl_s=300.0` and methods `.scenario()` (cached `engine.load_scenario("hall_a", scenarios_dir)`), `.erp() -> ErpSnapshot` (cached for 300 s) and `.inputs() -> InputFiles(tender_pdf, plan_pdf, dxf, ground_truth)`.
   - `kirchhoff.runs.steps`: `LeaseLost`, `ParkAtGate(gate, message="")`, `StepOutput(data: dict, docs: list[tuple[str, dict]] = [])`, `PhaseOutcome(gate, run_patch={}, metrics={}, forced=False, message="")`, `AGENT_LABEL`.
-  - `PhaseContext(deps, uid, rid, phase, attempt, events, lease_lost=None, prior_active_s=0.0)` with `.run_path`, `.ws_path`, `.run()`, `.scenario()`, `.erp()`, `.outputs(step_id)`, `.emit(step, agent, kind, title, detail="", payload=None)` (payloads over 9,000 bytes are truncated), `.narrate(step, agent, text, allowed, step_title, template=None) -> str` (sanitized `message` event; the default template is "{Agent} completed {step_title}."), `.ledger(step, agent, kind, text) -> LedgerEntry`, `.tool(step, agent, fn) -> fn` (emits `tool_call`/`tool_result`), `.agent(spec, step, message, tools=(), attachments=(), key=None) -> AgentResult | None` and `.agent_json(spec, step, message, schema, tools=(), attachments=(), key=None) -> model | None` (on failure: `status` event and `None`; tokens go into `.metrics`), `.allowed(*models, extra=()) -> set[str]`, `.active_s()`, and `.metrics`.
-  - `run_step(ctx, step_id, fn: Callable[[], StepOutput]) -> dict`. A begin transaction checks the lease, skips the step if it is done (returning its committed outputs), and writes the `running` step doc. The function's events are flushed, then a commit transaction checks `lease.owner/attempt` and writes `StepOutput.docs` + outputs + `{status: "done", attempt}`. A lost lease raises `LeaseLost`, and a failure marks the step `failed` and re-raises.
+  - `PhaseContext(deps, uid, rid, phase, attempt, events, lease_lost=None, prior_active_s=0.0)` with `.run_path`, `.ws_path`, `.run()`, `.scenario()`, `.erp()`, `.outputs(step_id)`, `.emit(step, agent, kind, title, detail="", payload=None)` (payloads over 9,000 bytes are truncated; once the heartbeat reports a lost lease it fences the writer and raises `LeaseLost`), `.narrate(step, agent, text, allowed, step_title, template=None) -> str` (sanitized `message` event; the default template is "{Agent} completed {step_title}."), `.ledger(step, agent, kind, text) -> LedgerEntry`, `.tool(step, agent, fn) -> fn` (emits `tool_call`/`tool_result`), `.agent(spec, step, message, tools=(), attachments=(), key=None) -> AgentResult | None` and `.agent_json(spec, step, message, schema, tools=(), attachments=(), key=None) -> model | None` (on failure: `status` event and `None`; tokens go into `.metrics`), `.allowed(*models, extra=()) -> set[str]`, `.active_s()`, and `.metrics`.
+  - `run_step(ctx, step_id, fn: Callable[[], StepOutput]) -> dict`. A begin transaction checks the lease, skips the step if it is done (returning its committed outputs), and writes the `running` step doc. The function's events are flushed, then a commit transaction checks `lease.owner/attempt` and writes `StepOutput.docs` + outputs + `{status: "done", attempt}`. A lost lease raises `LeaseLost`, and a failure (including a `StepOutput.docs` entry that fails `firestore_safe_problems`) marks the step `failed` and re-raises. All transactions use `Store.transact`; `fn` returns `[]` to abort.
   - `build_fake_deps(store, scenarios_dir, seed_dir=None, replies=None, **overrides) -> Deps` (fakes plus `ReplayRunner({**FAKE_REPLIES, **replies})`).
+  - `CheckedStore(MemoryStore)` (test support in `fakes.py`): records `firestore_safe_problems` for every written document in `.problems`; the `firestore_safe` fixtures assert it stays empty.
 
 - [ ] **Step 1: Append shared fixtures to the runs conftest**
 
@@ -3012,9 +3195,7 @@ from pathlib import Path
 import pytest
 
 from kirchhoff.contracts import RunRecord
-from kirchhoff.runs.fakes import build_fake_deps, build_fake_scenarios
-from kirchhoff.runs.storeops import firestore_safe_problems
-from kirchhoff.store.memory import MemoryStore
+from kirchhoff.runs.fakes import CheckedStore, build_fake_deps, build_fake_scenarios
 
 INTAKE_FIX = Path(__file__).resolve().parents[1] / "intake" / "fixtures"
 GROUND_TRUTH = Path(__file__).resolve().parents[4] / "scenarios" / "hall_a" / "ground_truth.yaml"
@@ -3028,7 +3209,7 @@ def scen_dir(tmp_path_factory):
 
 @pytest.fixture
 def deps(scen_dir, tmp_path):
-    return build_fake_deps(MemoryStore(), scen_dir, seed_dir=tmp_path, spawn=lambda fn: fn(), heartbeat_s=3600.0)
+    return build_fake_deps(CheckedStore(), scen_dir, seed_dir=tmp_path, spawn=lambda fn: fn(), heartbeat_s=3600.0)
 
 
 @pytest.fixture
@@ -3045,9 +3226,8 @@ def make_run(deps):
 @pytest.fixture
 def firestore_safe():
     def _check(store) -> None:
-        for path, doc in store._docs.items():
-            problems = firestore_safe_problems(doc)
-            assert not problems, (path, problems[:3])
+        assert isinstance(store, CheckedStore)
+        assert not store.problems, store.problems[:3]
     return _check
 ```
 
@@ -3058,10 +3238,11 @@ def firestore_safe():
 import pytest
 
 from kirchhoff.agents.runner import AgentSpec, ReplayRunner
-from kirchhoff.runs.events import PhaseEventWriter, next_seq
+from kirchhoff.runs.events import next_seq
 from kirchhoff.runs.leases import acquire_lease, run_path
 from kirchhoff.runs.outputs import load_outputs
 from kirchhoff.runs.steps import LeaseLost, PhaseContext, StepOutput, run_step
+from kirchhoff.store.events import EventWriter
 
 
 @pytest.fixture
@@ -3069,8 +3250,8 @@ def ctx(deps, make_run):
     rid = make_run()
     attempt = acquire_lease(deps.store, "u1", rid, deps.owner, deps.clock(), {"phase": "p2"})
     rp = run_path("u1", rid)
-    events = PhaseEventWriter(deps.store, rp, phase="p2", step="p2.start", attempt=attempt,
-                              start_seq=next_seq(deps.store, rp))
+    events = EventWriter(deps.store, rp, phase="p2", step="p2.start", attempt=attempt,
+                         start_seq=next_seq(deps.store, rp), flush_interval_s=999)  # run_step flushes
     return PhaseContext(deps, "u1", rid, "p2", attempt, events)
 
 
@@ -3164,6 +3345,26 @@ def test_tool_wrapper_and_agent_fallback(ctx):
 def test_next_seq_continues_from_highest_written(ctx):
     ctx.deps.store.set_doc(f"{ctx.run_path}/events/000041", {"seq": 41})
     assert next_seq(ctx.deps.store, ctx.run_path) == 42
+
+
+def test_unsafe_step_docs_fail_the_step_before_commit(ctx):
+    with pytest.raises(ValueError, match="Firestore-safe"):
+        run_step(ctx, "p2.bad", lambda: StepOutput(data={}, docs=[("workspaces/u1/x/y", {"cols": [[0.0, 1.0]]})]))
+    assert ctx.deps.store.get_doc(f"{ctx.run_path}/steps/p2.bad")["status"] == "failed"
+    assert ctx.deps.store.get_doc("workspaces/u1/x/y") is None
+
+
+def test_lost_lease_fences_the_writer(ctx):
+    def fn():
+        ctx.emit("p2.l", "layout", "status", "before")
+        ctx.lease_lost.set()  # the heartbeat thread saw another owner
+        ctx.emit("p2.l", "layout", "status", "after")
+        return StepOutput(data={})
+
+    with pytest.raises(LeaseLost):
+        run_step(ctx, "p2.l", fn)
+    ctx.events.close()
+    assert _events(ctx) == []  # a stale worker writes no events
 ```
 
 - [ ] **Step 3: Run to verify failure**
@@ -3175,34 +3376,15 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'kirchhoff.runs.events
 
 `services/api/kirchhoff/runs/events.py`:
 ```python
-import time
-from typing import Any
-
-from kirchhoff.contracts import RunEvent
+"""Event seq continuity. Events themselves are written by the P0 EventWriter: one writer per phase attempt
+(spec §11: single writer assigns seq), shared by parallel steps, every event tagged with emit(..., step=...)."""
 from kirchhoff.store import Store
-from kirchhoff.store.events import EventWriter
-
-
-class PhaseEventWriter(EventWriter):
-    """One writer per phase attempt (spec §11: single writer assigns seq). Tags each event with its step so
-    parallel steps share one seq counter. Uses P0 EventWriter internals."""
-
-    def emit_step(self, step: str, agent: str, kind: str, title: str, detail: str = "",
-                  payload: dict[str, Any] | None = None) -> RunEvent:
-        with self._lock:
-            self._seq += 1
-            ev = RunEvent(seq=self._seq, phase=self._phase, step=step, attempt=self._attempt, agent=agent,
-                          kind=kind, title=title, detail=detail, payload=payload or {}, ts=time.time())
-            self._pending.append(ev)
-            due = time.monotonic() - self._last_flush >= self._interval
-        if due:
-            self.flush()
-        return ev
 
 
 def next_seq(store: Store, run_path: str) -> int:
     """Resume and later phases continue seq from the highest value already written (spec v4.1 §6.2)."""
-    return max((int(d.get("seq", 0)) for d in store.list_docs(f"{run_path}/events")), default=0) + 1
+    last = store.list_docs(f"{run_path}/events", order_by="seq", descending=True, limit=1)
+    return int(last[0].get("seq", 0)) + 1 if last else 1
 ```
 
 `services/api/kirchhoff/runs/blobs.py`:
@@ -3223,8 +3405,12 @@ class BlobStore(Protocol):
 
 
 class MemoryBlobStore:
-    def __init__(self) -> None:
+    """In-process blobs. `public_base=None` means URLs cannot be signed (local development): /api/files then
+    serves the bytes inline instead of a signed URL."""
+
+    def __init__(self, public_base: str | None = "https://storage.example.test") -> None:
         self.blobs: dict[str, tuple[bytes, str]] = {}
+        self.public_base = public_base
         self._lock = threading.Lock()
 
     def put(self, path: str, data: bytes, content_type: str) -> str:
@@ -3250,7 +3436,9 @@ class MemoryBlobStore:
     def signed_url(self, path: str, ttl_s: int = 600) -> str:
         if not self.exists(path):
             raise KeyError(path)
-        return f"https://storage.example.test/{path}?ttl={ttl_s}"
+        if self.public_base is None:
+            raise NotImplementedError("memory blobs cannot be signed")
+        return f"{self.public_base}/{path}?ttl={ttl_s}"
 
 
 class GcsBlobStore:
@@ -3411,8 +3599,45 @@ class Deps:
                           dxf=hall / "out" / "hall-a.dxf", ground_truth=hall / "ground_truth.yaml")
 ```
 
-Append to `services/api/kirchhoff/runs/fakes.py`:
+Append to `services/api/kirchhoff/runs/fakes.py` (move the two new imports to the top of the module):
 ```python
+from kirchhoff.store.memory import MemoryStore
+from kirchhoff.store.validate import firestore_safe_problems
+
+
+class CheckedStore(MemoryStore):
+    """MemoryStore that records Firestore-safety problems (R7) in every written document (tests only)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.problems: list[tuple[str, list[str]]] = []
+
+    def _check(self, path: str, data: dict | None) -> None:
+        if data is not None and (found := firestore_safe_problems(data)):
+            self.problems.append((path, found[:3]))
+
+    def set_doc(self, path: str, data: dict) -> None:
+        self._check(path, data)
+        super().set_doc(path, data)
+
+    def update_doc(self, path: str, data: dict) -> None:
+        self._check(path, data)
+        super().update_doc(path, data)
+
+    def batch_set(self, items: list[tuple[str, dict]]) -> None:
+        for path, data in items:
+            self._check(path, data)
+        super().batch_set(items)
+
+    def transact(self, read_paths, fn):
+        def checked(snapshot):
+            writes = fn(snapshot)
+            for path, data in writes:
+                self._check(path, data)
+            return writes
+        return super().transact(read_paths, checked)
+
+
 def build_fake_deps(store, scenarios_dir: Path, seed_dir: Path | None = None, replies: dict | None = None,
                     **overrides):
     from kirchhoff.agents.runner import ReplayRunner
@@ -3448,12 +3673,12 @@ from pydantic import BaseModel
 from kirchhoff.agents.runner import AgentResult, AgentSpec, Attachment, run_json
 from kirchhoff.agents.trust import allowed_ids_for, sanitize
 from kirchhoff.contracts import DesignModel, LedgerEntry, RunEvent, StepRecord
+from kirchhoff.store.events import EventWriter
+from kirchhoff.store.validate import firestore_safe_problems, json_size_bytes
 
 from .deps import Deps
-from .events import PhaseEventWriter
 from .leases import holds_lease, run_path
 from .outputs import load_outputs, pack_outputs
-from .storeops import transact
 
 log = logging.getLogger("kirchhoff.runs")
 PAYLOAD_MAX = 9_000  # event docs stay < 10 KB (spec §11)
@@ -3489,7 +3714,7 @@ class PhaseOutcome:
 
 
 class PhaseContext:
-    def __init__(self, deps: Deps, uid: str, rid: str, phase: str, attempt: int, events: PhaseEventWriter,
+    def __init__(self, deps: Deps, uid: str, rid: str, phase: str, attempt: int, events: EventWriter,
                  lease_lost: threading.Event | None = None, prior_active_s: float = 0.0) -> None:
         self.deps, self.uid, self.rid, self.phase, self.attempt = deps, uid, rid, phase, attempt
         self.events = events
@@ -3527,10 +3752,14 @@ class PhaseContext:
 
     def emit(self, step: str, agent: str, kind: str, title: str, detail: str = "",
              payload: dict[str, Any] | None = None) -> RunEvent:
-        payload = payload or {}
-        if len(json.dumps(payload, default=str)) > PAYLOAD_MAX:
+        if self.lease_lost.is_set():  # another worker owns the run: drop pending events, write nothing more
+            self.events.fence()
+            raise LeaseLost(step)
+        payload = json.loads(json.dumps(payload or {}, default=str))  # engine tuples → lists, numpy scalars → str
+        if json_size_bytes(payload) > PAYLOAD_MAX:
             payload = {"truncated": True, "keys": sorted(payload)[:50]}
-        return self.events.emit_step(step, agent, kind, title, detail, payload)
+        # The P0 writer validates Firestore safety (ValueError) and assigns seq; `step=` tags parallel steps.
+        return self.events.emit(agent, kind, title, detail, payload, step=step)
 
     def narrate(self, step: str, agent: str, text: str, allowed: Iterable[str], step_title: str,
                 template: str | None = None) -> str:
@@ -3590,6 +3819,12 @@ class PhaseContext:
         return allowed_ids_for(*models, extra=[*extra, *self.erp().ids()])
 
 
+def _check_docs(docs: list[tuple[str, dict]]) -> None:
+    for path, doc in docs:
+        if problems := firestore_safe_problems(doc):
+            raise ValueError(f"step doc {path} is not Firestore-safe: {problems[:3]}")
+
+
 def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> dict:
     if ctx.lease_lost.is_set():
         raise LeaseLost(step_id)
@@ -3598,32 +3833,35 @@ def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> d
     started = deps.clock()
     state: dict[str, bool] = {}
 
-    def begin(cur):
-        run, step = cur
+    def begin(snap: dict[str, dict | None]):
+        state.clear()  # Firestore may retry the transaction function
+        run, step = snap[ctx.run_path], snap[step_path]
         if not holds_lease(run, deps.owner, ctx.attempt):
             state["lost"] = True
-            return None
+            return []
         if step and step.get("status") == "done":
             state["done"] = True
-            return None
+            return []
         rec = StepRecord(id=step_id, phase=ctx.phase, status="running", attempt=ctx.attempt, started_at=started)
         return [(step_path, rec.model_dump())]
 
-    transact(store, [ctx.run_path, step_path], begin)
+    store.transact([ctx.run_path, step_path], begin)
     if state.get("lost"):
         ctx.lease_lost.set()
+        ctx.events.fence()
         raise LeaseLost(step_id)
     if state.get("done"):
         return ctx.outputs(step_id)
     try:
         out = fn()
+        _check_docs(out.docs)
     except (LeaseLost, ParkAtGate):
         raise
     except Exception:
         failed = StepRecord(id=step_id, phase=ctx.phase, status="failed", attempt=ctx.attempt, started_at=started,
                             finished_at=deps.clock())
-        transact(store, [ctx.run_path], lambda cur: [(step_path, failed.model_dump())]
-                 if holds_lease(cur[0], deps.owner, ctx.attempt) else None)
+        store.transact([ctx.run_path], lambda snap: [(step_path, failed.model_dump())]
+                       if holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt) else [])
         raise
     ctx.events.flush()
     out_path, out_doc = pack_outputs(deps.blobs, ctx.run_path, step_id, out.data)
@@ -3634,13 +3872,14 @@ def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> d
     done = StepRecord(id=step_id, phase=ctx.phase, status="done", attempt=ctx.attempt, outputs_ref=out_path,
                       started_at=started, finished_at=deps.clock())
 
-    def commit(cur):
-        if not holds_lease(cur[0], deps.owner, ctx.attempt):
-            return None
+    def commit(snap: dict[str, dict | None]):
+        if not holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt):
+            return []
         return [*docs, (out_path, out_doc), (step_path, done.model_dump())]
 
-    if not transact(store, [ctx.run_path], commit):
+    if not store.transact([ctx.run_path], commit):
         ctx.lease_lost.set()
+        ctx.events.fence()
         raise LeaseLost(step_id)
     return json.loads(json.dumps(out.data))
 ```
@@ -3654,7 +3893,7 @@ Expected: all runs tests pass (`19 passed`).
 
 ```bash
 git add services/api/kirchhoff/runs services/api/tests/runs
-git commit -m "feat(runs): phase event writer, blob/outputs storage, Deps, PhaseContext, transactional run_step
+git commit -m "feat(runs): EventWriter wiring with per-event steps and fencing, blob/outputs storage, Deps, PhaseContext, transactional run_step
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 ```
@@ -3921,14 +4160,14 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Test: `services/api/tests/runs/test_runs_orchestrator.py`
 
 **Interfaces:**
-- Consumes: `acquire_lease`, `heartbeat`, `release_lease`, `holds_lease`, `lease_is_live`, `run_path`, `CapReached`, `transact` (Task 6); `PhaseEventWriter`, `next_seq`, `Deps`, `PhaseContext`, `run_step`, `StepOutput`, `PhaseOutcome`, `ParkAtGate`, `LeaseLost` (Task 8). The phase registry resolves lazily to `phase1.run_p1`, `phase2.run_p2` (Task 11), `phase3.run_p3` (Task 13) and `phase4.run_p4` (Task 14) unless `deps.phases` overrides it.
+- Consumes: `acquire_lease`, `heartbeat`, `release_lease`, `holds_lease`, `lease_is_live`, `run_path`, `CapReached` (Task 6); `Store.transact`; `EventWriter` (`emit(..., step=...)`, `close()`, `fence()`); `next_seq`, `Deps`, `PhaseContext`, `run_step`, `StepOutput`, `PhaseOutcome`, `ParkAtGate`, `LeaseLost` (Task 8). The phase registry resolves lazily to `phase1.run_p1`, `phase2.run_p2` (Task 11), `phase3.run_p3` (Task 13) and `phase4.run_p4` (Task 14) unless `deps.phases` overrides it.
 - Produces:
   - `GATE_TTL_S = 86400`, `NEXT_PHASE`, `PHASE_BEFORE_GATE = {"plan": "p1", "option": "p2", "review": "p3"}`, and the exceptions `LeaseBusy`, `WrongState`, `GateExpired`.
   - `start_phase(deps, uid, rid, phase, run_patch=None) -> int` acquires the lease (merging `{status: running, phase, gate: None, **run_patch}`), spawns the worker and returns the attempt. It raises `CapReached` or `LeaseBusy`.
   - `ensure_gate(deps, uid, rid, gate) -> dict` returns the run doc. It raises `KeyError`, `WrongState`, or `GateExpired` (which marks the run `expired`).
   - `resume_from_gate(deps, uid, rid, gate, run_patch=None) -> int` adds the gate wait to `metrics.gate_wait_s` and starts the next phase.
   - `resume_run(deps, uid, rid) -> bool` handles a `running` run with a stale lease or a `failed` run.
-  - Worker behaviour: one `PhaseEventWriter` per phase, starting at `next_seq`. Gates are recorded as steps `"{phase}.gate.{gate}"` with a `gate` event `{gate, auto}`. Auto mode continues through the plan and option gates unless the outcome was `forced` (`ParkAtGate`); the review gate always parks. Parking releases the lease with `status: at_gate`, `gate` and `metrics.gate_entered_at`. Metrics `tokens_in`/`tokens_out` accumulate and `active_s` is total worker time. A failure writes step `"{phase}.failed"` plus a `status` event and releases with `status: failed`. `LeaseLost` exits without writing.
+  - Worker behaviour: one `EventWriter` per phase, starting at `next_seq`; every event passes `step=`. On `LeaseLost` the writer is fenced (pending events dropped) before the worker exits. Gates are recorded as steps `"{phase}.gate.{gate}"` with a `gate` event `{gate, auto}`. Auto mode continues through the plan and option gates unless the outcome was `forced` (`ParkAtGate`); the review gate always parks. Parking releases the lease with `status: at_gate`, `gate` and `metrics.gate_entered_at`. Metrics `tokens_in`/`tokens_out` accumulate and `active_s` is total worker time. A failure writes step `"{phase}.failed"` plus a `status` event and releases with `status: failed`. `LeaseLost` exits without writing.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4089,12 +4328,12 @@ import threading
 from collections.abc import Callable
 
 from kirchhoff.contracts import StepRecord
+from kirchhoff.store.events import EventWriter
 
 from .deps import Deps
-from .events import PhaseEventWriter, next_seq
+from .events import next_seq
 from .leases import acquire_lease, heartbeat, holds_lease, lease_is_live, release_lease, run_path
 from .steps import LeaseLost, ParkAtGate, PhaseContext, PhaseOutcome, StepOutput, run_step
-from .storeops import transact
 
 log = logging.getLogger("kirchhoff.runs")
 GATE_TTL_S = 24 * 3600.0
@@ -4185,9 +4424,9 @@ def _merge_metrics(base: dict, ctx_metrics: dict, outcome_metrics: dict, active_
 
 def _patch_if_holder(deps: Deps, uid: str, rid: str, attempt: int, patch: dict) -> None:
     rp = run_path(uid, rid)
-    ok = transact(deps.store, [rp], lambda cur: [(rp, {**cur[0], **patch})]
-                  if holds_lease(cur[0], deps.owner, attempt) else None)
-    if not ok:
+    writes = deps.store.transact([rp], lambda snap: [(rp, {**snap[rp], **patch})]
+                                 if holds_lease(snap[rp], deps.owner, attempt) else [])
+    if not writes:
         raise LeaseLost(rid)
 
 
@@ -4207,8 +4446,8 @@ def _worker(deps: Deps, uid: str, rid: str, phase: str, attempt: int) -> None:
         while current:
             run = deps.store.get_doc(rp) or {}
             metrics = dict(run.get("metrics") or {})
-            events = PhaseEventWriter(deps.store, rp, phase=current, step=f"{current}.start", attempt=attempt,
-                                      start_seq=next_seq(deps.store, rp))
+            events = EventWriter(deps.store, rp, phase=current, step=f"{current}.start", attempt=attempt,
+                                 start_seq=next_seq(deps.store, rp))
             ctx = PhaseContext(deps, uid, rid, current, attempt, events, lost, float(metrics.get("active_s", 0.0)))
             try:
                 try:
@@ -4218,6 +4457,9 @@ def _worker(deps: Deps, uid: str, rid: str, phase: str, attempt: int) -> None:
                 auto = run.get("autonomy") == "auto" and outcome.gate in AUTO_GATES and not outcome.forced
                 if outcome.gate:
                     run_step(ctx, f"{current}.gate.{outcome.gate}", lambda: _gate_step(ctx, outcome, auto))
+            except LeaseLost:
+                events.fence()  # a stale worker writes no further events (fenced flush/close are no-ops)
+                raise
             finally:
                 events.close()
             metrics = _merge_metrics(metrics, ctx.metrics, outcome.metrics, ctx.active_s())
@@ -4265,9 +4507,9 @@ def _record_failure(deps: Deps, uid: str, rid: str, phase: str, attempt: int, ex
         step, now = f"{phase}.failed", deps.clock()
         deps.store.set_doc(f"{rp}/steps/{step}", StepRecord(id=step, phase=phase, status="failed", attempt=attempt,
                                                              started_at=now, finished_at=now).model_dump())
-        w = PhaseEventWriter(deps.store, rp, phase=phase, step=step, attempt=attempt,
-                             start_seq=next_seq(deps.store, rp), flush_interval_s=0)
-        w.emit_step(step, "system", "status", "Run stopped by an error; resume to retry", detail=type(exc).__name__)
+        w = EventWriter(deps.store, rp, phase=phase, step=step, attempt=attempt,
+                        start_seq=next_seq(deps.store, rp), flush_interval_s=0)
+        w.emit("system", "status", "Run stopped by an error; resume to retry", detail=type(exc).__name__, step=step)
         w.close()
     except Exception:
         log.exception("could not record failure for %s/%s", uid, rid)
@@ -4914,12 +5156,12 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Create: `services/api/tests/api/conftest.py`, `services/api/tests/api/test_api_runs.py`, `services/api/tests/api/test_api_workspace.py`
 
 **Interfaces:**
-- Consumes: `make_current_uid`, `firebase_verify` (P0); `Deps`, `MemoryBlobStore`, `GcsBlobStore` (Task 8); `start_phase`, `resume_from_gate`, `resume_run`, `WrongState`, `GateExpired`, `LeaseBusy` (Task 10); `CapReached`, `lease_is_live`, `run_path`, `delete_tree` (Task 6); `AdkRunner`, `GenaiRunner`, `RecordingRunner` (Task 5); `FakeEnterprise`, `build_fake_deps`, `load_erp_seed` (Tasks 7–8).
+- Consumes: `make_current_uid`, `firebase_verify` (P0); `GET /api/whoami` (P0 fix wave; permanent, kept in the rewired app); `Deps`, `MemoryBlobStore`, `GcsBlobStore` (Task 8); `start_phase`, `resume_from_gate`, `resume_run`, `WrongState`, `GateExpired`, `LeaseBusy` (Task 10); `CapReached`, `lease_is_live`, `run_path` (Task 6); `Store.delete_tree`; `AdkRunner`, `GenaiRunner`, `RecordingRunner` (Task 5); `FakeEnterprise`, `build_fake_deps`, `load_erp_seed` (Tasks 7–8).
 - Produces:
   - `create_app(store=None, verify_token=None, deps: Deps | None = None) -> FastAPI`. If `deps` is omitted, `build_production_deps(store)` is used. It includes WS4's router if `kirchhoff.api.enterprise_proxy.make_router(store, current_uid)` exists, and sets `app.state.deps`.
-  - `build_production_deps(store=None) -> Deps` makes no network calls at construction. Env switches: `KIRCHHOFF_FAKES=1` (fake engine, replay agents, real store), `KIRCHHOFF_AGENT_BACKEND=genai`, `KIRCHHOFF_RECORD_DIR`, `KIRCHHOFF_BLOBS=memory`, `KIRCHHOFF_SCENARIOS_DIR` (default `/app/scenarios` in the image, else `<repo>/scenarios`) and `KIRCHHOFF_SEED_DIR` (default `/app/seed`, else `<repo>/apps/web/public/demo/projects`). The engine is `LazyModule("kirchhoff.engine.api")`. The enterprise client is `kirchhoff.enterprise.client.make_enterprise_client()` (WS4), or a `FakeEnterprise` over `erp_seed.yaml` with a logged warning.
+  - `build_production_deps(store=None) -> Deps` makes no network calls at construction. Env switches: `KIRCHHOFF_FAKES=1` (fake engine, replay agents, real store, in-process blobs served inline by `/api/files`), `KIRCHHOFF_AGENT_BACKEND=genai`, `KIRCHHOFF_RECORD_DIR`, `KIRCHHOFF_BLOBS=memory` (`MemoryBlobStore(public_base=None)`), `KIRCHHOFF_SCENARIOS_DIR` (default `/app/scenarios` in the image, else `<repo>/scenarios`) and `KIRCHHOFF_SEED_DIR` (default `/app/seed`, else `<repo>/apps/web/public/demo/projects`). The engine is `LazyModule("kirchhoff.engine.api")`. The enterprise client is `kirchhoff.enterprise.client.make_enterprise_client()` (WS4), or a `FakeEnterprise` over `erp_seed.yaml` with a logged warning.
   - `err(status, detail, **extra) -> JSONResponse`.
-  - Routes (interfaces table): `POST /api/workspace` → `{uid, created}`; `POST /api/workspace/reset` → `{ok}` (409 `run_in_progress`); `POST /api/runs {project_id: "hall-b", autonomy}` → 202 `{run_id}` (429 `visitor_rate_limit` / `global_cap`+`offer`); `POST /api/runs/{rid}/gates/plan {answers, plan_notes}` → 202 `{ok}` (409 `wrong_state`/`gate_expired`; 422 `invalid_answer`); `POST /api/runs/{rid}/gates/option {option_id}` → 202 (422 `option_not_offered`); `POST /api/runs/{rid}/resume` → 202 `{resumed}`. Another visitor's run returns 404.
+  - Routes (interfaces table): `GET /api/whoami` → `{uid}` (P0, unchanged); `POST /api/workspace` → `{uid, created}`; `POST /api/workspace/reset` → `{ok}` (409 `run_in_progress`); `POST /api/runs {project_id: "hall-b", autonomy}` → 202 `{run_id}` (429 `visitor_rate_limit` / `global_cap`+`offer`); `POST /api/runs/{rid}/gates/plan {answers, plan_notes}` → 202 `{ok}` (409 `wrong_state`/`gate_expired`; 422 `invalid_answer`); `POST /api/runs/{rid}/gates/option {option_id}` → 202 (422 `option_not_offered`); `POST /api/runs/{rid}/resume` → 202 `{resumed}`. Another visitor's run returns 404.
 
 - [ ] **Step 1: Write the API test fixtures and failing tests**
 
@@ -4931,9 +5173,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from kirchhoff.api.app import create_app
-from kirchhoff.runs.fakes import build_fake_deps, build_fake_scenarios
-from kirchhoff.runs.storeops import firestore_safe_problems
-from kirchhoff.store.memory import MemoryStore
+from kirchhoff.runs.fakes import CheckedStore, build_fake_deps, build_fake_scenarios
 
 INTAKE_FIX = Path(__file__).resolve().parents[1] / "intake" / "fixtures"
 GROUND_TRUTH = Path(__file__).resolve().parents[4] / "scenarios" / "hall_a" / "ground_truth.yaml"
@@ -4947,7 +5187,7 @@ def scen_dir(tmp_path_factory):
 
 @pytest.fixture
 def deps(scen_dir, tmp_path):
-    return build_fake_deps(MemoryStore(), scen_dir, seed_dir=tmp_path, spawn=lambda fn: fn(), heartbeat_s=3600.0)
+    return build_fake_deps(CheckedStore(), scen_dir, seed_dir=tmp_path, spawn=lambda fn: fn(), heartbeat_s=3600.0)
 
 
 @pytest.fixture
@@ -4963,9 +5203,8 @@ def auth():
 @pytest.fixture
 def firestore_safe():
     def _check(store) -> None:
-        for path, doc in store._docs.items():
-            problems = firestore_safe_problems(doc)
-            assert not problems, (path, problems[:3])
+        assert isinstance(store, CheckedStore)
+        assert not store.problems, store.problems[:3]
     return _check
 ```
 
@@ -5088,6 +5327,11 @@ from kirchhoff.store.memory import MemoryStore
 def test_workspace_create_is_idempotent(client, auth):
     assert client.post("/api/workspace", headers=auth).json() == {"uid": "u1", "created": True}
     assert client.post("/api/workspace", headers=auth).json() == {"uid": "u1", "created": False}
+
+
+def test_whoami_survives_the_app_rewiring(client, auth):
+    assert client.get("/api/whoami").status_code == 401  # infra/smoke.sh probes this
+    assert client.get("/api/whoami", headers=auth).json() == {"uid": "u1"}
 
 
 def test_reset_deletes_visitor_data(client, deps, auth):
@@ -5214,11 +5458,11 @@ def build_production_deps(store=None) -> Deps:
         store = FirestoreStore()
     if os.environ.get("KIRCHHOFF_FAKES") == "1":  # local UI development before WS1/WS4/Vertex are wired
         from kirchhoff.runs.fakes import build_fake_deps
-        return build_fake_deps(store, scen, seed_dir=seed)
+        return build_fake_deps(store, scen, seed_dir=seed, blobs=MemoryBlobStore(public_base=None))
     runner = GenaiRunner() if os.environ.get("KIRCHHOFF_AGENT_BACKEND") == "genai" else AdkRunner()
     if os.environ.get("KIRCHHOFF_RECORD_DIR"):
         runner = RecordingRunner(runner, Path(os.environ["KIRCHHOFF_RECORD_DIR"]))
-    blobs = MemoryBlobStore() if os.environ.get("KIRCHHOFF_BLOBS") == "memory" else GcsBlobStore()
+    blobs = MemoryBlobStore(public_base=None) if os.environ.get("KIRCHHOFF_BLOBS") == "memory" else GcsBlobStore()
     return Deps(store=store, engine=LazyModule("kirchhoff.engine.api"), runner=runner, enterprise=_enterprise(scen),
                 blobs=blobs, scenarios_dir=scen, seed_dir=seed, voice_runner=GenaiRunner(),
                 asset_engines=_asset_engines())
@@ -5232,7 +5476,6 @@ from fastapi import APIRouter, Depends
 
 from kirchhoff.runs.deps import Deps
 from kirchhoff.runs.leases import lease_is_live
-from kirchhoff.runs.storeops import delete_tree
 
 from .errors import err
 
@@ -5253,7 +5496,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         now = deps.clock()
         if any(lease_is_live(r.get("lease"), now) for r in deps.store.list_docs(f"workspaces/{uid}/runs")):
             return err(409, "run_in_progress")
-        delete_tree(deps.store, f"workspaces/{uid}")
+        deps.store.delete_tree(f"workspaces/{uid}")
         deps.blobs.delete_prefix(f"workspaces/{uid}/")
         deps.enterprise.reset_visitor(uid)
         return {"ok": True}
@@ -5274,7 +5517,6 @@ from kirchhoff.runs.deps import Deps
 from kirchhoff.runs.leases import CapReached, run_path
 from kirchhoff.runs.orchestrator import (GateExpired, LeaseBusy, WrongState, resume_from_gate, resume_run,
                                         start_phase)
-from kirchhoff.runs.storeops import delete_tree
 
 from .errors import err
 
@@ -5328,7 +5570,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         try:
             start_phase(deps, uid, rid, "p1")
         except CapReached:
-            delete_tree(deps.store, run_path(uid, rid))
+            deps.store.delete_tree(run_path(uid, rid))
             return err(429, "global_cap", offer="replay")
         deps.store.update_doc(ws_path, {"created_at": ws.get("created_at", now), "last_run_at": now,
                                         "run_starts": recent + [now]})
@@ -5377,12 +5619,12 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
 
 - [ ] **Step 5: Rewire the app factory**
 
-Replace `services/api/kirchhoff/api/app.py` with:
+Replace `services/api/kirchhoff/api/app.py` with (keep `GET /api/whoami` exactly as P0 wrote it: it is permanent and `infra/smoke.sh` probes it):
 ```python
 import os
 from typing import Callable
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from kirchhoff.runs.deps import Deps
 from kirchhoff.store import Store
@@ -5406,6 +5648,10 @@ def create_app(store: Store | None = None, verify_token: Callable[[str], str] | 
     @app.get("/api/health")
     def health() -> dict:
         return {"ok": True, "version": VERSION}
+
+    @app.get("/api/whoami")
+    def whoami(uid: str = Depends(current_uid)) -> dict:  # permanent (P0 fix wave); smoke test probes it
+        return {"uid": uid}
 
     app.include_router(hello_router(store, current_uid))  # removed in Task 18
     app.include_router(workspace_routes.make_router(deps, current_uid))
@@ -5450,17 +5696,18 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: the P2 outputs (`p2.resolve_plan`, `p2.annotate_options`), `p1.intake` brief, `OWNER`, `choose_option`, `preferred_candidate`, `criterion`, `lead_limit_weeks` (Task 11), `POWER, COOLING, LAYOUT, DOCS` (Task 5), `sanitize` (Task 4), and the engine facade `route`, `detect_clashes`, `derive_pr_lines`, `check`, `fix_candidates`, `apply_fix`, `model_hash`, `ledger_not_checked`.
 - Produces:
-  - `kirchhoff.runs.revisions`: `LIVE_AUDIO_NOTE` (R13), `rev_id(rid, n)`, `model_blob_path(uid, rev)`, `gather_ledger(ctx) -> list[LedgerEntry]` (ledger events from committing or current attempts, deduplicated), and `build_revision(ctx, n, parent, model, findings, summary) -> tuple[Revision, docs]`. The model goes to the blob store (R7) and the revision doc gets `model=None`, `model_url="revisions/{rev}/model.json"` and `hash=engine.model_hash(model)` (R22); there is one finding doc per finding. Also `load_revision_model(deps, uid, rev_doc) -> DesignModel`, `diff_elements(old, new) -> list[str]`, `run_revisions(store, uid, rid) -> list[dict]` (ordered by n) and `latest_revision(store, uid, rid) -> dict | None`.
-  - `kirchhoff.agents.docs_export`: `SECTIONS`, the `Exporter` protocol `export(*, uid, rev: Revision, findings, fixes, brief, options, pr_lines, order, summary) -> list[{"name", "path", "status", ...}]`, and `StubExporter` (status `pending`, path `None`).
-  - `phase3.run_p3(ctx) -> PhaseOutcome(gate="review", run_patch={"selected_option"})`. Steps: `p3.select_option`, `p3.route`, `p3.clashes`, `p3.boq`, `p3.check.{n}`, `p3.fix.{n}` (n ≤ 2) and `p3.docs`. Fix records on the failing revision's findings are `fix = {candidate, label, reason, criterion, agent, cost_delta, deltas}` and `rejected_fix = {candidate, label, cost_delta, deltas}`. Each check emits an `artifact {type: "revision", ref, changed: [element ids]}` event and one `finding` event per failure. Metric `time_to_clean_s` is set at the first all-pass revision. **UI rule (WS3):** Approve is disabled iff the latest revision's `check_summary.fail > 0`.
+  - `kirchhoff.runs.revisions`: `LIVE_AUDIO_NOTE` (R13), `rev_id(rid, n)`, `model_blob_path(uid, rev)`, `gather_ledger(ctx) -> list[LedgerEntry]` (ledger events from committing or current attempts, deduplicated), and `build_revision(ctx, n, parent, model, findings, summary) -> tuple[Revision, docs]`. The model goes to the blob store (R7) and the revision doc gets `model=None`, `model_url="revisions/{rev}/model.json"` and `hash=engine.model_hash(model)` (R22); there is one finding doc per finding. Also `load_revision_model(deps, uid, rev_doc) -> DesignModel`, `diff_elements(old, new) -> list[str]`, `run_revisions(store, uid, rid) -> list[dict]` (ordered by n), `latest_revision(store, uid, rid) -> dict | None` and `with_citation_boxes(findings, tender_pdf) -> list[Finding]` (the engine's `tender_refs` carry page + verbatim quote but no box; this adds pdfplumber's `bbox` so the UI's tender chip highlights the clause, spec §12 screen 6).
+  - `kirchhoff.agents.docs_export`: `SECTIONS`, the `Exporter` protocol `export(*, uid, rev: Revision, findings, fixes, brief, options, pr_lines, order, summary) -> list[{"name", "path", "status", ...}]`, and `StubExporter` (status `pending`, path `None`). Only files with a `path` get an `artifact {type: "export", ref: path, name, status}` event; pending stubs get a `status` event, so the UI never sees an empty export ref.
+  - `phase3.run_p3(ctx) -> PhaseOutcome(gate="review", run_patch={"selected_option"})`. Steps: `p3.select_option`, `p3.route`, `p3.clashes`, `p3.boq`, `p3.check.{n}`, `p3.fix.{n}` (n ≤ 2) and `p3.docs`. Fix records on the failing revision's findings are `fix = {candidate, label, reason, criterion, agent, cost_delta, deltas}` and `rejected_fix = {candidate, label, cost_delta, deltas}`, where `deltas` is the candidate's engine metrics plus `cost_delta` (the UI's finding drawer lists `deltas`). Each check emits its `artifact {type: "revision", ref: "workspaces/{uid}/revisions/{rev}", changed: [element ids]}` event **first**, then one `finding {finding_id, rule_id, element_id, status, rev}` event per failure (WS3 ruling R8). Metric `time_to_clean_s` is set at the first all-pass revision. **UI rule (WS3):** Approve is disabled iff the latest revision's `check_summary.fail > 0`.
 
 - [ ] **Step 1: Write the failing tests**
 
 `services/api/tests/runs/test_runs_p3.py`:
 ```python
 import pytest
+import yaml
 
-from kirchhoff.contracts import DesignModel
+from kirchhoff.contracts import Citation, DesignModel, Finding
 from kirchhoff.runs.fakes import FakeEngine
 from kirchhoff.runs.leases import run_path
 from kirchhoff.runs.orchestrator import resume_from_gate, start_phase
@@ -5468,7 +5715,7 @@ from kirchhoff.runs.outputs import load_outputs
 from kirchhoff.runs.phase1 import run_p1
 from kirchhoff.runs.phase2 import run_p2
 from kirchhoff.runs.phase3 import run_p3
-from kirchhoff.runs.revisions import latest_revision, run_revisions
+from kirchhoff.runs.revisions import latest_revision, run_revisions, with_citation_boxes
 
 
 @pytest.fixture
@@ -5513,8 +5760,13 @@ def test_golden_path_two_revisions_and_fix_choices(p123, make_run, firestore_saf
     assert f1["R11:H-Z2"]["fix"]["candidate"] == "H-Z2:local-drop"
     assert f1["R11:H-Z2"]["fix"]["criterion"].startswith("fewest changed pipe segments")
     assert "fewest pipe segments" in f1["R11:H-Z2"]["fix"]["reason"]
+    assert f1["R05:FA-01"]["fix"]["deltas"]["cost_delta"] == f1["R05:FA-01"]["fix"]["cost_delta"]
+    assert "cost_delta" in f1["R05:FA-01"]["rejected_fix"]["deltas"]
     revs = [e["payload"] for e in _events(p123, rid) if e["kind"] == "artifact" and e["payload"]["type"] == "revision"]
     assert {"FA-01", "H-Z2"} <= set(revs[-1]["changed"])
+    art = next(e for e in _events(p123, rid) if e["kind"] == "artifact" and e["step"] == "p3.check.1")
+    fails = [e for e in _events(p123, rid) if e["kind"] == "finding" and e["step"] == "p3.check.1"]
+    assert len(fails) == 2 and all(e["seq"] > art["seq"] and e["payload"]["rev"] == r1["id"] for e in fails)
     assert run["metrics"]["time_to_clean_s"] > 0
     assert latest_revision(p123.store, "u1", rid)["id"] == r2["id"]
     firestore_safe(p123.store)
@@ -5530,6 +5782,21 @@ def test_revision_ledger_and_stub_docs(p123, make_run):
     docs = load_outputs(p123.store, p123.blobs, run_path("u1", rid), "p3.docs")
     assert [f["status"] for f in docs["files"]] == ["pending", "pending"] and docs["order"][0] == "summary"
     assert docs["summary"] == "The 2N design passes every check after fixes to FA-01 and H-Z2."
+    evs = _events(p123, rid)
+    assert not [e for e in evs if e["kind"] == "artifact" and e["payload"]["type"] == "export"]
+    assert [e["title"] for e in evs if e["step"] == "p3.docs" and e["kind"] == "status"] == \
+        ["calc-report.pdf pending", "boq.csv pending"]
+
+
+def test_tender_refs_get_pdfplumber_boxes(deps):
+    tender = yaml.safe_load((deps.scenarios_dir / "hall_a" / "tender.yaml").read_text(encoding="utf-8"))
+    c = next(c for c in tender["clauses"] if c.get("quote"))
+    f = Finding(id="R05:FA-01", rule_id="R05", element_id="FA-01", status="fail", title="Voltage drop",
+                tender_refs=[Citation(doc_id="tender-hall-a", page=c["page"], quote=c["quote"], clause=c["id"]),
+                             Citation(doc_id="tender-hall-a", page=1, quote="", clause="§2.3")])
+    (out,) = with_citation_boxes([f], deps.inputs().tender_pdf)
+    assert out.tender_refs[0].bbox is not None and out.tender_refs[1].bbox is None
+    assert with_citation_boxes([f], deps.scenarios_dir / "missing.pdf") == [f]
 
 
 def test_auto_picks_2n_by_the_resolved_clause(p123, make_run):
@@ -5589,7 +5856,11 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'kirchhoff.runs.phase3
 `services/api/kirchhoff/runs/revisions.py`:
 ```python
 """Revisions (spec §14): model in Cloud Storage (R7), engine hash (R22), findings as subcollection docs."""
-from kirchhoff.contracts import DesignModel, Finding, LedgerEntry, Revision
+import threading
+from pathlib import Path
+
+from kirchhoff.contracts import Citation, DesignModel, Finding, LedgerEntry, Revision
+from kirchhoff.intake.verify import PdfText
 from kirchhoff.store import Store
 
 from .deps import Deps
@@ -5655,6 +5926,32 @@ def diff_elements(old: DesignModel, new: DesignModel) -> list[str]:
     return sorted(k for k in a.keys() | b.keys() if a.get(k) != b.get(k))
 
 
+_BOXES: dict[tuple[str, int, str], tuple[float, float, float, float] | None] = {}
+_BOX_LOCK = threading.Lock()
+
+
+def with_citation_boxes(findings: list[Finding], tender_pdf: Path) -> list[Finding]:
+    """The engine cites (page, verbatim quote) without a box; add pdfplumber's box (cached per quote)."""
+    path = Path(tender_pdf)
+    want = {(r.page, r.quote) for f in findings for r in f.tender_refs if r.bbox is None and r.quote}
+    if not want or not path.exists():
+        return findings
+    with _BOX_LOCK:
+        missing = [k for k in want if (str(path), *k) not in _BOXES]
+        if missing:
+            with PdfText(path) as pdf:
+                for page, quote in missing:
+                    in_range = 1 <= page <= pdf.page_count
+                    _BOXES[(str(path), page, quote)] = pdf.find_bbox(page, quote) if in_range else None
+        boxes = {k: _BOXES[(str(path), *k)] for k in want}
+
+    def boxed(r: Citation) -> Citation:
+        b = boxes.get((r.page, r.quote)) if r.bbox is None and r.quote else None
+        return r.model_copy(update={"bbox": b}) if b else r
+
+    return [f.model_copy(update={"tender_refs": [boxed(r) for r in f.tender_refs]}) for f in findings]
+
+
 def run_revisions(store: Store, uid: str, rid: str) -> list[dict]:
     prefix = f"{rid}-r"
     revs = [d for d in store.list_docs(f"workspaces/{uid}/revisions") if d.get("id", "").startswith(prefix)]
@@ -5703,7 +6000,7 @@ from kirchhoff.agents.trust import sanitize
 from kirchhoff.contracts import DesignBrief, DesignModel, Finding, PRLine, Revision, TopologyOption
 
 from .policy import OWNER, choose_option, criterion, lead_limit_weeks, preferred_candidate
-from .revisions import build_revision, diff_elements, load_revision_model, run_revisions
+from .revisions import build_revision, diff_elements, load_revision_model, run_revisions, with_citation_boxes
 from .steps import AGENT_LABEL, ParkAtGate, PhaseContext, PhaseOutcome, StepOutput, run_step
 
 MAX_FIX_ITERATIONS = 2
@@ -5818,16 +6115,18 @@ def _check(ctx: PhaseContext, n: int, parent: str | None, model: DesignModel, pa
         return {"checks": len(fs), **{s: sum(f.status == s for f in fs) for s in ("pass", "fail", "warn", "n/a")}}
 
     summary = ctx.tool(step, "checker", run_rule_pack)()
-    findings = box["findings"]
+    findings = with_citation_boxes(box["findings"], ctx.deps.inputs().tender_pdf)
     fails = [f for f in findings if f.status == "fail"]
-    for f in fails:
-        ctx.emit(step, "checker", "finding", f.title, detail=f"{f.rule_id} on {f.element_id}",
-                 payload={"finding_id": f.id, "rule_id": f.rule_id, "element_id": f.element_id, "status": f.status})
     rev, docs = build_revision(ctx, n, parent, model, findings,
                                f"{summary['checks']} checks, {summary['fail']} failing")
+    # WS3 ruling R8: the revision artifact comes before its finding events, and each finding names its revision.
     ctx.emit(step, "checker", "artifact", f"Revision {rev.id} checked",
              payload={"type": "revision", "ref": f"{ctx.ws_path}/revisions/{rev.id}",
                       "changed": diff_elements(parent_model, model) if parent_model is not None else []})
+    for f in fails:
+        ctx.emit(step, "checker", "finding", f.title, detail=f"{f.rule_id} on {f.element_id}",
+                 payload={"finding_id": f.id, "rule_id": f.rule_id, "element_id": f.element_id, "status": f.status,
+                          "rev": rev.id})
     if not fails:
         ctx.metrics.setdefault("time_to_clean_s", ctx.active_s())
     return StepOutput(data={"rev": rev.id, "hash": rev.hash, "fail_ids": [f.id for f in fails],
@@ -5876,9 +6175,11 @@ def _fix(ctx: PhaseContext, n: int, rev: str, fail_ids: list[str]) -> StepOutput
         alt = preferred_candidate(owner, rejected) if rejected else None
         f2 = f.model_copy(update={
             "fix": {"candidate": chosen.id, "label": chosen.label, "reason": text, "criterion": criterion(owner),
-                    "agent": owner, "cost_delta": chosen.cost_delta, "deltas": chosen.metrics},
+                    "agent": owner, "cost_delta": chosen.cost_delta,
+                    "deltas": {**chosen.metrics, "cost_delta": chosen.cost_delta}},
             "rejected_fix": None if alt is None else {"candidate": alt.id, "label": alt.label,
-                                                      "cost_delta": alt.cost_delta, "deltas": alt.metrics}})
+                                                      "cost_delta": alt.cost_delta,
+                                                      "deltas": {**alt.metrics, "cost_delta": alt.cost_delta}}})
         docs.append((f"{ctx.ws_path}/revisions/{rev}/findings/{f.id}", f2.model_dump(mode="json")))
         model = ctx.deps.engine.apply_fix(model, chosen)
         applied.append(chosen.id)
@@ -5909,15 +6210,18 @@ def _docs(ctx: PhaseContext, chk: dict) -> StepOutput:
         options=[TopologyOption.model_validate(o) for o in ctx.run().get("options", [])],
         pr_lines=[PRLine.model_validate(x) for x in chk["pr_lines"]], order=order, summary=summary)
     for f in files:
-        ctx.emit(S_DOCS, "docs", "artifact", f"{f['name']} {f['status']}",
-                 payload={"type": "export", "ref": f.get("path") or "", "name": f["name"], "status": f["status"]})
+        if f.get("path"):  # storage path, served by GET /api/files/{path}
+            ctx.emit(S_DOCS, "docs", "artifact", f"{f['name']} {f['status']}",
+                     payload={"type": "export", "ref": f["path"], "name": f["name"], "status": f["status"]})
+        else:
+            ctx.emit(S_DOCS, "docs", "status", f"{f['name']} {f['status']}")
     return StepOutput(data={"rev": rev.id, "order": order, "summary": summary, "files": files})
 ```
 
 - [ ] **Step 5: Run tests**
 
 Run: `cd services/api && uv run pytest tests/runs -q`
-Expected: all runs tests pass (`40 passed, 1 skipped`).
+Expected: all runs tests pass (`41 passed, 1 skipped`).
 
 - [ ] **Step 6: Commit**
 
@@ -6039,6 +6343,9 @@ def test_r12_failure_blocks_submitted_prs(client, deps, auth):
     rev = latest_revision(deps.store, "u1", rid)
     assert rev["status"] == "signed"
     assert deps.store.get_doc(f"workspaces/u1/revisions/{rev['id']}/findings/R12:submitted-prs")["status"] == "fail"
+    (ev,) = [e for e in deps.store.list_docs(f"{run_path('u1', rid)}/events") if e["kind"] == "finding"
+             and e["step"] == "p4.r12_recheck"]
+    assert ev["payload"]["rev"] == rev["id"]
     assert deps.store.get_doc("workspaces/u1/crm/opp-hall-b") is None
 
 
@@ -6188,7 +6495,8 @@ def _r12(ctx: PhaseContext, sign: dict, prs: list[dict]) -> StepOutput:
     finding = failed[0].model_copy(update={"id": "R12:submitted-prs", "element_id": "submitted-prs"})
     docs.append((f"{ctx.ws_path}/revisions/{sign['rev']}/findings/{finding.id}", finding.model_dump(mode="json")))
     ctx.emit(S_R12, "checker", "finding", finding.title, detail="R12 on submitted-prs",
-             payload={"finding_id": finding.id, "rule_id": "R12", "element_id": "submitted-prs", "status": "fail"})
+             payload={"finding_id": finding.id, "rule_id": "R12", "element_id": "submitted-prs", "status": "fail",
+                      "rev": sign["rev"]})
     ctx.ledger(S_R12, "system", "did",
                "PR submission blocked: R12 failed on the submitted PRs; the signed revision stays signed.")
     return StepOutput(data={"blocked": True}, docs=docs)
@@ -6291,13 +6599,13 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Test: `services/api/tests/api/test_api_copilot.py`
 
 **Interfaces:**
-- Consumes: `load_revision_model` (Task 13); `COPILOT` (Task 5); `sanitize`, `fill`, `fmt_value`, `allowed_ids_for` (Task 4); and the engine facade `what_if(scn, model, param, value, revision_ref, erp) -> WhatIfResult` (fail/warn findings only, R24).
+- Consumes: `load_revision_model` (Task 13); `COPILOT` (Task 5); `sanitize`, `fill_finding`, `allowed_ids_for` (Task 4); and the engine facade `what_if(scn, model, param, value, revision_ref, erp) -> WhatIfResult` (fail/warn findings only, R24).
 - Produces (`kirchhoff.agents.copilot`):
   - `RevisionNotFound(KeyError)`.
   - `call_with_timeout(fn, timeout_s)`: shared pool; raises `concurrent.futures.TimeoutError`.
   - `load_seed_bundle(seed_dir, project_id) -> ProjectBundle` (cached by mtime). **WS4:** seed bundle revisions must inline `model`.
   - `load_revision(deps, uid, ref) -> tuple[DesignModel, list[Finding]]` for `ws:{rev}` and `seed:{pid}@{rev}`; raises `ValueError` for a bad ref.
-  - `explain_text(deps, model, finding) -> str`: the Gemini explanation, sanitized with the rule's template sentence (`finding.explanation`) as fallback, then `{value}`, `{limit}` and `{unit}` filled from the engine record.
+  - `explain_text(deps, model, finding) -> str`: the Gemini explanation, sanitized with the rule's template sentence (`finding.explanation`) as fallback, then `{value}`, `{limit}` and `{unit}` filled from the engine record with `fill_finding` (no doubled units with WS1's templates).
 - Routes: `POST /api/what-if {revision_ref, param, value}` → `WhatIfResult` (404 `revision_not_found`, 422 `bad_revision_ref`, 504 `timeout` after 8 s). `POST /api/explain {revision_ref, finding_id}` → `{text}` (404 `finding_not_found`).
 
 - [ ] **Step 1: Append the seed-bundle fixture and write the failing tests**
@@ -6430,7 +6738,7 @@ from kirchhoff.contracts import DesignModel, Finding, ProjectBundle
 from kirchhoff.runs.revisions import load_revision_model
 
 from .specs import COPILOT
-from .trust import allowed_ids_for, fill, fmt_value, sanitize
+from .trust import allowed_ids_for, fill_finding, sanitize
 
 log = logging.getLogger("kirchhoff.copilot")
 _POOL = ThreadPoolExecutor(max_workers=8)
@@ -6478,8 +6786,6 @@ def load_revision(deps, uid: str, ref: str) -> tuple[DesignModel, list[Finding]]
 
 def explain_text(deps, model: DesignModel, finding: Finding) -> str:
     template = finding.explanation or f"{finding.title}: {{value}} against a limit of {{limit}}."
-    values = {"value": fmt_value(finding.value, finding.unit), "limit": fmt_value(finding.limit, finding.unit),
-              "unit": finding.unit or ""}
     clauses = ", ".join(c.clause for c in finding.tender_refs if c.clause) or "none"
     standards = ", ".join(f"{c.standard} {c.clause or ''}".strip() for c in finding.clause_refs) or "none"
     msg = (f"Finding {finding.id}: {finding.title}. Rule {finding.rule_id} on element {finding.element_id}; "
@@ -6492,7 +6798,7 @@ def explain_text(deps, model: DesignModel, finding: Finding) -> str:
     except Exception as exc:
         log.warning("explain fallback for %s: %r", finding.id, exc)
         text = template
-    return fill(text, values)
+    return fill_finding(text, finding.value, finding.limit, finding.unit)
 ```
 
 - [ ] **Step 4: Implement the routes and include them**
@@ -6594,7 +6900,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Consumes: `load_revision`, `explain_text`, `call_with_timeout`, `RevisionNotFound` (Task 15); `COPILOT_VOICE` (Task 5); `run_json`, `Attachment` (Task 5); `Deps.voice_runner` (`GenaiRunner` in production: Vertex `gemini-3.8-flash` with audio input and automatic function calling).
 - Produces:
   - `WHAT_IF_PARAMS`, `VoiceReply(transcript, answer)`, `engine_summary(tool_results) -> str` (code-authored from engine records).
-  - `answer_voice(deps, uid, ref, audio: bytes, mime: str) -> {"transcript", "answer", "tool_results": [{tool, args, result}]}`. The tools are `what_if(param, value)`, `explain_finding(finding_id)` and `focus_element(element_id)`, the same names as the Live session. `answer` is sanitized with `engine_summary` as its template (R13). A model or JSON failure falls back to the summary; a timeout raises.
+  - `answer_voice(deps, uid, ref, audio: bytes, mime: str) -> {"transcript", "answer", "tool_results": [{name, args, result}]}` (WS3 ruling R9: the key is `name`; a `what_if` result is a full `WhatIfResult`). The tools are `what_if(param, value)`, `explain_finding(finding_id="", element_id="")` and `focus_element(element_id)`, the same names and parameters as WS3's Live `TOOL_DECLARATIONS`. `answer` is sanitized with `engine_summary` as its template (R13). A model or JSON failure falls back to the summary; a timeout raises.
   - `POST /api/voice` (multipart: file field `audio` (`audio/webm|ogg|wav|mp4|mpeg`, ≤ 2 MB), form field `revision_ref` (default `seed:hall-a@r2`)) → 200 body. Errors: 413 `audio_too_large`, 415 `unsupported_audio`, 404 `revision_not_found`, 422 `bad_revision_ref`, 504 `timeout`. The UI speaks `answer` with browser speech synthesis and applies `focus_element` results.
 
 - [ ] **Step 1: Add the multipart dependency**
@@ -6623,7 +6929,7 @@ def test_voice_runs_what_if_and_filters_the_answer(client, seeded, auth):
     body = r.json()
     assert body["transcript"] == "What if racks go to 200 kW?"  # the user's words (R13)
     assert body["answer"] == "With rack_kw at 200, these checks fail: R01, R02, R08."
-    assert body["tool_results"][0]["tool"] == "what_if" and body["tool_results"][0]["result"]["impact_chain"]
+    assert body["tool_results"][0]["name"] == "what_if" and body["tool_results"][0]["result"]["impact_chain"]
 
 
 def test_voice_keeps_a_clean_answer_and_reports_focus(client, seeded, auth):
@@ -6632,7 +6938,7 @@ def test_voice_keeps_a_clean_answer_and_reports_focus(client, seeded, auth):
         "text": {"transcript": "Show me FA-01", "answer": "Here is FA-01 on the canvas."}}})
     body = _voice(client, auth).json()
     assert body["answer"] == "Here is FA-01 on the canvas."
-    assert body["tool_results"] == [{"tool": "focus_element", "args": {"element_id": "FA-01"},
+    assert body["tool_results"] == [{"name": "focus_element", "args": {"element_id": "FA-01"},
                                      "result": {"focused": "FA-01"}}]
 
 
@@ -6642,7 +6948,16 @@ def test_voice_explain_tool_uses_the_explanation_path(client, seeded, auth):
         "text": {"transcript": "Why did FA-01 fail?", "answer": "It is too long."}}})
     body = _voice(client, auth, ref="seed:hall-a@r1").json()
     assert body["tool_results"][0]["result"]["text"].startswith("FA-01 has a voltage drop of 2.16%")
+    assert body["tool_results"][0]["args"] == {"finding_id": "R05:FA-01"}
     assert body["answer"] == "It is too long."
+
+
+def test_voice_explain_by_element_id_picks_its_failing_finding(client, seeded, auth):
+    seeded.voice_runner = ReplayRunner({"copilot:voice": {
+        "tool_calls": [{"name": "explain_finding", "args": {"element_id": "FA-01"}}],
+        "text": {"transcript": "Why is FA-01 red?", "answer": "It is too long."}}})
+    body = _voice(client, auth, ref="seed:hall-a@r1").json()
+    assert body["tool_results"][0]["args"] == {"finding_id": "R05:FA-01"}
 
 
 def test_voice_model_failure_falls_back_to_the_summary(client, seeded, auth):
@@ -6690,13 +7005,13 @@ class VoiceReply(BaseModel):
 def engine_summary(results: list[dict]) -> str:
     parts = []
     for r in results:
-        if r["tool"] == "what_if":
+        if r["name"] == "what_if":
             fails = sorted({f["rule_id"] for f in r["result"]["findings"] if f["status"] == "fail"})
             head = f"With {r['args']['param']} at {fmt_number(r['args']['value'])}, "
             parts.append(head + (f"these checks fail: {', '.join(fails)}." if fails else "every check still passes."))
-        elif r["tool"] == "explain_finding":
+        elif r["name"] == "explain_finding":
             parts.append(r["result"]["text"])
-        elif r["tool"] == "focus_element":
+        elif r["name"] == "focus_element":
             parts.append(f"Showing {r['args']['element_id']}.")
     return " ".join(parts) or NO_MATCH
 
@@ -6712,23 +7027,26 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         if param not in WHAT_IF_PARAMS:
             return {"error": f"param must be one of {', '.join(WHAT_IF_PARAMS)}"}
         r = deps.engine.what_if(scn, model, param, float(value), ref, erp)
-        results.append({"tool": "what_if", "args": {"param": param, "value": float(value)},
+        results.append({"name": "what_if", "args": {"param": param, "value": float(value)},
                         "result": r.model_dump(mode="json")})
         return {"failing_rules": sorted({f.rule_id for f in r.findings if f.status == "fail"}),
                 "impact_chain": r.impact_chain[:6]}
 
-    def explain_finding(finding_id: str) -> dict:
-        """Explain why a checker finding failed, given its id such as R05:FA-01."""
+    def explain_finding(finding_id: str = "", element_id: str = "") -> dict:
+        """Explain one checker finding, given its id such as R05:FA-01, or the element id such as FA-01."""
         f = by_id.get(finding_id)
+        if f is None and element_id:
+            on_el = [x for x in findings if x.element_id == element_id]
+            f = next((x for x in on_el if x.status == "fail"), on_el[0] if on_el else None)
         if f is None:
             return {"error": "unknown finding"}
         text = explain_text(deps, model, f)
-        results.append({"tool": "explain_finding", "args": {"finding_id": finding_id}, "result": {"text": text}})
+        results.append({"name": "explain_finding", "args": {"finding_id": f.id}, "result": {"text": text}})
         return {"text": text}
 
     def focus_element(element_id: str) -> dict:
         """Show an element such as FA-01, H-Z2 or CDU-4 on the canvas."""
-        results.append({"tool": "focus_element", "args": {"element_id": element_id},
+        results.append({"name": "focus_element", "args": {"element_id": element_id},
                         "result": {"focused": element_id}})
         return {"focused": element_id}
 
@@ -6983,7 +7301,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `services/api/kirchhoff/agents/docs_export.py` (append `latin1`, `boq_csv`, `calc_report_pdf`, `BlobExporter`), `services/api/kirchhoff/api/deps.py` (production exporter), `services/api/kirchhoff/api/app.py` (files router; drop hello)
 - Create: `services/api/kirchhoff/api/files_routes.py`
-- Delete: `services/api/kirchhoff/api/hello.py`, `services/api/tests/test_api_hello.py` (P0 says WS2 removes them), and `services/api/kirchhoff/runs/compat.py` (once WS1's `contracts/extra.py` exists)
+- Delete: `services/api/kirchhoff/api/hello.py`, `services/api/tests/test_api_hello.py` (P0 says WS2 removes them; its two `/api/whoami` tests are superseded by Task 12's `test_whoami_survives_the_app_rewiring`, and the `GET /api/whoami` route in `app.py` stays), and `services/api/kirchhoff/runs/compat.py` (once WS1's `contracts/extra.py` exists)
 - Test: `services/api/tests/agents/test_agents_docs_export.py`, `services/api/tests/api/test_api_files.py`
 
 **Interfaces:**
@@ -6991,7 +7309,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Produces:
   - `latin1(s) -> str` (maps √ Δ φ ≤ ≥ ″ → – — η μ ≈ to ASCII for Helvetica), `boq_csv(lines) -> bytes` and `calc_report_pdf(*, rev, findings, fixes, brief, options, pr_lines, order, summary) -> bytes` (reportlab; sections in the Docs agent's order).
   - `BlobExporter(blobs)` writes `workspaces/{uid}/exports/{rev}/calc-report.pdf` and `.../boq.csv`, and returns `[{"name", "path": "exports/{rev}/…", "status": "ready", "content_type"}]`. Production `Deps.exporter` is a `BlobExporter`.
-  - `GET /api/files/{path}` with `path` matching `^(exports|revisions)/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$` → 302 to a V4 signed URL (600 s) for `workspaces/{uid}/{path}`, or 404 `not_found`. Revision models (R7) and exports are fetched this way.
+  - `GET /api/files/{path}` with `path` matching `^(exports|revisions)/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$` → 302 to a V4 signed URL (600 s) for `workspaces/{uid}/{path}`, or 404 `not_found`. With `?redirect=0` it returns `200 {"url", "expires_in": 600}` instead: the web client uses this form and then fetches the signed URL with a plain `fetch` (no auth headers, so no CORS preflight on the bucket). If the blob store cannot sign (`MemoryBlobStore(public_base=None)`, local fakes), both forms return the bytes inline (`200`, the file's media type, header `X-Kirchhoff-Inline: 1`). Revision models (R7) and exports are fetched this way.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -7065,6 +7383,7 @@ from fastapi.testclient import TestClient
 
 from kirchhoff.agents.docs_export import BlobExporter
 from kirchhoff.api.app import create_app
+from kirchhoff.runs.blobs import MemoryBlobStore
 from kirchhoff.runs.revisions import latest_revision
 
 
@@ -7085,6 +7404,17 @@ def test_exports_are_written_and_served_by_signed_url(client, deps, auth):
         f"https://storage.example.test/workspaces/u1/exports/{rev}/calc-report.pdf")
     model = client.get(f"/api/files/revisions/{rev}/model.json", headers=auth, follow_redirects=False)
     assert model.status_code == 302
+    as_json = client.get(f"/api/files/exports/{rev}/boq.csv?redirect=0", headers=auth)
+    assert as_json.status_code == 200 and as_json.json()["url"].startswith(
+        f"https://storage.example.test/workspaces/u1/exports/{rev}/boq.csv") and as_json.json()["expires_in"] == 600
+
+
+def test_unsigned_blob_store_serves_bytes_inline(client, deps, auth):
+    deps.blobs = MemoryBlobStore(public_base=None)  # local KIRCHHOFF_FAKES=1 / KIRCHHOFF_BLOBS=memory
+    deps.blobs.put("workspaces/u1/revisions/x-r1/model.json", b'{"racks": []}', "application/json")
+    for q in ("", "?redirect=0"):
+        r = client.get(f"/api/files/revisions/x-r1/model.json{q}", headers=auth, follow_redirects=False)
+        assert r.status_code == 200 and r.headers["x-kirchhoff-inline"] == "1" and r.json() == {"racks": []}
 
 
 def test_files_are_scoped_and_validated(client, deps, auth):
@@ -7096,8 +7426,10 @@ def test_files_are_scoped_and_validated(client, deps, auth):
         assert client.get(f"/api/files/{bad}", headers=auth, follow_redirects=False).status_code == 404
 
 
-def test_hello_route_is_gone(client, auth):
+def test_hello_route_is_gone_and_whoami_stays(client, auth):
     assert client.post("/api/hello-run", headers=auth).status_code == 404
+    assert client.get("/api/whoami").status_code == 401
+    assert client.get("/api/whoami", headers=auth).json() == {"uid": "u1"}
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -7222,10 +7554,11 @@ In `services/api/kirchhoff/api/deps.py`, import `from kirchhoff.agents.docs_expo
 
 `services/api/kirchhoff/api/files_routes.py`:
 ```python
+import mimetypes
 import re
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 from kirchhoff.runs.deps import Deps
 
@@ -7239,20 +7572,27 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
     router = APIRouter()
 
     @router.get("/api/files/{path:path}")
-    def files(path: str, uid: str = Depends(current_uid)):
+    def files(path: str, redirect: bool = True, uid: str = Depends(current_uid)):
         if not FILE_RE.match(path) or ".." in path:
             return err(404, "not_found")
         full = f"workspaces/{uid}/{path}"
         if not deps.blobs.exists(full):
             return err(404, "not_found")
-        return RedirectResponse(deps.blobs.signed_url(full, SIGNED_URL_TTL_S), status_code=302)
+        try:
+            url = deps.blobs.signed_url(full, SIGNED_URL_TTL_S)
+        except NotImplementedError:  # local in-process blobs: serve the bytes
+            media = mimetypes.guess_type(path)[0] or "application/octet-stream"
+            return Response(deps.blobs.get(full), media_type=media, headers={"X-Kirchhoff-Inline": "1"})
+        if not redirect:  # web client: fetch the signed URL without auth headers (no CORS preflight)
+            return {"url": url, "expires_in": SIGNED_URL_TTL_S}
+        return RedirectResponse(url, status_code=302)
 
     return router
 ```
 
 Run: `git rm services/api/kirchhoff/api/hello.py services/api/tests/test_api_hello.py`
 
-In `services/api/kirchhoff/api/app.py`: delete the line `from .hello import make_router as hello_router` and the `app.include_router(hello_router(...))` line, change the router import to `from . import asset_routes, copilot_routes, files_routes, runs_routes, workspace_routes`, and add after the asset router:
+In `services/api/kirchhoff/api/app.py`: delete the line `from .hello import make_router as hello_router` and the `app.include_router(hello_router(...))` line (keep the `GET /api/whoami` route), change the router import to `from . import asset_routes, copilot_routes, files_routes, runs_routes, workspace_routes`, and add after the asset router:
 ```python
     app.include_router(files_routes.make_router(deps, current_uid))
 ```
@@ -7282,9 +7622,9 @@ If the file does not exist yet, skip this step and tell the controller the shim 
 Run: `cd services/api && uv run pytest -q`
 Expected: all tests pass (live tests skipped). Then run the three live suites once with `KIRCHHOFF_LIVE=1` (Tasks 5, 11, 14) and paste the printed metrics JSON into the commit message.
 
-- [ ] **Step 8: Tell WS4 about the smoke test**
+- [ ] **Step 8: Check the smoke test still holds**
 
-`infra/smoke.sh` (WS4) still expects `POST /api/hello-run` to return 401. Ask WS4 to change it to `POST /api/runs` → 401.
+`infra/smoke.sh` (WS4) already probes `GET /api/whoami` → 401 (P0 fix wave), which this task keeps. Run `bash infra/smoke.sh http://localhost:8080` against a local `make dev-api` and expect `smoke OK` (the `/` HTML probe needs the web build; skip it locally if it fails for that reason only).
 
 - [ ] **Step 9: Commit**
 
@@ -7307,19 +7647,21 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 **WS3 (web)**
 - Event visibility: show an event iff `steps/{event.step}.attempt == event.attempt` (R4). Gates are steps `pN.gate.{gate}` carrying a `gate` event `{gate, auto}`.
-- The brief is at `workspaces/{uid}/runs/{rid}/outputs/p1.intake`, field `json` (a JSON string), key `brief`. Options are on `runs/{rid}.options`, and `artifact {type: "options"}` carries `recommended`.
-- Revision docs have `model: null` and `model_url: "revisions/{rev}/model.json"`; fetch the model with `GET /api/files/revisions/{rev}/model.json` (302 to a signed URL). Exports use the same route with `exports/{rev}/calc-report.pdf` and `exports/{rev}/boq.csv` (from `artifact {type: "export", ref, status}`).
-- `artifact {type: "revision"}` carries `changed: [element ids]` for the diff recolour. Approve is disabled iff the latest revision's `check_summary.fail > 0`; the API also returns 409 `open_findings`.
-- Error shapes are in R18 (`429 global_cap` carries `offer: "replay"`).
-- Voice: `POST /api/voice` takes multipart field `audio` and form field `revision_ref`. Show `transcript` as "You said", and show and speak `answer`. Live mode uses `LIVE_SYSTEM_INSTRUCTION` from `kirchhoff/agents/specs.py` and the same three tool names. There is no tender upload route (R15).
-- For local development before WS1/Vertex: run `KIRCHHOFF_FAKES=1 KIRCHHOFF_BLOBS=memory make dev-api` for a full P1→P4 flow on fakes.
+- The brief is at `workspaces/{uid}/runs/{rid}/outputs/p1.intake`, field `json` (a JSON string), key `brief`; the `artifact {type: "brief"}` ref is exactly that Firestore path. The event can arrive before the step commits the doc, so retry the read when it is missing. Options are on `runs/{rid}.options`, and `artifact {type: "options"}` carries `recommended`.
+- Revision docs have `model: null` and `model_url: "revisions/{rev}/model.json"`; fetch the model with `GET /api/files/revisions/{rev}/model.json?redirect=0` → `{url}`, then a plain `fetch(url)` (or the bytes inline when the response carries `X-Kirchhoff-Inline: 1`, local fakes). Exports use the same route with `exports/{rev}/calc-report.pdf` and `exports/{rev}/boq.csv` (from `artifact {type: "export", ref, name, status}`, emitted only when the file exists).
+- `artifact {type: "revision"}` carries `changed: [element ids]` for the diff recolour and precedes that revision's `finding` events, whose payload carries `rev`. Approve is disabled iff the latest revision's `check_summary.fail > 0`; the API also returns 409 `open_findings`. The review gate always signs the latest revision. Finding `fix`/`rejected_fix` have `deltas` (metrics + `cost_delta`); finding `tender_refs` carry pdfplumber `bbox`es.
+- Error shapes are in R18 (`429 global_cap` carries `offer: "replay"`; `409 run_in_progress` on reset while a lease is live). Plan answers must be one of the question's `options` (R34).
+- Voice: `POST /api/voice` takes multipart field `audio` and form field `revision_ref`, and returns `{transcript, answer, tool_results: [{name, args, result}]}`. Show `transcript` as "You said", and show and speak `answer`. Live mode uses `LIVE_SYSTEM_INSTRUCTION` from `kirchhoff/agents/specs.py` verbatim, `new AgentPlatformBackend('us-central1')` (Firebase JS SDK 13's name for the spec's `VertexAIBackend`) and the same three tool names. There is no tender upload route (R15).
+- Explanations: fill `{value}`/`{limit}` with the unit only when the template does not already write it (R30).
+- Asset packs: `POST /api/asset/{pack}` → `{options, recommended, findings, geometry, choice}`; show `choice.reason` as the Asset agent's narration and mark `choice.option` (R33).
+- For local development before WS1/Vertex: run `KIRCHHOFF_FAKES=1 make dev-api` for a full P1→P4 flow on fakes (real Firestore, in-process blobs served inline by `/api/files`).
 
 **WS4 (enterprise, demo world, infra)**
 - Provide `kirchhoff/enterprise/client.py: make_enterprise_client() -> EnterpriseClient` (protocol in `kirchhoff/agents/ports.py`). It must make no network calls at construction. It needs `create_pr` with `idempotency_key` deduplication, `set_pr_status`, `set_opportunity_stage` and `reset_visitor(uid)`, with all visitor data scoped by uid. The Hall B opportunity id is `opp-hall-b`.
-- WS2 mirrors visitor PRs to `workspaces/{uid}/prs/{prid}` and the CRM overlay to `workspaces/{uid}/crm/opp-hall-b`. Your `/api/enterprise/*` proxy (auto-included if `kirchhoff/api/enterprise_proxy.py` exports `make_router(store, current_uid)`) can read them.
+- WS2 mirrors visitor PRs to `workspaces/{uid}/prs/{prid}` (`PurchaseRequisition.model_dump()`, `project_id: "hall-b"`) and the CRM overlay to `workspaces/{uid}/crm/opp-hall-b` (`CrmOverlay.model_dump()`). Your `/api/enterprise/*` proxy (auto-included if `kirchhoff/api/enterprise_proxy.py` exports `make_router(store, current_uid)`) can read them. The full list of WS4 obligations is `docs/superpowers/plans/2026-10-13-ws4-obligations.md`.
 - Image: copy `scenarios/` to `/app/scenarios` and `apps/web/public/demo/projects/*.json` to `/app/seed` (or set `KIRCHHOFF_SCENARIOS_DIR` / `KIRCHHOFF_SEED_DIR`). Seed bundle revisions must inline `model` (what-if and explain on `seed:` refs read it).
 - `capture.py`: revision models are in GCS (`workspaces/{uid}/revisions/{rev}/model.json`; R7) and the brief is in the `p1.intake` outputs doc; recompute hashes with `engine.model_hash` (R22).
-- Infra: grant the runtime service account `roles/iam.serviceAccountTokenCreator` on itself (Task 18 Step 5) and change `infra/smoke.sh` from `/api/hello-run` to `POST /api/runs` → 401. `services/api/pyproject.toml` gains `python-multipart` (Task 16).
+- Infra: grant the runtime service account `roles/iam.serviceAccountTokenCreator` on itself (Task 18 Step 5). `infra/smoke.sh` keeps probing `GET /api/whoami` → 401 (permanent). Bucket CORS must allow `GET` from https://kirchhoff.web.app (the browser fetches signed URLs directly). `services/api/pyproject.toml` gains `python-multipart` (Task 16).
 
 ## Self-review
 
@@ -7338,3 +7680,4 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - §17 schedule: see the mapping above.
 - **Placeholder scan.** Every code step contains complete code. Shared files touched outside WS2 ownership are listed explicitly (`pyproject.toml`, deletion of P0 hello). Infra commands are flagged as WS4-coordinated.
 - **Type consistency.** `ctx.agent(spec, step, message, tools=(), attachments=(), key=None)` and `ctx.agent_json(spec, step, message, schema, ...)` are used the same way in Tasks 8, 11 and 13. `build_fake_deps(store, scenarios_dir, seed_dir=None, replies=None, **overrides)` is the same in Tasks 8, 11, 12 and 14. Replay keys are `"{agent}:{key}"`, with fix keys `"p3.fix.{n}:{finding_id}"`, explain keys `"explain:{finding_id}"`, voice key `"voice"` and asset keys `"{pack}"`. Revision ids are `{rid}-r{n}` everywhere. The `Exporter.export` keyword set (`uid, rev, findings, fixes, brief, options, pr_lines, order, summary`) matches across `StubExporter`, `BlobExporter` and the P3 docs step.
+- **Reconciliation (13 Oct).** Rulings R25–R34 and the "Reconciliation log (13 Oct)" in `2026-10-13-interfaces.md` record the cross-plan changes: P0 fix-wave store/event APIs and the EventWriter hardening (Tasks 6, 8, 10, 12), `/api/whoami` kept (Tasks 12, 18), revision-artifact-first finding events with `rev` (Tasks 13, 14), export artifacts only for written files, `deltas` with `cost_delta`, tender-ref boxes (Task 13), unit-aware `fill_finding` (Tasks 4, 15), voice `tool_results[].name` and `explain_finding(element_id)` (Task 16), `/api/files?redirect=0` and inline local blobs (Tasks 8, 12, 18). These edits were made in the plan text and have not been executed yet; each task's test step covers them. WS4's side is in `2026-10-13-ws4-obligations.md`.
