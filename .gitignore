@@ -6,6 +6,8 @@ __pycache__/
 services/api/build/
 .env*
 !.env.example
+!.env.production
+!.env.development
 .firebase/
 *.log
 .superpowers/
