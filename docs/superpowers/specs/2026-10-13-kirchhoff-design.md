@@ -1,10 +1,10 @@
-# Kirchhoff — design spec (v3)
+# Kirchhoff — design spec (v4)
 
 **Product:** Kirchhoff, by team Ordinal (Mehul Arora, lead; Jaydratha).
 **One-liner:** Kirchhoff turns weeks of scarce senior-engineer work into one reviewed, signed design session. Gemini agents read the tender, design power and cooling for an AI data hall, and hand off to procurement and sales; a deterministic checker proves every number; the engineer decides and signs.
 **Tagline:** *AI designs. Physics checks. An engineer signs.*
 **Target:** Google Cloud × Hack2skill AI Builder Cup 2026, theme *Future of Work & Enterprise Productivity*. Secondary: Hitachi Startup Challenge 2026 (Smart Engineering).
-**Date:** 2026-10-13 (v3 after review rounds 1–2 and the user's demo-world requirement). **Submission due:** 18 Oct 2026; internal deadline Fri 17 Oct, 20:00 IST.
+**Date:** 2026-10-13 (v4 after review rounds 1–3 and the user's demo-world requirement). **Submission due:** 18 Oct 2026; internal deadline Fri 17 Oct, 20:00 IST.
 
 ---
 
@@ -63,7 +63,7 @@ Real product footage only, burned-in captions, values read from the recorded run
 | 0:10–0:30 | Intake | Drop tender PDF and drawing; requirement cards stream in with "✓ quote verified"; click a chip → PDF opens at the clause; Intake flags §4.2 (2N) vs Appendix B (block or distributed redundancy acceptable) | "Gemini reads the whole tender, cites every requirement, and spots where the client contradicts itself." |
 | 0:30–0:40 | Plan gate | Plan with the open question; engineer answers "compare all three; §4.2 governs if equal" and approves; Ask/Auto switch visible | "The engineer stays in charge of decisions." |
 | 0:40–1:10 | Agents | Lanes: Layout places 48 racks; Power and Cooling in parallel; Procurement: "2.5 MVA: 98 weeks > 26-week limit (§2.3) → 3.15 MVA ships from stock"; Power re-checks fault level (value from run). Option cards with installed MVA, normal/failover loading, cost, losses, lead time; engineer picks 2N. SLD stages in; busways and pipes route in 3D | "Agents design power and cooling together — around equipment that can actually ship." |
-| 1:10–1:40 | Checker | Matrix fills to N checks (counted live); 2 fail. Open R11 "coolant header above busway B-03": clause, tender chip, geometry; Cooling drops the header to the low tier. "+1 more": feeder A-06 ΔV above the 2% limit (value from run); Power weighs "re-route via north corridor" vs "upsize to 2,000 A" with cost and ΔV and picks one with a reason. Diff recolours changed elements; all green | "Gemini designs. Physics checks. The AI can't mark its own homework." |
+| 1:10–1:40 | Checker | Matrix fills to N checks (counted live); 2 fail. Open R11 "coolant header above busway B-03": clause, tender chip, geometry; Cooling drops the header to the low tier. "+1 more": feeder FA-01 ΔV above the 2% limit (value from run); Power weighs "upsize to 2,000 A busway" vs "parallel cable feeder" with cost and ΔV and picks one with a reason. Diff recolours changed elements; all green | "Gemini designs. Physics checks. The AI can't mark its own homework." |
 | 1:40–1:58 | What-if | Voice (or chip): "What if racks go to 200 kW?" Impact chain lights rack → busway → board → transformer and rack → CDU zone in two colours | "See everything that breaks, across disciplines, in seconds." |
 | 1:58–2:18 | Sign-off and handoff | Review page: diff, assumptions ledger, Reviewer stamp with revision hash; PRs appear in ERP; CRM opportunity moves to "Design approved" | "Engineering, procurement and sales: one workflow." |
 | 2:18–2:28 | Asset packs + demo world | Projects dashboard; quick switch to Grid (132 kV line, conductor choice) and Solar (PV field, strings) | "Same engine, new asset packs." |
@@ -73,7 +73,7 @@ Every failure shown is computed live on the sample inputs; the sample hall is ch
 
 ## 4. Impact metrics (measured)
 
-1. **Time to a checker-clean revision:** upload → all-pass revision, median of 5 live runs.
+1. **Time to a checker-clean revision:** upload → all-pass revision, median of 5 live runs, excluding time spent waiting at human gates.
 2. **Intake accuracy:** requirements extracted correctly vs ground truth (we authored the tender) and share of citations resolving to the right clause.
 3. **Checker catch rate:** seeded-fault benchmark of ~30 mutated Hall A designs across R01–R15; detected faults and false positives.
 4. **Cost per design:** Gemini tokens and USD per full run.
@@ -121,20 +121,26 @@ ADK 2.11 (Python) `Workflow` graphs on Cloud Run, all on `gemini-3.8-flash` with
 |---|---|---|---|---|
 | Intake | slate | Which requirements exist, their values, contradictions | Native PDF input; `verify_quote`; `parse_dxf_geometry`; drawing cross-check | `DesignBrief`; open questions; intake score |
 | Orchestrator | white | Plan steps and which questions go to the human | — | Plan; gate prompts |
-| Layout | cyan | Nothing on first pass; supplies route candidates to the fix loop | `place_racks`, `route_busways`, `detect_clashes` | Rack positions; busway routes |
-| Power Architect | amber | Which topologies to offer; electrical fix choice (re-route vs upsize) with reason | `enumerate_topologies`, `size_power_chain`, `run_short_circuit`, `simulate_n_minus_1` | Options with metrics; electrical model |
+| Layout | cyan | Nothing (runs the deterministic default placement and routing; narrates) | `place_racks`, `route_busways`, `detect_clashes` | Rack positions; busway routes |
+| Power Architect | amber | Which topologies to offer; electrical fix choice (upsize busway vs parallel cable feeder) with reason | `enumerate_topologies`, `size_power_chain`, `run_short_circuit`, `simulate_n_minus_1` | Options with metrics; electrical model |
 | Cooling | blue | Cooling fix choice (tier change vs reroute) with reason | `size_cdus`, `hydraulic_zones`, `route_pipes`, `pipe_hydraulics` | CDUs, zones, pipes, flows |
-| Procurement | green | Which in-stock alternative to propose when R15 fails | `erp_search_materials`, `erp_lead_time`, `annotate_options`, `erp_create_pr` | Availability and swaps on options; PRs |
+| Procurement | green | Nothing (the swap is the deterministic engine function `r15_swap`, section 8.2); narrates the trade-off | `erp_search_materials`, `erp_lead_time`, `annotate_options` (calls `r15_swap`), `erp_create_pr` | Availability and swaps on options; PRs |
 | Checker | red | Nothing (deterministic) | `run_rule_pack` | Findings |
 | Docs | violet | Report ordering and summary text | `render_calc_report`, `export_boq`, `export_dxf` | Files in Cloud Storage |
 | Co-pilot | gradient | Which tool answers the user | `what_if`, `explain_finding`, `focus_element` | Answers; UI focus |
 | Asset agent | teal | Which conductor/string option to recommend | grid and solar engine tools | Asset-pack results |
 
-**Option gate:** Ask — the engineer picks. Auto — lowest cost with zero single points of failure and every lead time within §2.3; the agent states why.
+**Plan gate in Auto:** each open question resolves to the tender's main body (a numbered clause beats an appendix), so §4.2 vs Appendix B resolves to 2N; the resolution is logged in the ledger.
+
+**Option gate:** Ask — the engineer picks. Auto — options are filtered by the resolved clauses (so 2N), then the lowest-cost option with zero single points of failure and every lead time within §2.3 is chosen; the agent states why.
+
+**Fix candidates:** the engine offers only candidates that clear the target finding without creating any new failure (it re-runs the full rule pack on each candidate before offering it). The owning agent chooses among them on cost and margin.
+
+**Fix-loop exhaustion:** if findings remain after 2 iterations, the run stops at the review gate with Approve disabled and the open findings listed.
 
 ### 6.2 Four-phase run model
 
-A run has four phases. Each phase starts from a POST that validates, writes a `phase` doc, starts a worker thread and returns 202 in < 2 s. Each phase reads inputs from Firestore and writes outputs there; no ADK session state crosses a phase boundary. Engine calls run off the event loop. Every `/api` call returns in < 10 s.
+A run has four phases, each made of named **steps** (e.g. `p2.place_racks`, `p2.power_options`, `p2.cooling_sizing`, `p2.annotate_options`). Each phase starts from a POST that validates, acquires the run lease, starts a worker thread and returns 202 in < 2 s. Each step reads its inputs from Firestore and commits its outputs, its events and a `done` marker in **one batch** (`workspaces/{uid}/runs/{rid}/steps/{stepId}`). No ADK session state crosses a step boundary. Engine calls run off the event loop. Every `/api` call returns in < 10 s.
 
 ```
 P1  Intake → Orchestrator ......................................... PLAN GATE
@@ -149,20 +155,22 @@ P3  Layout.route_busways → Cooling.route_pipes → detect_clashes (solid inter
 P4  (on approval) Procurement.erp_create_pr → R12 re-run on submitted PRs → CRM stage update → audit entry
 ```
 
-- **Gates:** in Ask mode a gate ends the phase and the approval POST starts the next phase. In Auto mode the worker starts the next phase itself (the review gate always waits for a human).
-- **Durability:** each running phase holds a Firestore lease (`runs/{rid}.lease = {owner, heartbeatAt}`) refreshed every 15 s. If the lease is older than 60 s, the client calls `POST /api/runs/{rid}/resume`; the phase restarts idempotently, skipping events whose `seq` is already written. Deploys during judging happen only when no runs are active.
+- **Gates:** in Ask mode a gate ends the phase and the approval POST starts the next phase. In Auto mode the worker starts the next phase itself (the review gate always waits for a human). Runs parked at a gate for more than 24 h are marked `expired`.
+- **Durability:** the running phase holds a lease on `workspaces/{uid}/runs/{rid}` (`lease = {owner, attempt, heartbeatAt}`) refreshed every 15 s. If the lease is older than 60 s, the client calls `POST /api/runs/{rid}/resume`. Resume takes the lease in a Firestore transaction (incrementing `attempt`), skips every step whose `done` marker exists, reuses those steps' committed outputs, and re-executes only unfinished steps. Events carry `attempt`; the UI shows only events from completed steps plus the current attempt of the running step. Deploys during judging happen only when no lease is held.
+- **Live-run cap:** only runs holding a live lease count toward the global cap of 3.
+- **P4 consistency failure:** if R12 fails on submitted PRs, PR submission is blocked, the PRs are marked `blocked`, the signed revision stays signed, and an audit entry and a finding are written.
 
 ### 6.3 Trust rules
 
 - Every number displayed comes from the engine.
-- LLM explanation text may contain digits only through placeholders (`{value}`, `{limit}`) filled from the finding record, or allowlisted record tokens (element ids like B-03, rule ids like R11, clause ids like §4.6, topology names like 2N or N+1). Any other digit causes the sentence to be replaced by the rule's template sentence.
+- All LLM text shown in the UI (finding explanations, lane narration, co-pilot answers) may contain digits only through placeholders (`{value}`, `{limit}`) filled from engine records, or allowlisted record tokens: element ids (B-03, FA-01, CDU-4), rule ids (R11), clause ids (§4.6), topology names (2N, N+1, 3 + 1, 4-to-make-3) and catalogue ids. Any other digit causes the sentence to be replaced by a template: the rule's template sentence for findings, "{agent} completed {step}" for lane narration, and an engine-generated summary for co-pilot answers.
 - Requirement cards: Gemini returns `{page, verbatim_quote, value, unit}`; accepted only if pdfplumber finds the quote on that page and the quote contains the value; bounding boxes come from pdfplumber. The lane shows "N/M quotes verified".
 - Drawing cross-check: Gemini reads grid labels and overall dimensions from the PDF plot; the engine compares with the DXF; the lane shows "Drawing read · DXF agrees" or the differences.
 - Agents write assumptions-ledger entries when they fill gaps; the ledger also lists what v0.1 does not check (section 8.4).
 
 ### 6.4 What-if
 
-`what_if(param, value)` builds an engine-only shadow revision (no LLM) in < 3 s. **Semantics:** loads change; equipment, ratings, routes and flows stay frozen; all rules re-run. The impact chain is the failing elements ordered along rack → busway → board → transformer and rack → zone → CDU. Parameters: rack kW, liquid fraction, ΔV limit, transformer loading cap. Available as UI chips in every mode.
+`what_if(revisionRef, param, value)` builds an engine-only shadow revision (no LLM) in < 3 s and returns it **without saving**. `revisionRef` is either a visitor revision (`ws:{rev}`) or a seed revision (`seed:hall-a@r2`), which the API loads from the seed bundles baked into its image. **Semantics:** loads change; equipment, ratings, routes and flows stay frozen; all rules re-run. The impact chain is the failing elements ordered along rack → busway → board → transformer and rack → zone → CDU. Parameters: rack kW, liquid fraction, ΔV limit, transformer loading cap. Available as UI chips in every mode. The chip what-ifs for Hall A are also precomputed into its static bundle, so tour step 5 works with the backend down.
 
 ### 6.5 Voice
 
@@ -213,7 +221,9 @@ Load-bearing roles:
 - `ΔU% = 100 · √3 · I · L · (R cosφ + X sinφ) / U`, R at operating temperature; feeder sections factor 1.0; row busway with n equal tap-offs `(n+1)/(2n)`; measured from the UPS output board to the furthest tap-off.
 - Short circuit: pandapower `calc_sc` (IEC 60909, max case, `ip=True`) at LV boards, UPS output boards and busways. (Hand estimate: ~61 kA with 2.5 MVA, ~66 kA with 3.15 MVA.)
 - Redundancy (generic): each rack has two feeds mapped to source systems. Normal allocation per topology (section 9.3). On loss of any component, affected feeds transfer to the rack's other feed. N-1 passes only if every rack keeps a feed and R01, R02 and R07 pass in that case. networkx graph, not repeated load flows. MV bus faults are out of scope (ledger).
+- Transformer load = ((UPS-backed load) / η_UPS + non-UPS load) / cosφ. UPS-backed load = IT + CDU pumps. Aux load is split equally across the systems carrying load in the case being evaluated, and follows the IT load on failover.
 - Losses: transformer P0 + Pk·(S/Sn)², UPS (1 − η)·P, busway I²R.
+- `r15_swap(line)`: candidates are catalogue/ERP items of the same category and voltage with rating ≥ the requirement and (stock ≥ required quantity or lead time ≤ 26 weeks); sorted by (rating, unit price, id); the first candidate for which R01, R04 and R04b pass after re-running short circuit is chosen. Deterministic; the Procurement agent only narrates it.
 - Cooling: PG25 fixed at 35 °C (ρ 1,020 kg/m³, cp 3.95 kJ/kg·K, μ 1.5 mPa·s; 25% by mass); `ṁ = Q/(cp·ΔT)`; `v = 4·V̇/(π·D²)`; Darcy–Weisbach + Swamee–Jain; 30% fittings allowance; index circuit = zone header + row branch + rack Δp.
 - Spatial: Shapely; clearance to columns; a pipe segment is "above electrical" if its tier is higher than the busway's and its plan projection intersects the busway footprint.
 - BOQ and draft PR lines are derived from the model before every Checker run.
@@ -250,7 +260,22 @@ Finding status: `pass | fail | warn | n/a`. The total number of checks is counte
 ### 9.1 Site and loads
 
 - **Client:** Deccan Compute (fictional). **Site:** AI campus near Hyderabad (fictional).
-- **Hall:** 60 m (x) × 36 m (y); 12 × 12 m grid (6 × 4 lines, 24 columns incl. perimeter); keep-out zone (fire-suppression room) centre-west; **LV room A in the south-east corner, LV room B in the north-east corner**; CDU gallery along the north wall.
+- **Hall and pinned geometry** (metres; x east, y north; origin at the hall's south-west corner; all routes on the `busway` tier unless stated):
+
+  | Element | Position |
+  |---|---|
+  | Hall | x 0–60, y 0–36 |
+  | Columns | 12 × 12 m grid: x ∈ {0,12,24,36,48,60}, y ∈ {0,12,24,36} (24 columns) |
+  | Keep-out (fire-suppression room) | x 10–18, y 10–26 |
+  | Rows R1–R6 (N–S, 8 racks each, racks y 15.6–20.4) | centre x = 6, 22, 28, 34, 40, 46 |
+  | LV room A (outside east wall, south) | x 60–72, y 0–10; A-side feeder exit (66, 4) |
+  | LV room B (outside north wall, centre) | x 24–36, y 36–46; B-side feeder exit (30, 40) |
+  | A-side primary corridor | along y = 2; feeders turn north along the row centreline to the row's south end (y 15.6) |
+  | B-side primary corridor | along y = 35; feeders turn south along the row centreline to the row's north end (y 20.4) |
+  | CDU gallery | inside the hall along the north wall, y 28–33; CDUs CDU-1…CDU-9 in zone order |
+
+  Feeder length = horizontal route + 2 × 3.2 m vertical. Pipe routing default: zone main headers on `pipe_high` (the tier the tender's containment schedule reserves for mechanical mains), row branches on `pipe_low`. Exact header polylines are authored in `scenarios/hall_a/geometry.yaml` so that exactly one header segment (zone 2) crosses above a busway (B-03) in plan; the regression test locks this.
+- **Id scheme:** rows R1–R6; row busways A-01…A-06 and B-01…B-06; feeders FA-01…FA-06 and FB-01…FB-06; LV boards A1–A3, B1–B3; zones Z1 (R1–R2), Z2 (R3–R4), Z3 (R5–R6); headers H-Z1…H-Z3.
 - **IT:** 48 racks, 6 rows × 8, 600 × 1,200 mm, 132 kW each (GB300 NVL72-class), 6.336 MW. Heat split 80% liquid / 20% air as a tender assumption (OEM figures closer to 90/10; ledger notes it).
 - **Aux on the LV system:** 0.30 MW total (CDU pumps 9 × 15 kW UPS-backed; fan walls; controls); in 2N that is 0.05 MW per board normal, 0.10 MW failover.
 - **Power:** 33 kV MV board with incomers A/B and bus-coupler; source fault level 1,000 MVA, R/X 0.1; 415 V, 50 Hz, cosφ 0.95; each row has an A and a B busway (12 row busways).
@@ -263,35 +288,39 @@ Finding status: `pass | fail | warn | n/a`. The total number of checks is counte
 
 | Option | Systems | Busway mapping | Normal / failover allocation | Transformers (after R15 swap) | Installed |
 |---|---|---|---|---|---|
-| 2N | 3 boards per side (A: SE room, B: NE room) | each board feeds 2 rows' A (or B) busways | 50/50; survivor takes 100% | 6 × 3.15 MVA | 18.9 MVA |
-| Distributed redundant (4-to-make-3) | 4 systems | row r's A/B busways map to the r-th of the 6 system pairs (3 busways per system) | 50/50; on loss the 3 partners each take one extra half-row | 4 × 3.15 MVA | 12.6 MVA |
-| Block redundant (3 + 1) | 3 active blocks (2 rows each) + 1 reserve | A busways from the block (100%); B busways from the reserve via 6 STS (0% normal) | block 100%; reserve takes a failed block | 4 × 3.15 MVA | 12.6 MVA |
+| 2N | Boards A1–A3 (room A), B1–B3 (room B) | A1 → A-01, A-02; A2 → A-03, A-04; A3 → A-05, A-06; same pattern for B | 50/50; survivor takes 100% | 6 × 3.15 MVA | 18.9 MVA |
+| Distributed redundant (4-to-make-3) | Systems S1, S2 (room A), S3, S4 (room B) | pairs in lexicographic order (S1,S2), (S1,S3), (S1,S4), (S2,S3), (S2,S4), (S3,S4) map to R1…R6; the lower-numbered system feeds the row's A busway, the higher its B busway (3 busways per system) | 50/50; on loss the 3 partners each take one extra half-row | 4 × 3.15 MVA | 12.6 MVA |
+| Block redundant (3 + 1) | Blocks K1–K3 (room A), reserve KR (room B) | K1 → A-01, A-02; K2 → A-03, A-04; K3 → A-05, A-06; each B busway is fed from KR's critical board through its own STS (preferred source KR UPS, alternate KR bypass) | rack PSUs draw from the A feed while it is healthy (ledger assumption); KR carries 0 normally and takes a failed block | 4 × 3.15 MVA + 6 STS | 12.6 MVA |
+
+Every option is generated and checked through P3. The scenario regression asserts that each option reaches all-pass within 2 fix iterations; only 2N is the golden-run path.
 
 ### 9.4 Catalogue (`scenarios/hall_a/catalogue.yaml`)
 
 - Transformers: 2.5 MVA (uk 6%, P0 3.5 kW, Pk 21 kW) and 3.15 MVA (uk 7%, P0 4.2 kW, Pk 25 kW); cast-resin Dyn11. (Illustrative values.)
 - Busways 1,600 / 2,000 / 2,500 A with R, X at operating temperature (1,600 A: R·cosφ + X·sinφ ≈ 0.0395 mΩ/m; 2,000 A ≈ 0.030 mΩ/m), Icw 85 kA (1 s), ipk 187 kA.
-- Breakers: Icu 100 kA, Ics 100%.
-- UPS: 500 kW modules, η 97%, frames up to 6 modules. STS 1,600 A.
+- Breakers: ACB frames 1,600 / 2,000 / 2,500 A with adjustable In; Icu 100 kA, Ics 100%; I2 = 1.3 In.
+- UPS: 500 kW modules, η 97%, frames up to 6 modules; battery autonomy 7 min at full module load. STS 1,600 A.
+- Parallel-cable feeder option: 2 × 4 × 1C 240 mm² Cu per phase (R 0.0958 mΩ/m, X 0.08 mΩ/m per conductor at 90 °C, illustrative).
 - CDU: 1,200 kW at ΔT 10 K, 150 kPa available external head, 15 kW pump.
 - Pipes: DN100/150/200 with internal diameters (DN150 154 mm, DN200 206 mm). Rack + manifold Δp 60 kPa. OEM minimum rack flow 71 L/min.
 
 ### 9.5 ERP and CRM seed
 
-- Transformer 2.5 MVA: stock 0, lead time 98 weeks. Transformer 3.15 MVA: stock 6, 12 weeks for more. Plus UPS modules, busways, STS, CDUs, pipes, breakers with prices and vendors (section 13 adds the wider catalogue).
-- CRM: Deccan Compute opportunity "Hall A design-build", stage "Design in progress" → "Design approved" on sign-off.
+- Transformer 2.5 MVA: stock 0, lead time 98 weeks. Transformer 3.15 MVA: stock 6, 12 weeks for more. Every other line the design can use (UPS modules, busways incl. 2,000 A, STS, CDUs, pipes, breakers, cables) is in stock in sufficient quantity or ≤ 26 weeks, so only the transformer fails R15 (generator constraint, asserted by a test). Prices and vendors for all (section 13 adds the wider catalogue).
+- CRM: "Hall A design-build" is seeded at "Design approved" (Hall A is already signed). "Hall B design-build" is seeded at "Design in progress" and moves to "Design approved" when a visitor signs Hall B (stored as the visitor's overlay).
 
 ### 9.6 Verified numbers (hand-calculated 13 Oct; locked by the scenario regression test Tue 14 Oct)
 
-- Rack 193 A; row busway 773 A normal / 1,546 A failover (97% of 1,600 A, no derating above 35 °C).
-- 2N LV board: 2,328 kVA failover → 2.5 MVA: 47% normal / 93% failover (passes R01) → R15 fails on lead time → 3.15 MVA: 37% / 74%.
-- DR: 2.5 MVA 70% / 93%; 3.15 MVA 55% / 74%. Block: 2.5 MVA 93% normal (fails R01, never offered); 3.15 MVA 74% / 74%.
+- Rack 193 A; row busway 773 A normal / 1,546 A failover (97% of 1,600 A; ambient ≤ 35 °C, no derating).
+- Transformer loading (incl. UPS losses, section 8.2): 2N board 2,399 kVA in failover → 2.5 MVA: 48% normal / 96% failover (passes R01) → R15 fails (98 weeks) → `r15_swap` picks 3.15 MVA: 38% / 76%.
+- DR: 2.5 MVA 72% / 96%; 3.15 MVA 57% / 76%. Block: 2.5 MVA 96% normal (fails R01, never offered); 3.15 MVA 76% / 76%.
+- Short circuit (hand estimate; pandapower is authoritative): Ik″ ≈ 61 kA with 2.5 MVA, ≈ 66 kA with 3.15 MVA; ip ≈ 167 kA ≤ busway ipk 187 kA; Icu 100 kA.
 - UPS per 2N board in failover ≈ 2.16 MW → 5 × 500 kW modules.
-- ΔV: 1,600 A feeder ≈ 0.0255 %/m at failover → 2.0% at ≈ 78 m. Only **feeder A-06** (far-west row, from LV room A in the SE corner) detours around the keep-out zone; tuning band for its first-pass ΔV: [2.1%, 2.4%] (fails R05). Fix candidates: re-route via the north corridor (route candidate #2) or upsize to 2,000 A (1.60–1.83%). Both must pass; re-feeding from another board is excluded because it would overload that board (R01).
+- ΔV (1,600 A busway ≈ 0.0255 %/m at failover; row busway adds ≈ 0.07%): FA-01 82 m → **2.16% (fails R05)**; FA-02 66 m → 1.75%; FA-03…FA-06 1.60–1.14%; FB-01…FB-06 1.34–0.78%. Fix candidates for FA-01: upsize to 2,000 A busway → 1.66%; parallel cable feeder → 0.84%. Both pass; re-feeding from another board is not offered because it would overload that board (R01).
 - Cooling: 105.6 kW liquid per rack → 157 L/min (≥ OEM 71). Zone = 2 rows = 1.69 MW → N = 2, N+1 = 3 per zone, 9 CDUs. Zone header DN200 1.26 m/s; row branch DN150 1.13 m/s. Index Δp ≈ 70 kPa ≤ 150 kPa.
-- Only the **zone-2 main header** runs on `pipe_high` in the first pass and crosses busway B-03 (fails R11); fix: drop to `pipe_low` at the crossing (or reroute).
-- Golden option (2N) first pass yields exactly two findings: R05 (A-06) and R11 (zone-2 header / B-03).
-- What-if 200 kW (frozen equipment): busway 2,343 A (fails R02), 2N board 3,474 kVA = 110% (fails R01), zone liquid 2.56 MW > 2.4 MW N capacity (fails R08); also R03, R05, R07 and R09 fail. Regression asserts at least R01, R02, R08.
+- The **zone-2 main header** H-Z2 on `pipe_high` crosses above busway B-03 (fails R11); fix: a local drop to `pipe_low` at the crossing (or reroute). H-Z1 and H-Z3 cross no busway.
+- Golden option (2N) first pass yields exactly two findings: R05 (FA-01) and R11 (H-Z2 over B-03).
+- What-if 200 kW (frozen equipment): row busway 2,343 A (fails R02), 2N board 3,579 kVA = 114% of 3.15 MVA (fails R01), zone liquid 2.56 MW > 2.4 MW N capacity (fails R08); R03, R05, R07 and R09 also fail. Regression asserts at least R01, R02, R08.
 
 ## 10. Asset packs (thin, user-requested)
 
@@ -302,11 +331,12 @@ Both reuse the shell, Checker, finding drawer and revision timeline, with one As
 ## 11. Reliability and judging-window operations
 
 - **Judge's first 10 seconds:** landing has one primary CTA, "Enter the demo workspace (no login)" → welcome screen → guided tour (section 13.5). "Run it live" and "Replay a recorded run" are secondary.
-- **Static first:** seed projects (including the signed Hall A) and an integrations snapshot load from static JSON on Hosting, so browsing never depends on Cloud Run, Gemini or App Check.
-- **Live runs:** "Run it live" designs **Hall B**, a twin hall with Hall A's requirements, in the visitor's own workspace.
-- **Event-sourced UI:** one in-browser event store, fed by Firestore (live) or static JSON (seed projects and replay).
+- **Static first:** seed projects (including the signed Hall A) and an integrations snapshot load from static JSON on Hosting, so browsing never depends on Cloud Run, Gemini or App Check. Browsing never reads Firestore `seed/*`; those collections serve the API only.
+- **Live runs:** "Run it live" designs **Hall B**, which has inputs identical to Hall A's (same tender, drawing and catalogue), in the visitor's own workspace. The scenario regression therefore covers Hall B.
+- **One bundle format:** the UI renders everything from a `ProjectBundle` (section 14), loaded either from static JSON (seed projects, replay) or assembled live from Firestore by an adapter.
+- **Golden capture:** `scenarios/hall_a/capture.py` exports a completed Hall B run as a `ProjectBundle`, rewrites ids, authors (Priya Raman signs) and timestamps to Hall A, and hands the result to the demo-world generator, which derives Hall A's PRs and the integrations snapshot from it. Seed ERP PR ids and Hall A's PRs therefore always agree.
 - **Limits:** global cap of 3 concurrent live runs (overflow offered replay); 5 runs per visitor per hour.
-- **Gemini:** retries with backoff, per-agent timeouts, structured-output validation with one repair attempt; quota increase requested Mon 13 Oct.
+- **Gemini:** retries with backoff, per-agent timeouts, structured-output validation with one repair attempt. Vertex Gemini runs on Google's shared pay-as-you-go capacity, so no per-project quota request is needed; 429s are retried with backoff.
 - **Firestore writes:** events batched ~250 ms; `runs/{rid}` ≤ 1 update/s (lease heartbeats included); event docs < 10 KB; models > 500 KB to Cloud Storage with hash pointer; single writer assigns `seq` per phase.
 - **Monitoring:** uptime checks on `/` and `/api/health`; budget USD 200 with 50%/90% alerts.
 - **Freeze:** golden path frozen Thu 16 Oct 22:00 IST; post-submission changes only via tagged releases, deployed with no runs active.
@@ -381,7 +411,7 @@ Seed data comes from deterministic generators in `scenarios/demo_world/` (fixed 
 
 ### 13.4 Per-visitor workspace
 
-Shared seed data is read-only (static JSON + read-only Firestore seed collections). Each anonymous visitor gets `workspaces/{uid}` holding only what they change: live runs on Hall B, revisions, findings, approvals, PRs they create, CRM stage overlays, checklist progress. "Reset demo workspace" deletes the visitor's overlay.
+Shared seed data is read-only (static JSON for the browser; Firestore `seed/*` for the API). Each anonymous visitor gets `workspaces/{uid}` holding only what they change: live runs on Hall B, revisions, findings, approvals, PRs they create, CRM stage overlays. Tour and checklist progress live in the browser's localStorage, so they work with the backend down. "Reset demo workspace" deletes the visitor's Firestore overlay and clears localStorage.
 
 ### 13.5 Onboarding
 
@@ -390,7 +420,7 @@ Shared seed data is read-only (static JSON + read-only Firestore seed collection
   1. Projects dashboard — "Your firm's live projects."
   2. Hall A signed design — "Every number is checked and cited." (matrix row)
   3. Finding drawer — open a finding; click the tender chip; PDF jumps to the clause.
-  4. Agent lanes / run history — "Six agents designed this; here's what each did."
+  4. Agent lanes / run history — "{n} agents designed this; here's what each did." (n counted from the bundle)
   5. What-if chip — "Try it: racks to 200 kW." (< 3 s)
   6. Integrations — "Approval pushed these PRs to ERP and moved the CRM deal."
   7. Hall B — "Now run it live yourself." (or replay)
@@ -405,14 +435,17 @@ Shared seed data is read-only (static JSON + read-only Firestore seed collection
 
 ## 14. Data model and security
 
+**ProjectBundle** (one schema, defined once in Pydantic and generated to TypeScript): `{project, runs[], events[], steps[], revisions[] (model inline or modelUrl), findings[], approvals[], prs[], crmOverlay, whatIfs[] (precomputed chips, seed bundles only)}`. Two adapters produce it: static JSON (seed projects, replay) and Firestore (visitor workspace).
+
 ```
-(static, Hosting)  /demo/world.json · /demo/projects/{pid}.json (events, revisions, findings, approvals) · /demo/integrations.json
-seed/erp_materials/{mid}            category, rating, stock, leadTimeWeeks, unitPrice, vendor      (read-only)
-seed/erp_prs/{prid}                 historical PRs                                                  (read-only)
-seed/crm_opportunities/{oid}        account, stage, value, nextStep                                 (read-only)
-workspaces/{uid}                    createdAt, tourSeen, checklist{}, lastRunAt
-workspaces/{uid}/runs/{rid}         projectId, status, autonomy, phase, lease, plan[], openQuestions[], metrics, startedAt, finishedAt
-workspaces/{uid}/runs/{rid}/events/{eid}   seq, phase, agent, kind, title, detail, payload (<10 KB), ts
+(static, Hosting)  /demo/world.json · /demo/projects/{pid}.json (ProjectBundle) · /demo/integrations.json
+seed/erp_materials/{mid}            category, rating, stock, leadTimeWeeks, unitPrice, vendor      (API read-only)
+seed/erp_prs/{prid}                 historical PRs incl. Hall A's                                   (API read-only)
+seed/crm_opportunities/{oid}        account, stage, value, nextStep                                 (API read-only)
+workspaces/{uid}                    createdAt, lastRunAt
+workspaces/{uid}/runs/{rid}         projectId, status (running|at_gate|done|expired|failed), autonomy, phase, lease{owner, attempt, heartbeatAt}, plan[], openQuestions[], metrics, startedAt, finishedAt
+workspaces/{uid}/runs/{rid}/steps/{stepId}   phase, status, done, attempt, outputsRef, startedAt, finishedAt
+workspaces/{uid}/runs/{rid}/events/{eid}   seq, phase, step, attempt, agent, kind, title, detail, payload (<10 KB), ts
 workspaces/{uid}/revisions/{rev}    projectId, parentRev, author, hash, model | modelRef, summary, checkSummary, status, ledger[]
 workspaces/{uid}/revisions/{rev}/findings/{fid}   rule_id, element_id, clause_refs, tender_refs, formula, inputs, value, limit, unit, status, explanation, fix, rejected_fix
 workspaces/{uid}/approvals/{aid}    rev, approverName, role, decision, comment, ts
@@ -420,7 +453,7 @@ workspaces/{uid}/prs/{prid}         rev, lines[], status, createdAt
 workspaces/{uid}/crm/{oid}          stage overlay
 ```
 
-- **Firestore rules:** clients read `seed/*` and their own `workspaces/{uid}/**`; all client writes denied. Every mutation goes through `/api`.
+- **Firestore rules:** clients read only their own `workspaces/{uid}/**`; `seed/*` is not client-readable; all client writes denied. Every mutation goes through `/api`.
 - **API auth:** `kirchhoff-api` is public (Hosting rewrites need it) and verifies the Firebase ID token, App Check token and workspace ownership on every call except `/api/health`. `/mcp` uses a bearer token and serves only the sample project.
 - **Storage rules:** visitor exports readable by their owner; seed documents public-read; writes only via API signed URLs.
 
@@ -442,7 +475,8 @@ GitHub repo created private, made public before submission.
 
 - **Engine:** pytest per calculation against section 9.6 values.
 - **Rule pack:** passing and failing fixture per rule.
-- **Scenario regression (Tue 14 Oct):** golden option first pass yields exactly R05 (A-06) and R11 (zone-2 header / B-03) within bands; both fixes pass; R15 forces the 3.15 MVA swap; the 200 kW what-if fails at least R01, R02, R08.
+- **Scenario regression (Tue 14 Oct):** golden option (2N) first pass yields exactly R05 (FA-01, ΔV in [2.1%, 2.4%]) and R11 (H-Z2 over B-03); both fix candidates for each pass with no new failures; `r15_swap` deterministically picks 3.15 MVA and only transformer lines fail R15 before the swap; DR and block each reach all-pass within 2 fix iterations; the 200 kW what-if fails at least R01, R02, R08.
+- **Capture determinism:** `capture.py` + demo-world generator produce the same Hall A bundle and integrations snapshot hash from the same Hall B run.
 - **Seeded-fault benchmark:** ~30 mutated designs → catch rate and false positives.
 - **Intake scoring:** extraction vs ground truth; citation resolution rate.
 - **Agents:** schema tests with recorded Gemini responses; one live smoke run per day.
@@ -453,10 +487,10 @@ GitHub repo created private, made public before submission.
 
 | Day | WS1 | WS2 | WS3 | WS4 |
 |---|---|---|---|---|
-| **Mon 13** | Spec v3 + round 3 review; implementation plan; repo scaffold | — | — | Hello world end to end (Hosting → Cloud Run → Firestore events in browser); App Check; Gemini quota request |
-| **Tue 14** | Engine, catalogue, rule pack R01–R15 + tests; Hall A generators; regression lock; benchmark | Intake (verified citations, contradiction, scoring); P1/P2 workflows; event streaming; leases | App shell, landing, dashboard, workspace layout; SLD and 3D components on fixtures | Enterprise sandbox service + seed; demo world generators; Procurement tools; Firestore/Storage rules; uptime + budget |
-| **Wed 15** | Asset-pack engines (grid, solar) | P2 option gate, P3 fix loop, P4; full P1–P4 live run | Matrix, finding drawer + PDF citations, options cards, gates, revisions + diff | Integrations page + API proxy; welcome, tour, checklist; golden-run capture tooling. Evening: record a full run |
-| **Thu 16** | What-if engine; impact-chain data | Co-pilot + voice (Live + push-to-talk); Docs exports | Review/sign-off page, what-if UI, asset-pack screens, polish | golden-run.json + static signed Hall A; Should items by value; Playwright. Checkpoint 18:00; freeze 22:00; record |
+| **Mon 13** | Spec review done; implementation plan; repo scaffold; engine model types + catalogue.yaml + geometry.yaml | Tender PDF, hall DXF + PDF plot and intake ground truth (scenario authoring) | Shared schemas frozen (Pydantic → TypeScript: ProjectBundle, events, findings) and UI fixtures | Hello world end to end (Hosting → Cloud Run → Firestore events in browser); infra already provisioned (Auth, bucket, App Check key) |
+| **Tue 14** | Electrical calcs, short circuit, redundancy, cooling, routing; rule pack R01–R15 + tests; `r15_swap`; regression lock | Intake (verified citations, contradiction, scoring); P1/P2 workflows; steps, leases, resume; event streaming | App shell, landing, dashboard, workspace layout; SLD and 3D on fixtures; welcome screen | Enterprise sandbox service + seed; demo-world generators; Procurement tools; Firestore/Storage rules; uptime + budget alerts |
+| **Wed 15** | Seeded-fault benchmark; asset-pack engines (grid, solar) | P2 option gate, P3 fix loop, P4, Docs (stubbed exports); full P1–P4 live run; workspace create/reset and run limits API | Matrix, finding drawer + PDF citations, options cards, gates, revisions + diff; tour + checklist | Integrations page + API proxy; capture.py. Evening: record a full run |
+| **Thu 16** | What-if engine + impact chain; precomputed chip what-ifs | Co-pilot + voice (Live + push-to-talk); Asset agent; Docs exports (PDF, BOQ) | Review/sign-off page, what-if UI, asset-pack screens, polish | Golden capture → static Hall A + demo world; Should items by value; Playwright. Checkpoint 18:00; freeze 22:00; record |
 | **Fri 17** | Record 09:00; deck; video < 3:00; brief; repo public; submit by 20:00 IST | | | |
 | **Sat 18** | Buffer only | | | |
 
