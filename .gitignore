@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+services/api/build/
+.env*
+!.env.example
+.firebase/
+*.log
+.superpowers/
