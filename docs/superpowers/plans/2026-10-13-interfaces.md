@@ -11,6 +11,28 @@ Spec: `docs/superpowers/specs/2026-10-13-kirchhoff-design.md` (v4). Contracts: `
 | WS3 web UI | `2026-10-13-p3-web.md` | `apps/web/**` |
 | WS4 enterprise + demo world + infra | `2026-10-13-p4-enterprise-demo-infra.md` | `services/api/kirchhoff/enterprise/**`, `services/api/kirchhoff/api/enterprise_proxy.py`, `scenarios/demo_world/**`, `scenarios/hall_a/capture.py`, `infra/**`, `services/api/tests/enterprise/**`, Playwright tests in `e2e/**` |
 
+### Shared files (added after the P0 final review, 13 Oct)
+
+| File | Owner | Rule |
+|---|---|---|
+| `services/api/kirchhoff/store/**` | P0 (fix wave), then WS2 | WS2 may add modules (e.g. `storeops.py`); changes to the `Store` protocol or `EventWriter` signatures are announced to all workstreams |
+| `services/api/kirchhoff/contracts/{common,design,run,checks,enterprise,bundle}.py` | frozen | only optional fields may be added, by WS2, announced to all |
+| `services/api/kirchhoff/contracts/extra.py` | WS1 | new models only |
+| `services/api/kirchhoff/contracts/export_schema.py` (`TOP_LEVEL`) + `apps/web/src/contracts/generated.ts` | whoever changes contracts | run `make gen-types` and commit `generated.ts` in the same commit; `make check-types` must pass |
+| `services/api/pyproject.toml`, `uv.lock` | WS2 | other workstreams request dependency additions through the controller |
+| `services/api/Dockerfile`, `.dockerignore`, `.gcloudignore`, `infra/**`, `Makefile` deploy targets | WS4 | image must contain `/app/scenarios` (repo `scenarios/`) and `/app/seed` (demo bundles); never upload `.venv` |
+| `infra/smoke.sh` | WS4 | probes `GET /api/whoami` (permanent, 401 without token) |
+| `apps/web/src/firebase.ts`, `apps/web/src/api.ts` | WS3 | WS4 coordinates App Check debug-token changes through the controller |
+
+### Conventions (binding)
+
+- Firestore documents are `model_dump()` output: **snake_case** field names (e.g. `parent`, `model_url`, `approver_name`), timestamps in **unix seconds**. The camelCase names in spec §14 are descriptive only.
+- `RunRecord.lease` is `{"owner": str, "attempt": int, "heartbeat_at": float}`. A step is done when `steps/{id}.status == "done"` (there is no separate `done` field).
+- Design models are never stored inline in Firestore (nested arrays such as `Geometry.columns` are rejected): revisions carry `model_url`, served by `/api/files`.
+- Store API (P0 fix wave): `Store.transact(read_paths, fn) -> list[(path, data|None)]`, `Store.delete_tree(path) -> int`, `Store.list_docs(collection, order_by=None, descending=False, limit=None)`, deep-merge `update_doc`; `kirchhoff.store.validate.firestore_safe_problems(value)` and `json_size_bytes(value)`.
+- EventWriter (P0 fix wave): `emit(agent, kind, title, detail="", payload=None, step=None)` (per-event step override, shared seq), trailing-edge timer flush, `ValueError` on unsafe or > 10 KB events (no seq consumed), `fence()` on lease loss. Never subclass it or touch private attributes.
+- `GET /api/whoami` → `{uid}` is permanent.
+
 ## Engine facade (WS1 produces; WS2 consumes) — `kirchhoff/engine/api.py`
 
 ```python
