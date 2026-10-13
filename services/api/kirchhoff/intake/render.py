@@ -124,6 +124,13 @@ def _write_dxf(g: HallGeometry, out: Path) -> None:
     import ezdxf
     from ezdxf.enums import TextEntityAlignment
 
+    # Deterministic bytes across re-renders of the same input: without this, ezdxf stamps
+    # $TDCREATE/$TDUCREATE/$TDUPDATE/$TDUUPDATE with the current time and $FINGERPRINTGUID/
+    # $VERSIONGUID with random GUIDs on every save (and an "ezdxf <ver> @ <timestamp>" metadata
+    # marker). ezdxf's own fixed-metadata mode pins all of these (and $HANDSEED/$TDINDWG/
+    # $TDUSRTIMER, which are otherwise already static) to constant values.
+    ezdxf.options.write_fixed_meta_data_for_testing = True
+
     doc = ezdxf.new("R2018", setup=True)
     doc.units = ezdxf.units.MM
     for name, color in [("HALL", 7), ("COLUMNS", 8), ("GRID", 9), ("GRID_X", 7), ("GRID_Y", 7), ("KEEPOUT", 1),
@@ -172,6 +179,14 @@ def _write_dxf(g: HallGeometry, out: Path) -> None:
     text(f"{(x1 - x0) * MM:.0f}", (x0 + x1) / 2, min(ys) - 8, "DIMS")
     msp.add_line(((min(xs) - 7) * MM, y0 * MM), ((min(xs) - 7) * MM, y1 * MM), dxfattribs={"layer": "DIMS"})
     text(f"{(y1 - y0) * MM:.0f}", min(xs) - 8, (y0 + y1) / 2, "DIMS", rotation=90)
+
+    # ezdxf's own required-class resolution (invoked again internally on save) iterates a
+    # `set[str]` of the DXF types in use, so the CLASSES section's entry order (e.g. LAYOUT vs.
+    # ACDBPLACEHOLDER) otherwise depends on Python's per-process string hash randomization, not
+    # on this function's input. Registering the classes once here and sorting them pins that
+    # order; saveas()'s internal re-registration is then a no-op (register() skips existing keys).
+    doc.classes.add_required_classes(doc.dxfversion)
+    doc.classes.classes = dict(sorted(doc.classes.classes.items()))
     doc.saveas(str(out))
 
 
