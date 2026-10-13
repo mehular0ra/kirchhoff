@@ -1,7 +1,7 @@
 import os
 from typing import Callable
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException
 
 
 def firebase_verify(token: str) -> str:
@@ -23,7 +23,7 @@ def appcheck_verify(token: str) -> None:
 
 
 def make_current_uid(verify_token: Callable[[str], str]):
-    def current_uid(request: Request, authorization: str | None = Header(default=None),
+    def current_uid(authorization: str | None = Header(default=None),
                     x_firebase_appcheck: str | None = Header(default=None)) -> str:
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="missing bearer token")

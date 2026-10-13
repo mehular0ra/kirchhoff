@@ -44,10 +44,17 @@ class EventWriter:
     def flush(self) -> None:
         with self._lock:
             items = [(f"{self._run_path}/events/{e.seq:06d}", e.model_dump()) for e in self._pending]
+            pending_events = self._pending[:]  # Keep a copy to restore on failure
             self._pending = []
             self._last_flush = time.monotonic()
         if items:
-            self._store.batch_set(items)
+            try:
+                self._store.batch_set(items)
+            except Exception:
+                # Restore pending events at the front, preserving seq order
+                with self._lock:
+                    self._pending = pending_events + self._pending
+                raise
 
     def close(self) -> None:
         self.flush()
