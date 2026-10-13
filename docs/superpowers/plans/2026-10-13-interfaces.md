@@ -181,3 +181,8 @@ Cross-plan pass over P2 (agents/API) and P3 (web) against this doc, the spec and
 **Open (not resolvable inside P2/P3)**
 30. App Check for Playwright on the deployed build: `firebase.ts` enables the debug token only in `DEV`; WS4 and WS3 agree a production-safe switch through the controller, or e2e runs with `KIRCHHOFF_REQUIRE_APPCHECK` unset (see WS4 obligations).
 31. The P4 plan file (`2026-10-13-p4-enterprise-demo-infra.md`) does not exist yet; `2026-10-13-ws4-obligations.md` is its input.
+
+## Controller rulings after reconciliation (13 Oct)
+
+- **App Check debug token for Playwright on the production build:** no change to `firebase.ts`. Playwright injects `self.FIREBASE_APPCHECK_DEBUG_TOKEN = '<registered debug token>'` with `page.addInitScript` before the app loads; the Firebase JS SDK honours that global in any build mode. WS4 registers the debug token via the App Check API and keeps it out of the repo (env var in the e2e runner).
+- **`vindhya-lv` asset pack:** `datahall` (the contract has no "none"); the project is archived and read-only.
