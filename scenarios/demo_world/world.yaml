@@ -1,0 +1,91 @@
+# Kirchhoff demo world (spec §13). Every company, person, vendor and number here is fictional.
+# Generators: services/api/kirchhoff/enterprise/world/*. Ranges [lo, hi] are drawn with the fixed seed.
+seed: 20261013
+now: 1792132200            # 2026-10-16 12:00 IST; all world timestamps are fixed offsets from this anchor
+notice: "Demo workspace — all companies, people and data are fictional"
+org: {name: Meridian Power Engineering, tagline: Data-centre and grid EPC contractor}
+people:
+  - {id: priya, name: Priya Raman, role: Lead Electrical Engineer (Reviewer), initials: PR}
+  - {id: arjun, name: Arjun Mehta, role: Design Engineer, initials: AM}
+  - {id: kavya, name: Kavya Iyer, role: Cooling Engineer, initials: KI}
+  - {id: rohan, name: Rohan Das, role: Procurement Lead, initials: RD}
+  - {id: neha, name: Neha Kapoor, role: Account Manager, initials: NK}
+accounts: [Deccan Compute, Narmada Transmission, Suryodaya Renewables, Konkan Cloud, Vindhya Steel]
+projects:
+  - {id: hall-a, name: "Deccan AI Campus · Hall A", client: Deccan Compute, asset_pack: datahall, state: signed, days_ago: 3, opportunity: opp-hall-a}
+  - {id: hall-b, name: "Deccan AI Campus · Hall B", client: Deccan Compute, asset_pack: datahall, state: not_started, days_ago: 1, opportunity: opp-hall-b}
+  - {id: pune-edge-1, name: "Konkan Cloud · Pune Edge Phase 1", client: Konkan Cloud, asset_pack: datahall, state: signed, days_ago: 14, opportunity: opp-pune-edge-1}
+  - {id: grid-132kv, name: "Deccan campus · 132 kV intake", client: Narmada Transmission, asset_pack: grid, state: checked, days_ago: 6, opportunity: opp-grid-132kv}
+  - {id: solar-5mwp, name: "Deccan campus · 5 MWp solar", client: Suryodaya Renewables, asset_pack: solar, state: draft, days_ago: 9, opportunity: opp-solar-5mwp}
+  - {id: vindhya-lv, name: "Vindhya Steel · Mill LV upgrade", client: Vindhya Steel, asset_pack: datahall, state: archived, days_ago: 38, opportunity: opp-vindhya-lv}
+opportunities:             # 9 across the 5 accounts; value in USD drawn from [lo, hi], rounded to 10,000
+  - {id: opp-hall-a, account: Deccan Compute, name: Hall A design-build, stage: Design approved, value: [17000000, 20000000], next_step: Issue purchase requisitions}
+  - {id: opp-hall-b, account: Deccan Compute, name: Hall B design-build, stage: Design in progress, value: [17000000, 20000000], next_step: Run the Hall B design}
+  - {id: opp-hall-c, account: Deccan Compute, name: Hall C design-build, stage: Qualification, value: [15000000, 19000000], next_step: Confirm rack density with the client}
+  - {id: opp-pune-edge-1, account: Konkan Cloud, name: Pune Edge Phase 1, stage: Closed won, value: [6000000, 8000000], next_step: Track equipment deliveries}
+  - {id: opp-pune-edge-2, account: Konkan Cloud, name: Pune Edge Phase 2, stage: Proposal, value: [7000000, 9500000], next_step: Send the revised proposal}
+  - {id: opp-grid-132kv, account: Narmada Transmission, name: Deccan campus 132 kV intake, stage: Negotiation, value: [4000000, 5500000], next_step: Agree the conductor choice}
+  - {id: opp-solar-5mwp, account: Suryodaya Renewables, name: Deccan campus 5 MWp solar, stage: Proposal, value: [2500000, 3500000], next_step: Finalise the string layout}
+  - {id: opp-vindhya-lv, account: Vindhya Steel, name: Mill LV upgrade, stage: Closed won, value: [900000, 1400000], next_step: Archive the project}
+  - {id: opp-vindhya-cpp, account: Vindhya Steel, name: Captive power switchyard, stage: Qualification, value: [3000000, 4500000], next_step: Schedule the site survey}
+extra_materials:           # never reuse a catalogue id or a Hall A (category, voltage) pair (ruling W7); stock [lo, hi]
+  # transformers at other voltages (grid, solar, industrial)
+  - {id: TX-50000-132, category: transformer, description: "Power transformer 50 MVA 132/33 kV ONAN", rating: 50000, unit: kVA, voltage: "132/33 kV", stock: [0, 1], lead_time_weeks: 52, unit_price: 1450000, vendor: Tapti Transformers}
+  - {id: TX-6300-33-11, category: transformer, description: "Distribution transformer 6.3 MVA 33/11 kV", rating: 6300, unit: kVA, voltage: "33/11 kV", stock: [1, 3], lead_time_weeks: 30, unit_price: 212000, vendor: Sabarmati Transformers}
+  - {id: TX-2000-11, category: transformer, description: "Oil-filled transformer 2.0 MVA 11/0.433 kV", rating: 2000, unit: kVA, voltage: "11/0.433 kV", stock: [2, 5], lead_time_weeks: 16, unit_price: 52000, vendor: Sabarmati Transformers}
+  - {id: TX-1600-11, category: transformer, description: "Oil-filled transformer 1.6 MVA 11/0.433 kV", rating: 1600, unit: kVA, voltage: "11/0.433 kV", stock: [2, 6], lead_time_weeks: 14, unit_price: 44500, vendor: Sabarmati Transformers}
+  - {id: TX-3150-PV, category: transformer, description: "Inverter-duty transformer 3.15 MVA 33/0.8 kV", rating: 3150, unit: kVA, voltage: "33/0.8 kV", stock: [0, 2], lead_time_weeks: 20, unit_price: 126000, vendor: Tapti Transformers}
+  # HV/MV switchgear and plant boards
+  - {id: GIS-132-BAY, category: switchgear, description: "132 kV GIS line bay", rating: 132, unit: kV, voltage: "132 kV", stock: [0, 1], lead_time_weeks: 40, unit_price: 620000, vendor: Kaveri Switchgear}
+  - {id: VCB-33-PANEL, category: switchgear, description: "33 kV vacuum circuit-breaker panel", rating: 1250, unit: A, voltage: "33 kV", stock: [2, 6], lead_time_weeks: 18, unit_price: 38000, vendor: Kaveri Switchgear}
+  - {id: RMU-11, category: switchgear, description: "11 kV ring main unit, 3-way", rating: 630, unit: A, voltage: "11 kV", stock: [3, 8], lead_time_weeks: 10, unit_price: 21000, vendor: Kaveri Switchgear}
+  - {id: PCC-433, category: switchboard, description: "Plant power control centre 433 V", rating: 4000, unit: A, voltage: "433 V", stock: [1, 3], lead_time_weeks: 12, unit_price: 76000, vendor: Kaveri Switchgear}
+  - {id: MCC-433, category: switchboard, description: "Motor control centre 433 V", rating: 1600, unit: A, voltage: "433 V", stock: [1, 4], lead_time_weeks: 10, unit_price: 41000, vendor: Kaveri Switchgear}
+  # LV distribution
+  - {id: BW-800-433, category: busway, description: "Busway 800 A, 433 V", rating: 800, unit: m, voltage: "433 V", stock: [200, 600], lead_time_weeks: 8, unit_price: 260, vendor: Indus Busbar Systems}
+  - {id: BW-1250-433, category: busway, description: "Busway 1,250 A, 433 V", rating: 1250, unit: m, voltage: "433 V", stock: [150, 500], lead_time_weeks: 8, unit_price: 330, vendor: Indus Busbar Systems}
+  - {id: TAPOFF-125, category: busway_tapoff, description: "Busway tap-off unit 125 A", rating: 125, unit: ea, voltage: "415 V", stock: [80, 300], lead_time_weeks: 4, unit_price: 640, vendor: Indus Busbar Systems}
+  - {id: MCCB-630, category: mccb, description: "MCCB 630 A, 50 kA", rating: 630, unit: ea, voltage: "415 V", stock: [20, 60], lead_time_weeks: 3, unit_price: 1450, vendor: Kaveri Switchgear}
+  - {id: MCCB-250, category: mccb, description: "MCCB 250 A, 36 kA", rating: 250, unit: ea, voltage: "415 V", stock: [40, 120], lead_time_weeks: 3, unit_price: 620, vendor: Kaveri Switchgear}
+  # cables and overhead conductors
+  - {id: CBL-33-3C300, category: cable, description: "33 kV XLPE cable 3C x 300 mm2 Al", rating: 420, unit: m, voltage: "33 kV", stock: [500, 2500], lead_time_weeks: 10, unit_price: 58, vendor: Konark Cables}
+  - {id: CBL-1C630, category: cable, description: "1.1 kV XLPE cable 1C x 630 mm2 Cu", rating: 900, unit: m, voltage: "1.1 kV", stock: [800, 3000], lead_time_weeks: 6, unit_price: 74, vendor: Konark Cables}
+  - {id: CBL-DC-6, category: cable, description: "PV DC cable 6 mm2, 1.5 kV", rating: 70, unit: m, voltage: "1.5 kV DC", stock: [20000, 60000], lead_time_weeks: 3, unit_price: 1.2, vendor: Konark Cables}
+  - {id: ACSR-PANTHER, category: conductor, description: "ACSR Panther conductor", rating: 520, unit: km, voltage: "132 kV", stock: [10, 40], lead_time_weeks: 12, unit_price: 4200, vendor: Mahanadi Conductors}
+  - {id: ACSR-ZEBRA, category: conductor, description: "ACSR Zebra conductor", rating: 900, unit: km, voltage: "132 kV", stock: [10, 40], lead_time_weeks: 14, unit_price: 7600, vendor: Mahanadi Conductors}
+  - {id: ACSR-MOOSE, category: conductor, description: "ACSR Moose conductor", rating: 1000, unit: km, voltage: "132 kV", stock: [0, 20], lead_time_weeks: 16, unit_price: 8900, vendor: Mahanadi Conductors}
+  - {id: OPGW-24F, category: earthwire, description: "OPGW earthwire, 24 fibres", rating: 24, unit: km, voltage: "132 kV", stock: [5, 30], lead_time_weeks: 12, unit_price: 3100, vendor: Mahanadi Conductors}
+  # UPS, batteries, generators
+  - {id: UPS-250-433, category: ups_module, description: "UPS module 250 kW, 433 V", rating: 250, unit: kW, voltage: "433 V", stock: [6, 20], lead_time_weeks: 10, unit_price: 34000, vendor: Sahyadri Power Electronics}
+  - {id: BATT-LI-500, category: battery, description: "Li-ion battery cabinet, 500 kW for 7 min", rating: 500, unit: kW, voltage: "415 V", stock: [6, 24], lead_time_weeks: 12, unit_price: 41000, vendor: Sahyadri Power Electronics}
+  - {id: BATT-VRLA-200, category: battery, description: "VRLA battery string 200 kWh", rating: 200, unit: kWh, voltage: "415 V", stock: [4, 16], lead_time_weeks: 8, unit_price: 18000, vendor: Sahyadri Power Electronics}
+  - {id: STS-800-433, category: sts, description: "Static transfer switch 800 A, 433 V", rating: 800, unit: A, voltage: "433 V", stock: [2, 8], lead_time_weeks: 14, unit_price: 17000, vendor: Sahyadri Power Electronics}
+  - {id: DG-2000, category: generator, description: "Diesel generator set 2,000 kVA", rating: 2000, unit: kVA, voltage: "415 V", stock: [0, 2], lead_time_weeks: 26, unit_price: 260000, vendor: Malabar Gensets}
+  # cooling
+  - {id: CDU-600-400, category: cdu, description: "Coolant distribution unit 600 kW (400 V export model)", rating: 600, unit: kW, voltage: "400 V", stock: [1, 4], lead_time_weeks: 14, unit_price: 88000, vendor: Godavari Thermal}
+  - {id: RDHX-50, category: rdhx, description: "Rear-door heat exchanger 50 kW", rating: 50, unit: kW, voltage: "230 V", stock: [10, 40], lead_time_weeks: 8, unit_price: 9800, vendor: Godavari Thermal}
+  - {id: CHILLER-1500, category: chiller, description: "Air-cooled chiller 1,500 kW", rating: 1500, unit: kW, voltage: "415 V", stock: [0, 2], lead_time_weeks: 24, unit_price: 410000, vendor: Krishna Chillers}
+  - {id: DRYCOOLER-1200, category: drycooler, description: "Adiabatic dry cooler 1,200 kW", rating: 1200, unit: kW, voltage: "415 V", stock: [1, 3], lead_time_weeks: 18, unit_price: 165000, vendor: Krishna Chillers}
+  - {id: VALVE-DN200, category: valve, description: "Butterfly valve DN200", rating: 200, unit: ea, stock: [20, 80], lead_time_weeks: 4, unit_price: 640, vendor: "Narmada Pipe & Fittings"}
+  - {id: PIPE-HDPE-DN250, category: pipe_hdpe, description: "HDPE pipe DN250", rating: 250, unit: m, stock: [100, 400], lead_time_weeks: 5, unit_price: 120, vendor: "Narmada Pipe & Fittings"}
+  # solar
+  - {id: PV-MOD-560, category: pv_module, description: "PV module 560 Wp bifacial", rating: 560, unit: ea, voltage: "1.5 kV DC", stock: [4000, 12000], lead_time_weeks: 6, unit_price: 118, vendor: Suryakiran Modules}
+  - {id: INV-3125, category: inverter, description: "Central inverter 3,125 kVA", rating: 3125, unit: kVA, voltage: "0.8 kV", stock: [0, 3], lead_time_weeks: 18, unit_price: 98000, vendor: Sahyadri Power Electronics}
+  - {id: SMB-24, category: combiner, description: "String monitoring box, 24 inputs", rating: 24, unit: ea, voltage: "1.5 kV DC", stock: [20, 90], lead_time_weeks: 4, unit_price: 900, vendor: Sahyadri Power Electronics}
+  - {id: MMS-2P26, category: structure, description: "Module mounting table 2P x 26", rating: 52, unit: ea, stock: [50, 300], lead_time_weeks: 6, unit_price: 1300, vendor: Tungabhadra Structures}
+  # protection
+  - {id: RELAY-NUM-33, category: relay, description: "Numerical feeder protection relay", rating: 1, unit: ea, voltage: "33 kV", stock: [10, 40], lead_time_weeks: 8, unit_price: 5200, vendor: Kaveri Switchgear}
+  - {id: CT-33-1200, category: instrument_transformer, description: "Current transformer 33 kV 1200/1 A", rating: 1200, unit: ea, voltage: "33 kV", stock: [12, 48], lead_time_weeks: 10, unit_price: 1900, vendor: Kaveri Switchgear}
+  - {id: LA-132, category: surge_arrester, description: "Surge arrester 132 kV", rating: 132, unit: ea, voltage: "132 kV", stock: [6, 24], lead_time_weeks: 12, unit_price: 4800, vendor: Kaveri Switchgear}
+historical_prs:            # ids PR-2026-0101… in creation order; quantities drawn from [lo, hi]
+  - {project_id: vindhya-lv, revision: r3, days_ago: 44, lines: [{material_id: TX-2000-11, qty: [2, 2]}, {material_id: PCC-433, qty: [1, 1]}, {material_id: CBL-1C630, qty: [600, 900]}]}
+  - {project_id: vindhya-lv, revision: r3, days_ago: 43, lines: [{material_id: MCC-433, qty: [2, 3]}, {material_id: MCCB-630, qty: [8, 14]}, {material_id: MCCB-250, qty: [16, 30]}]}
+  - {project_id: vindhya-lv, revision: r3, days_ago: 41, lines: [{material_id: BW-1250-433, qty: [80, 140]}, {material_id: TAPOFF-125, qty: [20, 36]}]}
+activity:                  # background team activity; events from the project bundles are added by the generator
+  - {days_ago: 39, actor: Priya Raman, project_id: vindhya-lv, text: "archived Vindhya Steel · Mill LV upgrade after handover"}
+  - {days_ago: 33, actor: Neha Kapoor, text: "added Konkan Cloud · Pune Edge Phase 2 to the pipeline"}
+  - {days_ago: 21, actor: Kavya Iyer, project_id: pune-edge-1, text: "reviewed the CDU gallery layout for Pune Edge"}
+  - {days_ago: 12, actor: Rohan Das, text: "refreshed ERP lead times for transformers and busways (sandbox)"}
+  - {days_ago: 9, actor: Kavya Iyer, project_id: solar-5mwp, text: "started a draft string layout for the 5 MWp solar field"}
+  - {days_ago: 5, actor: Neha Kapoor, project_id: hall-a, text: "shared the signed Hall A package with Deccan Compute"}
+  - {days_ago: 1, actor: Neha Kapoor, project_id: hall-b, text: "opened Hall B design-build; the design has not started"}

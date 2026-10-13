@@ -5,6 +5,7 @@ import pytest
 from kirchhoff.contracts import Material, Opportunity, PRLine, PurchaseRequisition
 from kirchhoff.enterprise.model import EnterpriseSeed
 from kirchhoff.enterprise.sandbox import Sandbox
+from kirchhoff.enterprise.world.config import WorldConfig, load_world_config
 from kirchhoff.store.memory import MemoryStore
 
 REPO = Path(__file__).resolve().parents[4]
@@ -49,3 +50,13 @@ def sandbox(small_seed) -> Sandbox:
     sb = Sandbox(MemoryStore(), clock=Clock())
     sb.load_seed(small_seed)
     return sb
+
+
+@pytest.fixture(scope="session")
+def scenarios_root() -> Path:
+    return SCENARIOS
+
+
+@pytest.fixture(scope="session")
+def world_cfg() -> WorldConfig:
+    return load_world_config(SCENARIOS / "demo_world" / "world.yaml")
