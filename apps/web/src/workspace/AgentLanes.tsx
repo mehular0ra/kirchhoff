@@ -1,0 +1,165 @@
+import { cn } from 'cn'
+import {
+  BookOpen,
+  ChevronDown,
+  CircleCheck,
+  CircleDot,
+  CircleX,
+  FileText,
+  Hand,
+  ListChecks,
+  LoaderCircle,
+  MessageSquare,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { useState } from 'react'
+import { AgentDot } from '@/components/Labels'
+import { StatusBadge } from '@/components/StatusBadge'
+import { AGENTS } from '@/lib/agents'
+import { artifactPayload, findingPayload, gatePayload, ledgerPayload, toolPayload } from '@/lib/events'
+import { fmtKeyValue } from '@/lib/format'
+import { buildLanes, type Lane, type LaneStatus } from '@/lib/select'
+import type { RunEvent } from '@/lib/types'
+import { useUi } from '@/store/ui'
+import { useWorkspace } from './WorkspaceContext'
+
+const LANE_STATUS: Record<LaneStatus, { label: string; icon: LucideIcon; cls: string }> = {
+  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-zinc-500' },
+  running: { label: 'Working', icon: LoaderCircle, cls: 'text-sky-300' },
+  waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-300' },
+  done: { label: 'Done', icon: CircleCheck, cls: 'text-emerald-400' },
+  failed: { label: 'Failed', icon: CircleX, cls: 'text-rose-400' },
+}
+
+const KIND_ICON: Record<RunEvent['kind'], LucideIcon> = {
+  plan: ListChecks,
+  tool_call: Wrench,
+  tool_result: Wrench,
+  message: MessageSquare,
+  artifact: FileText,
+  finding: CircleCheck,
+  gate: Hand,
+  ledger: BookOpen,
+  status: CircleDot,
+}
+
+function EventLine({ ev }: { ev: RunEvent }) {
+  const openFinding = useUi((s) => s.openFinding)
+  const setViewRev = useUi((s) => s.setViewRev)
+  const Icon = KIND_ICON[ev.kind]
+  const f = findingPayload(ev)
+  if (f) {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 text-left hover:text-zinc-100"
+        onClick={() => {
+          if (f.rev) setViewRev(f.rev)
+          openFinding(f.finding_id)
+        }}
+      >
+        <StatusBadge status={f.status} compact />
+        <span className="font-mono">{f.rule_id}</span>
+        <span className="truncate font-mono text-zinc-400">{f.element_id}</span>
+      </button>
+    )
+  }
+  const tool = toolPayload(ev)
+  const gate = gatePayload(ev)
+  const ledger = ledgerPayload(ev)
+  const artifact = artifactPayload(ev)
+  let text: string = ev.title
+  if (tool && ev.kind === 'tool_call') text = `${tool.tool}()`
+  if (tool && ev.kind === 'tool_result') {
+    const parts = Object.entries(tool.summary).slice(0, 3).map(([k, v]) => fmtKeyValue(k, v))
+    text = parts.length ? `${tool.tool} → ${parts.join(' · ')}` : `${tool.tool} ✓`
+  }
+  if (gate) text = `Gate: ${gate}`
+  if (ledger) text = `${ledger.kind.replace('_', ' ')}: ${ledger.text}`
+  if (artifact) text = `${artifact.type}: ${ev.title}`
+  return (
+    <div className="flex items-start gap-2">
+      <Icon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-zinc-500" />
+      <span className="min-w-0">
+        <span className="break-words">{text}</span>
+        {ev.detail && <span className="block truncate text-zinc-500">{ev.detail}</span>}
+      </span>
+    </div>
+  )
+}
+
+function LaneView({ lane }: { lane: Lane }) {
+  const [open, setOpen] = useState(lane.status === 'running' || lane.status === 'waiting')
+  const [all, setAll] = useState(false)
+  const meta = AGENTS[lane.agent]
+  const st = LANE_STATUS[lane.status]
+  const StIcon = st.icon
+  const shown = all ? lane.events : lane.events.slice(-5)
+  return (
+    <li className="border-b border-zinc-800/80 px-3 py-2" style={{ boxShadow: `inset 2px 0 0 0 ${lane.status === 'idle' ? 'transparent' : meta.color.startsWith('#') ? meta.color : '#a78bfa'}` }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-2 text-left text-sm"
+      >
+        <AgentDot agent={lane.agent} />
+        <span className="font-medium text-zinc-100">{meta.label}</span>
+        <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
+          <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
+          {st.label}
+        </span>
+        <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-500 transition-transform', open && 'rotate-180')} />
+      </button>
+      {lane.counters.length > 0 && (
+        <ul className="mt-1 flex flex-wrap gap-1" aria-label={`${meta.label} summary`}>
+          {lane.counters.map((c) => (
+            <li key={c} className="rounded bg-zinc-800/70 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">
+              {c}
+            </li>
+          ))}
+        </ul>
+      )}
+      <AnimatePresence initial={false}>
+        {open && lane.events.length > 0 && (
+          <motion.ol
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mt-2 flex flex-col gap-1.5 overflow-hidden text-xs text-zinc-300"
+          >
+            {shown.map((ev) => (
+              <li key={ev.seq}>
+                <EventLine ev={ev} />
+              </li>
+            ))}
+            {lane.events.length > 5 && (
+              <li>
+                <button type="button" className="text-zinc-500 underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
+                  {all ? 'Show recent' : `Show all ${lane.events.length}`}
+                </button>
+              </li>
+            )}
+          </motion.ol>
+        )}
+      </AnimatePresence>
+    </li>
+  )
+}
+
+export function AgentLanes() {
+  const { bundle } = useWorkspace()
+  const lanes = buildLanes(bundle)
+  return (
+    <nav aria-label="Agent lanes" data-tour="lanes" className="h-full overflow-y-auto">
+      <h2 className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Agents</h2>
+      <ul>
+        {lanes.map((l) => (
+          <LaneView key={l.agent} lane={l} />
+        ))}
+      </ul>
+    </nav>
+  )
+}
