@@ -10,6 +10,7 @@ from .boq import derive_boq, derive_pr_lines  # noqa: F401
 from .checker import run_rules
 from .cooling import size_cooling  # noqa: F401
 from .erp import ErpView, YamlErp, default_erp  # noqa: F401
+from .fixes import apply_fix, fix_candidates  # noqa: F401
 from .layout import place_racks  # noqa: F401
 from .options import annotate_options, power_options, power_recheck  # noqa: F401
 from .routing import route  # noqa: F401
