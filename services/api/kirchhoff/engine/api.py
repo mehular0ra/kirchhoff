@@ -7,6 +7,7 @@ from kirchhoff.contracts import DesignModel
 from kirchhoff.contracts.extra import ClashReport, FixCandidate  # noqa: F401  (re-exported for WS2)
 
 from .erp import ErpView, YamlErp, default_erp  # noqa: F401
+from .layout import place_racks  # noqa: F401
 from .scenario import Scenario, load_scenario  # noqa: F401
 
 NOT_CHECKED = [

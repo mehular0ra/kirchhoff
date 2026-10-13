@@ -13,3 +13,10 @@ def erp():
     from kirchhoff.engine.erp import default_erp
 
     return default_erp()
+
+
+@pytest.fixture(scope="session")
+def racks(scn):
+    from kirchhoff.engine.layout import place_racks
+
+    return place_racks(scn)
