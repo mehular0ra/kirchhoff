@@ -20,3 +20,11 @@ def racks(scn):
     from kirchhoff.engine.layout import place_racks
 
     return place_racks(scn)
+
+
+@pytest.fixture(scope="session")
+def models(scn, racks):
+    """Topology models before routing, keyed by (topology, transformer catalogue id)."""
+    from kirchhoff.engine.topology import build_model
+
+    return {(t, tx): build_model(scn, racks, t, tx) for t in ("2N", "DR", "BLOCK") for tx in ("TX-2500", "TX-3150")}
