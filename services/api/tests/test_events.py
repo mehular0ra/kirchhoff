@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from kirchhoff.store.events import EventWriter
@@ -76,3 +78,54 @@ def test_event_writer_recovers_from_failed_flush():
     docs = store.list_docs("workspaces/u1/runs/r1/events")
     assert [d["seq"] for d in docs] == [1, 2, 3]
     assert len(docs) == 3
+
+
+def test_step_override_per_event_uses_shared_seq():
+    store = MemoryStore()
+    w = EventWriter(store, "workspaces/u1/runs/r1", phase="p1", step="p1.a", flush_interval_s=999)
+    e1 = w.emit("system", "status", "first")
+    e2 = w.emit("layout", "status", "second", step="p1.b")
+    e3 = w.emit("system", "status", "third")
+    assert [e1.step, e2.step, e3.step] == ["p1.a", "p1.b", "p1.a"]
+    assert [e1.seq, e2.seq, e3.seq] == [1, 2, 3]
+
+
+def test_unsafe_payload_raises_and_does_not_consume_seq():
+    store = MemoryStore()
+    w = EventWriter(store, "workspaces/u1/runs/r1", phase="p1", step="p1.a", flush_interval_s=999)
+    with pytest.raises(ValueError):
+        w.emit("system", "status", "bad", payload={"x": [[1, 2]]})
+    e = w.emit("system", "status", "good")
+    assert e.seq == 1
+
+
+def test_oversized_payload_raises_and_does_not_consume_seq():
+    store = MemoryStore()
+    w = EventWriter(store, "workspaces/u1/runs/r1", phase="p1", step="p1.a", flush_interval_s=999)
+    big_payload = {"blob": "x" * 20_000}
+    with pytest.raises(ValueError):
+        w.emit("system", "status", "bad", payload=big_payload)
+    e = w.emit("system", "status", "good")
+    assert e.seq == 1
+
+
+def test_trailing_flush_writes_pending_event_without_another_emit():
+    store = MemoryStore()
+    w = EventWriter(store, "workspaces/u1/runs/r1", phase="p1", step="p1.a", flush_interval_s=0.05)
+    w.emit("system", "status", "only event")
+    assert store.list_docs("workspaces/u1/runs/r1/events") == []
+    time.sleep(0.05 * 3)
+    docs = store.list_docs("workspaces/u1/runs/r1/events")
+    assert [d["seq"] for d in docs] == [1]
+    w.close()
+
+
+def test_fence_drops_pending_and_blocks_further_emits():
+    store = MemoryStore()
+    w = EventWriter(store, "workspaces/u1/runs/r1", phase="p1", step="p1.a", flush_interval_s=999)
+    w.emit("system", "status", "first")
+    w.fence()
+    w.flush()  # should be a no-op, not raise
+    assert store.list_docs("workspaces/u1/runs/r1/events") == []
+    with pytest.raises(RuntimeError, match="fenced"):
+        w.emit("system", "status", "second")
