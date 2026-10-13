@@ -8,19 +8,22 @@ vi.mock('firebase/app', () => ({
 
 vi.mock('firebase/auth', () => {
   let authStateCallback: ((user: User | null) => void) | null = null
+  let unsubscribeSpy: ReturnType<typeof vi.fn> | null = null
 
   return {
     getAuth: vi.fn(() => ({ currentUser: null })),
     signInAnonymously: vi.fn(),
     onAuthStateChanged: vi.fn((_auth, callback) => {
       authStateCallback = callback
-      return vi.fn(() => {
+      unsubscribeSpy = vi.fn(() => {
         authStateCallback = null
       })
+      return unsubscribeSpy
     }),
     __triggerAuthStateChange: (user: User | null) => {
       if (authStateCallback) authStateCallback(user)
     },
+    __getUnsubscribeSpy: () => unsubscribeSpy,
   }
 })
 
@@ -101,13 +104,13 @@ describe('ensureSignedIn', () => {
 
     await expect(promise1).rejects.toThrow('Sign in failed')
 
-    // Verify unsubscribe was called (the off function)
-    const mockOnAuthStateChanged = vi.mocked(authModule.onAuthStateChanged)
-    const unsubscribe = mockOnAuthStateChanged.mock.results[0]?.value
-    expect(typeof unsubscribe).toBe('function')
+    // Verify unsubscribe spy was called exactly once
+    const unsubscribeSpy = (authModule as any).__getUnsubscribeSpy()
+    expect(unsubscribeSpy).toHaveBeenCalledTimes(1)
 
     // Reset mocks for retry
     mockSignInAnon.mockClear()
+    const mockOnAuthStateChanged = vi.mocked(authModule.onAuthStateChanged)
     mockOnAuthStateChanged.mockClear()
 
     // Second call should retry (not use cached failed promise)
