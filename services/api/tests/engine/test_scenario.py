@@ -48,6 +48,7 @@ def test_geometry_pins(scn):
     assert g["zones"]["Z2"]["bay"] == [28.6, 28.0, 33.4, 33.0]
     assert g["tiers"] == {"pipe_low": 2.6, "busway": 3.2, "pipe_high": 3.8}
     assert set(g["pipes"]["headers"]) == {"H-Z1", "H-Z2", "H-Z3"}
+    assert "reroutes" in g and "H-Z2" in g["reroutes"]
 
 
 def test_catalogue_values(scn):
