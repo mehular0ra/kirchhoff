@@ -6,6 +6,6 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   headers.set('Authorization', `Bearer ${await user.getIdToken()}`)
   const ac = await appCheckToken()
   if (ac) headers.set('X-Firebase-AppCheck', ac)
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   return fetch(path, { ...init, headers })
 }
