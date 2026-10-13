@@ -60,3 +60,20 @@ def test_allowed_ids_for_model():
         geometry=Geometry(hall=(60, 36), columns=[], keepouts=[], rooms={}, tiers={}), loads={})
     ids = allowed_ids_for(m, extra=["CDU-1"])
     assert {"R1-01", "R1", "A-01", "B-01", "T-A1", "TX-3150", "FA-01", "A1", "BW-1600", "H-Z2", "Z2", "CDU-1"} <= ids
+
+
+def test_superscript_digit_triggers_template():
+    assert sanitize("The area is five mm².", IDS, T) == T
+
+
+def test_superscript_digit_in_word_fails_is_clean():
+    assert not is_clean("flow of three m³ per hour", IDS)
+
+
+def test_vulgar_fraction_fails_is_clean():
+    assert not is_clean("½ load", IDS)
+
+
+def test_allowlisted_sentence_still_passes_with_unicode_digit_check():
+    s = "FA-01 fails R05 under §4.6 in the 2N option. Upsizing to TX-3150 is not needed."
+    assert sanitize(s, IDS, T) == s

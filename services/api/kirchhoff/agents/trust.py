@@ -1,5 +1,6 @@
 """Digit allowlist for LLM text shown in the UI (spec §6.3)."""
 import re
+import unicodedata
 from collections.abc import Iterable
 
 from kirchhoff.contracts import DesignModel
@@ -7,8 +8,13 @@ from kirchhoff.contracts import DesignModel
 TOPOLOGY_TOKENS = ("4-to-make-3", "3 + 1", "N+1", "2N")
 _ALWAYS = [r"R\d{2}b?", r"§\d+(?:\.\d+)*", r"\{[a-z_]+\}"]
 _SENTENCES = re.compile(r"(?<=[.!?])(?<!App\.)\s+")
-_DIGIT = re.compile(r"\d")
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
+
+
+def _has_digit(s: str) -> bool:
+    # Nd: ASCII/other decimal digits. No: superscripts, subscripts, circled digits,
+    # vulgar fractions (½) and similar numeral forms that re.compile(r"\d") misses.
+    return any(unicodedata.category(c) in ("Nd", "No") for c in s)
 
 
 def _pattern(allowed_ids: Iterable[str]) -> re.Pattern:
@@ -18,7 +24,7 @@ def _pattern(allowed_ids: Iterable[str]) -> re.Pattern:
 
 
 def is_clean(text: str, allowed_ids: Iterable[str]) -> bool:
-    return not _DIGIT.search(_pattern(allowed_ids).sub("", text or ""))
+    return not _has_digit(_pattern(allowed_ids).sub("", text or ""))
 
 
 def sanitize(text: str, allowed_ids: Iterable[str], template: str) -> str:
@@ -29,7 +35,7 @@ def sanitize(text: str, allowed_ids: Iterable[str], template: str) -> str:
     out: list[str] = []
     replaced = False
     for sentence in _SENTENCES.split(text):
-        if _DIGIT.search(pat.sub("", sentence)):
+        if _has_digit(pat.sub("", sentence)):
             if not replaced:
                 out.append(template)
                 replaced = True
