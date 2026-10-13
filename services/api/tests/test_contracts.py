@@ -54,3 +54,41 @@ def test_schema_export_contains_all_top_level_models(tmp_path: Path):
     for name in ["ProjectBundle", "DesignModel", "RunEvent", "Finding", "Revision", "RunRecord",
                  "TopologyOption", "WhatIfResult", "PurchaseRequisition", "Material"]:
         assert name in schema["$defs"], name
+
+
+def test_schema_no_property_titles(tmp_path: Path):
+    """Verify schema has no 'title' keys in property schemas (prevents json2ts name collisions)."""
+    out = tmp_path / "schema.json"
+    build_schema(out)
+    schema = json.loads(out.read_text())
+
+    def has_property_title(obj, path=""):
+        """Recursively check for titles in property schemas."""
+        if isinstance(obj, dict):
+            # Check if this is a properties dict and has titles in its values
+            if "properties" in obj:
+                for prop_name, prop_schema in obj["properties"].items():
+                    if isinstance(prop_schema, dict) and "title" in prop_schema:
+                        return True, f"{path}.properties.{prop_name}"
+            # Recursively check all values
+            for key, value in obj.items():
+                result, found_path = has_property_title(value, f"{path}.{key}")
+                if result:
+                    return True, found_path
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                result, found_path = has_property_title(item, f"{path}[{i}]")
+                if result:
+                    return True, found_path
+        return False, ""
+
+    has_title, location = has_property_title(schema)
+    assert not has_title, f"Found property title at {location}"
+
+
+def test_schema_no_prefix_items(tmp_path: Path):
+    """Verify schema has no prefixItems (converted to proper array schema)."""
+    out = tmp_path / "schema.json"
+    build_schema(out)
+    schema_text = out.read_text()
+    assert "prefixItems" not in schema_text, "Schema contains prefixItems (should be converted to minItems/maxItems)"
