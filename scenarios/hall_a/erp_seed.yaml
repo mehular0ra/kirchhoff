@@ -1,0 +1,25 @@
+# Hall A ERP materials (spec §9.5). Fictional vendors; sandbox data. WS4's demo-world generator includes these
+# verbatim in the ~60-material ERP. Generator constraint (asserted by tests): only the 2.5 MVA transformer
+# fails R15 for any Hall A design; every other line is in stock in sufficient quantity or <= 26 weeks.
+# The sandbox does not decrement stock when PRs are created.
+materials:
+  - {id: TX-2500, category: transformer, description: "Cast-resin transformer 2.5 MVA 33/0.415 kV Dyn11", rating: 2500, unit: kVA, voltage: "33/0.415 kV", stock: 0, lead_time_weeks: 98, unit_price: 96000, vendor: "Tapti Transformers"}
+  - {id: TX-3150, category: transformer, description: "Cast-resin transformer 3.15 MVA 33/0.415 kV Dyn11", rating: 3150, unit: kVA, voltage: "33/0.415 kV", stock: 6, lead_time_weeks: 12, unit_price: 118000, vendor: "Tapti Transformers"}
+  - {id: BW-1600, category: busway, description: "Busway 1,600 A, 415 V", rating: 1600, unit: m, voltage: "415 V", stock: 900, lead_time_weeks: 8, unit_price: 420, vendor: "Indus Busbar Systems"}
+  - {id: BW-2000, category: busway, description: "Busway 2,000 A, 415 V", rating: 2000, unit: m, voltage: "415 V", stock: 240, lead_time_weeks: 10, unit_price: 560, vendor: "Indus Busbar Systems"}
+  - {id: BW-2500, category: busway, description: "Busway 2,500 A, 415 V", rating: 2500, unit: m, voltage: "415 V", stock: 0, lead_time_weeks: 14, unit_price: 690, vendor: "Indus Busbar Systems"}
+  - {id: CBL-240-8P, category: cable, description: "Cable feeder 8 x 1C 240 mm2 Cu per phase", rating: 2500, unit: m, voltage: "415 V", stock: 300, lead_time_weeks: 6, unit_price: 610, vendor: "Konark Cables"}
+  - {id: ACB-1600, category: breaker, description: "ACB 1,600 A frame, Icu 100 kA", rating: 1600, unit: ea, voltage: "415 V", stock: 24, lead_time_weeks: 6, unit_price: 9800, vendor: "Kaveri Switchgear"}
+  - {id: ACB-2000, category: breaker, description: "ACB 2,000 A frame, Icu 100 kA", rating: 2000, unit: ea, voltage: "415 V", stock: 6, lead_time_weeks: 6, unit_price: 11500, vendor: "Kaveri Switchgear"}
+  - {id: ACB-2500, category: breaker, description: "ACB 2,500 A frame, Icu 100 kA", rating: 2500, unit: ea, voltage: "415 V", stock: 6, lead_time_weeks: 6, unit_price: 13900, vendor: "Kaveri Switchgear"}
+  - {id: ACB-4000, category: breaker, description: "ACB 4,000 A frame, Icu 100 kA", rating: 4000, unit: ea, voltage: "415 V", stock: 24, lead_time_weeks: 8, unit_price: 21000, vendor: "Kaveri Switchgear"}
+  - {id: ACB-5000, category: breaker, description: "ACB 5,000 A frame, Icu 100 kA", rating: 5000, unit: ea, voltage: "415 V", stock: 8, lead_time_weeks: 8, unit_price: 26500, vendor: "Kaveri Switchgear"}
+  - {id: UPS-500, category: ups_module, description: "UPS module 500 kW, 415 V", rating: 500, unit: kW, voltage: "415 V", stock: 40, lead_time_weeks: 10, unit_price: 62000, vendor: "Sahyadri Power Electronics"}
+  - {id: STS-1600, category: sts, description: "Static transfer switch 1,600 A", rating: 1600, unit: A, voltage: "415 V", stock: 4, lead_time_weeks: 16, unit_price: 28000, vendor: "Sahyadri Power Electronics"}
+  - {id: MVS-33, category: switchboard, description: "33 kV switchboard, 2 incomers + bus-coupler", rating: 33, unit: kV, voltage: "33 kV", stock: 2, lead_time_weeks: 20, unit_price: 240000, vendor: "Kaveri Switchgear"}
+  - {id: LVB-415, category: switchboard, description: "LV main board 415 V", rating: 5000, unit: A, voltage: "415 V", stock: 4, lead_time_weeks: 12, unit_price: 85000, vendor: "Kaveri Switchgear"}
+  - {id: CRB-415, category: switchboard, description: "Critical (UPS output) board 415 V", rating: 4000, unit: A, voltage: "415 V", stock: 6, lead_time_weeks: 12, unit_price: 64000, vendor: "Kaveri Switchgear"}
+  - {id: CDU-1200, category: cdu, description: "Coolant distribution unit 1,200 kW", rating: 1200, unit: kW, voltage: "415 V", stock: 5, lead_time_weeks: 14, unit_price: 145000, vendor: "Godavari Thermal"}
+  - {id: PIPE-DN100, category: pipe, description: "Steel pipe DN100", rating: 100, unit: m, stock: 200, lead_time_weeks: 4, unit_price: 95, vendor: "Narmada Pipe & Fittings"}
+  - {id: PIPE-DN150, category: pipe, description: "Steel pipe DN150", rating: 150, unit: m, stock: 400, lead_time_weeks: 4, unit_price: 140, vendor: "Narmada Pipe & Fittings"}
+  - {id: PIPE-DN200, category: pipe, description: "Steel pipe DN200", rating: 200, unit: m, stock: 400, lead_time_weeks: 4, unit_price: 210, vendor: "Narmada Pipe & Fittings"}
