@@ -42,3 +42,10 @@ def annotated(scn, racks, erp):
     from kirchhoff.engine.options import annotate_options, power_options
 
     return {o.id: (o, m) for o, m in annotate_options(scn, power_options(scn, racks), erp)}
+
+
+@pytest.fixture(scope="session")
+def routed(scn, annotated):
+    from kirchhoff.engine.routing import route
+
+    return {k: route(scn, m) for k, (_o, m) in annotated.items()}
