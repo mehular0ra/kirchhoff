@@ -8,6 +8,7 @@ import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
 import { RequirementsPanel } from './RequirementsPanel'
 import { RevisionTimeline } from './RevisionTimeline'
+import { SldView } from './sld/SldView'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceProvider } from './WorkspaceContext'
 
@@ -48,7 +49,7 @@ export function WorkspacePage() {
 
   const panes: Record<CanvasTab, ReactNode> = {
     hall: <EmptyState title="3D hall">The 3D view of the selected revision appears here.</EmptyState>,
-    sld: <EmptyState title="Single-line diagram">The SLD of the selected revision appears here.</EmptyState>,
+    sld: <SldView />,
     matrix: <EmptyState title="Compliance matrix">Checker results for the selected revision appear here.</EmptyState>,
     options: <EmptyState title="Topology options">Costed options appear here after Power and Procurement.</EmptyState>,
     docs: <EmptyState title="Documents">Tender, drawings and exports appear here.</EmptyState>,
