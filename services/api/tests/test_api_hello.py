@@ -74,3 +74,15 @@ def test_hello_run_sets_failed_status_on_error(monkeypatch):
     assert run["status"] == "failed"
     assert "RuntimeError: Store write failed" in run["error"]
     assert run.get("finished_at") is not None
+
+
+def test_whoami_rejects_missing_token():
+    client = TestClient(create_app(store=MemoryStore(), verify_token=lambda t: "u1"))
+    assert client.get("/api/whoami").status_code == 401
+
+
+def test_whoami_returns_uid_with_injected_verifier():
+    client = TestClient(create_app(store=MemoryStore(), verify_token=lambda t: "u1"))
+    r = client.get("/api/whoami", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200
+    assert r.json() == {"uid": "u1"}

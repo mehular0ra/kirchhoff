@@ -1,24 +1,35 @@
+import logging
 import os
+import threading
 from typing import Callable
 
 from fastapi import Header, HTTPException
 
+logger = logging.getLogger("kirchhoff")
 
-def firebase_verify(token: str) -> str:
+_firebase_app_lock = threading.Lock()
+
+
+def _ensure_firebase_app() -> None:
     import firebase_admin
-    from firebase_admin import auth
 
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(options={"projectId": "ordinal-mep"})
+        with _firebase_app_lock:
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(options={"projectId": "ordinal-mep"})
+
+
+def firebase_verify(token: str) -> str:
+    from firebase_admin import auth
+
+    _ensure_firebase_app()
     return auth.verify_id_token(token)["uid"]
 
 
 def appcheck_verify(token: str) -> None:
-    import firebase_admin
     from firebase_admin import app_check
 
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(options={"projectId": "ordinal-mep"})
+    _ensure_firebase_app()
     app_check.verify_token(token)
 
 
@@ -30,6 +41,7 @@ def make_current_uid(verify_token: Callable[[str], str]):
         try:
             uid = verify_token(authorization.removeprefix("Bearer "))
         except Exception as exc:  # invalid/expired token
+            logger.warning("auth failed: %s", type(exc).__name__)
             raise HTTPException(status_code=401, detail="invalid token") from exc
         if os.environ.get("KIRCHHOFF_REQUIRE_APPCHECK") == "1":
             if not x_firebase_appcheck:
@@ -37,6 +49,7 @@ def make_current_uid(verify_token: Callable[[str], str]):
             try:
                 appcheck_verify(x_firebase_appcheck)
             except Exception as exc:
+                logger.warning("auth failed: %s", type(exc).__name__)
                 raise HTTPException(status_code=401, detail="invalid app check token") from exc
         return uid
     return current_uid

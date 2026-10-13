@@ -1,7 +1,7 @@
 import os
 from typing import Callable
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from kirchhoff.store import Store
 
@@ -21,6 +21,10 @@ def create_app(store: Store | None = None, verify_token: Callable[[str], str] | 
     @app.get("/api/health")
     def health() -> dict:
         return {"ok": True, "version": VERSION}
+
+    @app.get("/api/whoami")
+    def whoami(uid: str = Depends(current_uid)) -> dict:
+        return {"uid": uid}
 
     app.include_router(hello_router(store, current_uid))
     app.state.store = store
