@@ -31,11 +31,29 @@ export async function appCheckToken(): Promise<string | null> {
   try { return (await getToken(appCheck, false)).token } catch { return null }
 }
 
+let ensureSignedInPromise: Promise<User> | null = null
+
 export function ensureSignedIn(): Promise<User> {
-  return new Promise((resolve, reject) => {
-    const off = onAuthStateChanged(auth, (u) => {
-      if (u) { off(); resolve(u) }
+  if (ensureSignedInPromise) return ensureSignedInPromise
+
+  if (auth.currentUser) return Promise.resolve(auth.currentUser)
+
+  ensureSignedInPromise = new Promise((resolve, reject) => {
+    let off: (() => void) | null = null
+    const handleAuthStateChange = (u: User | null) => {
+      if (u) {
+        if (off) off()
+        ensureSignedInPromise = null
+        resolve(u)
+      }
+    }
+    off = onAuthStateChanged(auth, handleAuthStateChange)
+    signInAnonymously(auth).catch((err) => {
+      if (off) off()
+      ensureSignedInPromise = null
+      reject(err)
     })
-    signInAnonymously(auth).catch(reject)
   })
+
+  return ensureSignedInPromise
 }
