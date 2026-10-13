@@ -19,7 +19,7 @@
 | Live URL must work through judging (19 Oct – 6 Nov) | Rules | Phased runs, replay from static files, uptime check, budget alert (section 11). |
 | Judging 40/25/25/10; side prizes incl. Best use of Google Cloud AI and Best UI/UX | T&C | Multi-agent ADK graph, visible verification, measured impact, premium UI. |
 | Models on project `ordinal-mep` (probed 13 Oct) | Direct API calls | `gemini-3.8-flash` (GA) works on Vertex global. `gemini-3.1-pro-preview` and `gemini-3.8-flash-lite` return 404; not used. |
-| Live voice: Firebase AI Logic Live is Preview; `gemini-live-2.5-flash-native-audio` retires around Oct–Dec 2026; App Check becomes mandatory for AI Logic on 2 Nov 2026 | Firebase docs | Voice spike and App Check setup happen on day 0. Target `gemini-3.8-live`. Typed what-if is the guaranteed path; voice is a layer on top (section 6.9). |
+| Live voice: Firebase AI Logic Live is Preview; `gemini-live-2.5-flash-native-audio` retires around Oct–Dec 2026; App Check becomes mandatory for AI Logic on 2 Nov 2026 | Firebase docs | Voice spike and App Check setup happen on day 0. Target `gemini-3.8-live`. Typed what-if is the guaranteed path; voice is a layer on top (section 6.4). |
 | Firebase Hosting → Cloud Run rewrites time out at 60 s | Firebase docs | Every `/api` call returns in under 10 s; long work runs in background phases (section 6.2). |
 | ADK 2.11 verified | Spike, 13 Oct | `Workflow(edges=[...])` with `LlmAgent` + tools ran live on `gemini-3.8-flash` in 5.7 s. Env: `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT=ordinal-mep`, `GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep`, `GOOGLE_CLOUD_LOCATION=global`. |
 | Max 4 parallel subagents during the build | User rule | At most 4 workstreams. |
@@ -88,7 +88,7 @@ Shown on the Benchmarks slide and in the video's proof beat:
 - Intake agent with verified citations and a flagged contradiction.
 - Plan gate, option gate, review gate; Ask/Auto switch.
 - Phased agent runs streamed live via Firestore (section 6).
-- Engine and rule pack R01–R16 with tests (section 8).
+- Engine and rule pack R01–R14 (incl. R04b) with tests (section 8).
 - Workspace UI: agent lanes, SLD, 3D hall, compliance matrix, finding drawer with PDF citations, option cards, revision timeline with diff, review/sign-off page, assumptions ledger.
 - Typed what-if with impact chain.
 - ERP/CRM sandbox service; Procurement agent; purchase requisitions on approval.
