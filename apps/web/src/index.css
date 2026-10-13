@@ -1,68 +1,112 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Dark-only, dense, Linear/Vercel-like (spec §12). Contrast of text tokens on --background ≥ 4.5:1. */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --radius: 0.5rem;
+  --background: #0b0d10;
+  --foreground: #e4e4e7;
+  --card: #111418;
+  --card-foreground: #e4e4e7;
+  --popover: #14181d;
+  --popover-foreground: #e4e4e7;
+  --primary: #e4e4e7;
+  --primary-foreground: #0b0d10;
+  --secondary: #1c2127;
+  --secondary-foreground: #e4e4e7;
+  --muted: #1c2127;
+  --muted-foreground: #a1a1aa;
+  --accent: #222831;
+  --accent-foreground: #f4f4f5;
+  --destructive: #e11d48;
+  --border: #262c34;
+  --input: #2a313a;
+  --ring: #60a5fa;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-size: 14px;
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Presentation mode (?present=1): larger type, no dev affordances. */
+html[data-present="1"] {
+  font-size: 17px;
+}
+html[data-present="1"] [data-dev] {
+  display: none !important;
 }
 
-button {
+/* Motion only for progress; honour the OS setting everywhere (Motion also uses MotionConfig reducedMotion="user"). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Spotlight-tour cut-out. */
+.tour-spotlight {
+  position: fixed;
+  z-index: 60;
   border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.62);
+  outline: 2px solid #60a5fa;
+  pointer-events: none;
+  transition: all 200ms ease;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* React Flow dark tweaks. */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-edge-stroke: #52525b;
+  --xy-controls-button-background-color: #14181d;
+  --xy-controls-button-color: #e4e4e7;
+  --xy-controls-button-border-color: #262c34;
 }
