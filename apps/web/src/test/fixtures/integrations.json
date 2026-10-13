@@ -1,0 +1,31 @@
+{
+  "synced_at": 1760000600,
+  "erp": {
+    "materials": [
+      { "id": "TX-2500", "category": "transformer", "description": "Transformer 2.5 MVA cast-resin Dyn11", "rating": 2500, "unit": "kVA", "voltage": "33/0.415 kV", "stock": 0, "lead_time_weeks": 98, "unit_price": 180000, "vendor": "Shakti Transformers" },
+      { "id": "TX-3150", "category": "transformer", "description": "Transformer 3.15 MVA cast-resin Dyn11", "rating": 3150, "unit": "kVA", "voltage": "33/0.415 kV", "stock": 6, "lead_time_weeks": 12, "unit_price": 210000, "vendor": "Shakti Transformers" }
+    ],
+    "prs": [
+      {
+        "id": "PR-2026-0142", "project_id": "hall-a", "revision": "r2", "status": "submitted", "created_at": 1760000520,
+        "lines": [{ "material_id": "TX-3150", "description": "Transformer 3.15 MVA cast-resin Dyn11", "qty": 2, "unit_price": 210000, "lead_time_weeks": 12 }]
+      },
+      {
+        "id": "PR-2026-0101", "project_id": "pune-edge-1", "revision": "r3", "status": "submitted", "created_at": 1758800000,
+        "lines": [{ "material_id": "BW-1600", "description": "Busway 1,600 A", "qty": 12, "unit_price": 900, "lead_time_weeks": 6 }]
+      }
+    ]
+  },
+  "crm": {
+    "opportunities": [
+      { "id": "opp-hall-a", "account": "Deccan Compute", "name": "Hall A design-build", "stage": "Design approved", "value": 18500000, "next_step": "Issue PRs" },
+      { "id": "opp-hall-b", "account": "Deccan Compute", "name": "Hall B design-build", "stage": "Design in progress", "value": 18500000, "next_step": "Run design" }
+    ]
+  },
+  "documents": [
+    { "id": "doc-1", "project_id": "hall-a", "name": "tender-hall-a.pdf", "kind": "tender", "url": "/demo/docs/tender-hall-a.pdf", "updated_at": 1759000000 }
+  ],
+  "notifications": [
+    { "id": "n-1", "ts": 1760000500, "kind": "approval", "title": "Hall A r2 approved by Priya Raman", "project_id": "hall-a" }
+  ]
+}

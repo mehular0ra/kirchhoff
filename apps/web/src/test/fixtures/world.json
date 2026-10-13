@@ -1,0 +1,19 @@
+{
+  "org": { "name": "Meridian Power Engineering", "tagline": "Data-centre and grid EPC" },
+  "people": [
+    { "id": "priya", "name": "Priya Raman", "role": "Lead Electrical Engineer (Reviewer)", "initials": "PR" },
+    { "id": "arjun", "name": "Arjun Mehta", "role": "Design Engineer", "initials": "AM" },
+    { "id": "rohan", "name": "Rohan Das", "role": "Procurement Lead", "initials": "RD" }
+  ],
+  "projects": [
+    { "id": "hall-a", "name": "Deccan AI Campus · Hall A", "client": "Deccan Compute", "asset_pack": "datahall", "state": "signed", "sample": true, "updated_at": 1760000530 },
+    { "id": "hall-b", "name": "Deccan AI Campus · Hall B", "client": "Deccan Compute", "asset_pack": "datahall", "state": "not_started", "sample": true, "updated_at": 1759990000 },
+    { "id": "grid-132kv", "name": "Deccan campus · 132 kV intake", "client": "Narmada Transmission", "asset_pack": "grid", "state": "checked", "sample": true, "updated_at": 1759900000 },
+    { "id": "solar-5mwp", "name": "Deccan campus · 5 MWp solar", "client": "Suryodaya Renewables", "asset_pack": "solar", "state": "draft", "sample": true, "updated_at": 1759800000 },
+    { "id": "vindhya-lv", "name": "Vindhya Steel · Mill LV upgrade", "client": "Vindhya Steel", "asset_pack": "datahall", "state": "archived", "sample": true, "updated_at": 1757000000 }
+  ],
+  "activity": [
+    { "id": "act-1", "ts": 1760000500, "actor": "Priya Raman", "project_id": "hall-a", "text": "approved revision r2 of Hall A" },
+    { "id": "act-2", "ts": 1760000520, "actor": "Rohan Das", "project_id": "hall-a", "text": "PR-2026-0142 submitted to ERP" }
+  ]
+}
