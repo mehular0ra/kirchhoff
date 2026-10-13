@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "site": "kirchhoff",
+    "public": "public_dist",
+    "ignore": ["firebase.json", "**/.*"],
+    "rewrites": [
+      { "source": "/api/**", "run": { "serviceId": "kirchhoff-api", "region": "asia-south1" } },
+      { "source": "**", "destination": "/index.html" }
+    ],
+    "headers": [{ "source": "/demo/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=300" }] }]
+  },
+  "firestore": { "rules": "firestore.rules" },
+  "storage": { "rules": "storage.rules" }
+}
