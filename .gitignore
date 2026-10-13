@@ -11,3 +11,4 @@ services/api/build/
 .firebase/
 *.log
 .superpowers/
+.worktrees/
