@@ -3,6 +3,7 @@ import functools
 import json
 import logging
 import re
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
@@ -97,9 +98,13 @@ def explain_text(deps, model: DesignModel, finding: Finding) -> str:
     # burst of explain calls can never delay a what-if request. `deps.erp()` runs on this thread while the
     # LLM call runs in the background, so the two overlap instead of adding to the /api latency budget.
     fut = _LLM_POOL.submit(deps.runner.run, COPILOT, f"explain:{finding.id}", msg)
+    # Task 15 residual fix (a): one deadline, taken right after submit, covers both the (possibly slow)
+    # deps.erp() call below and the fut.result() wait -- not COPILOT.timeout_s + 1 *in addition to* whatever
+    # deps.erp() already spent, which could push the total past the service's ~10s-per-/api budget.
+    deadline = time.monotonic() + COPILOT.timeout_s + 1
     try:
         extra_ids = [finding.element_id, *deps.erp().ids()]
-        res = fut.result(timeout=COPILOT.timeout_s + 1)
+        res = fut.result(timeout=max(0.0, deadline - time.monotonic()))
         text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template)
     except Exception as exc:
         fut.cancel()

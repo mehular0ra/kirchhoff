@@ -7,11 +7,12 @@ from pydantic import ValidationError
 
 from kirchhoff.agents import copilot as copilot_mod
 from kirchhoff.agents.copilot import load_seed_bundle
-from kirchhoff.agents.runner import AgentResult
+from kirchhoff.agents.runner import AgentResult, AgentSpec
 from kirchhoff.api import copilot_routes
 from kirchhoff.api.app import create_app
+from kirchhoff.contracts import Finding
 from kirchhoff.enterprise.client import EnterpriseUnavailable
-from kirchhoff.runs.fakes import FakeEngine
+from kirchhoff.runs.fakes import FakeEngine, FakeEnterprise
 
 
 def _post(client, auth, path, body):
@@ -113,6 +114,32 @@ def test_what_if_returns_503_when_the_enterprise_sandbox_is_unavailable(client, 
     assert r.status_code == 503 and r.json() == {"detail": "enterprise_unavailable"}
 
 
+# --- Task 15 residual (b): `except ValueError` in /api/what-if must not mislabel a server bug
+# (pydantic ValidationError, also a ValueError subclass) or an unrelated enterprise error as 422
+# invalid_value, which is reserved for the what-if value genuinely being out of range.
+class ValidationErrorEngine(FakeEngine):
+    def what_if(self, *args, **kwargs):
+        Finding.model_validate({})  # missing required fields: raises pydantic.ValidationError
+
+
+def test_what_if_validation_error_from_the_engine_is_not_mislabelled_422(client, seeded, auth):
+    seeded.engine = ValidationErrorEngine()
+    with pytest.raises(ValidationError):
+        _post(client, auth, "/api/what-if", {"revision_ref": "seed:hall-a@r2", "param": "rack_kw", "value": 200})
+
+
+class ValueErrorEnterprise(FakeEnterprise):
+    def list_materials(self):
+        raise ValueError("422 from the sandbox: bad material query")  # mirrors HttpEnterpriseClient._call
+
+
+def test_what_if_enterprise_value_error_is_not_mislabelled_422_invalid_value(client, seeded, auth):
+    seeded.enterprise = ValueErrorEnterprise()
+    seeded._erp = None  # force deps.erp() to re-fetch instead of serving the fixture's cached snapshot
+    with pytest.raises(ValueError):
+        _post(client, auth, "/api/what-if", {"revision_ref": "seed:hall-a@r2", "param": "rack_kw", "value": 200})
+
+
 def test_explain_fills_placeholders_from_the_engine_record(client, seeded, auth):
     r = _post(client, auth, "/api/explain", {"revision_ref": "seed:hall-a@r1", "finding_id": "R05:FA-01"})
     assert r.json() == {"text": "FA-01 has a voltage drop of 2.16%, above the 2% limit in §4.6. It is the longest "
@@ -159,28 +186,77 @@ def test_explain_on_a_workspace_revision(client, seeded, auth):
                                 "A-side feeder from A1."}
 
 
-def test_explain_saturating_the_llm_pool_does_not_delay_what_if(client, seeded, auth):
-    """A burst of slow explain calls must not starve what-if: the two use separate executors."""
+# --- Task 15 residual (a): the explain deadline must be a single clock taken at submit time, so a slow
+# ERP fetch doesn't let the total exceed the LLM budget (reviewer measured 11.02s: a 3s ERP fetch stacked
+# on top of the full 8s LLM timeout, against the service's ~10s-per-/api budget).
+def test_explain_deadline_is_measured_from_submit_not_after_a_slow_erp_fetch(client, seeded, auth, monkeypatch):
+    monkeypatch.setattr(copilot_mod, "COPILOT", AgentSpec("copilot", "x", timeout_s=1.5))
+
+    class SlowEnterprise(FakeEnterprise):
+        def list_materials(self):
+            time.sleep(1.0)
+            return super().list_materials()
+
+    class HungRunner:
+        def run(self, spec, key, message, tools=(), attachments=()):
+            time.sleep(5.0)  # never returns within the (short, patched) budget
+            return AgentResult(text="too late")
+
+    seeded.enterprise = SlowEnterprise()
+    seeded._erp = None  # force deps.erp() to re-fetch (pays the slow ERP cost) instead of the cached snapshot
+    seeded.runner = HungRunner()
+    bundle = load_seed_bundle(seeded.seed_dir, "hall-a")
+    model = bundle.revisions[0].model
+    finding = next(f for f in bundle.findings["r1"] if f.id == "R05:FA-01")
+    start = time.monotonic()
+    text = copilot_mod.explain_text(seeded, model, finding)
+    elapsed = time.monotonic() - start
+    assert text == "Voltage drop: 2.16% against a limit of 2%."
+    # Fixed: one deadline (submit time + timeout_s + 1 = 2.5s) covers the ERP fetch and the LLM wait
+    # together, so elapsed lands near 2.5s. Buggy: the LLM wait alone gets the full 2.5s *after* the 1.0s
+    # ERP fetch already elapsed, landing near 3.5s. 3.0s cleanly separates the two.
+    assert elapsed < 3.0
+
+
+def test_explain_saturating_the_llm_pool_does_not_delay_what_if(client, seeded, auth, monkeypatch):
+    """A burst of slow explain calls must not starve what-if: the two use separate executors. Event-based
+    (not wall-clock), so it cannot flake under load: SlowRunner blocks on an Event until released, and the
+    what-if request is only sent once enough calls have actually started to saturate the LLM pool."""
+    release = threading.Event()
+    started = 0
+    lock = threading.Lock()
+
     class SlowRunner:
         def run(self, spec, key, message, tools=(), attachments=()):
-            time.sleep(1.0)
+            nonlocal started
+            with lock:
+                started += 1
+            release.wait(10)
             return AgentResult(text="slow reply")
 
     seeded.runner = SlowRunner()
+    monkeypatch.setattr(copilot_routes, "WHAT_IF_TIMEOUT_S", 2.0)
     bundle = load_seed_bundle(seeded.seed_dir, "hall-a")
     model = bundle.revisions[0].model
     finding = next(f for f in bundle.findings["r1"] if f.status == "fail")
     threads = [threading.Thread(target=copilot_mod.explain_text, args=(seeded, model, finding))
-               for _ in range(12)]  # more than the LLM pool's 8 workers
+               for _ in range(8)]  # exactly the LLM pool's worker count: fully saturates it
     for t in threads:
         t.start()
-    start = time.time()
-    r = _post(client, auth, "/api/what-if", {"revision_ref": "seed:hall-a@r2", "param": "rack_kw", "value": 200})
-    elapsed = time.time() - start
-    for t in threads:
-        t.join(timeout=5)
-    assert r.status_code == 200
-    assert elapsed < 1.0
+    deadline = time.monotonic() + 5.0
+    while True:
+        with lock:
+            if started >= 8:
+                break
+        assert time.monotonic() < deadline, "explain threads never saturated the LLM pool"
+        time.sleep(0.01)
+    try:
+        r = _post(client, auth, "/api/what-if", {"revision_ref": "seed:hall-a@r2", "param": "rack_kw", "value": 200})
+        assert r.status_code == 200
+    finally:
+        release.set()
+        for t in threads:
+            t.join(timeout=5)
 
 
 # --- Real-engine verification (controller's measured 200 kW what-if beat): the `real_client` fixture

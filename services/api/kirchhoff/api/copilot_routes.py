@@ -2,11 +2,12 @@ from concurrent.futures import TimeoutError as FuturesTimeout
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from kirchhoff.agents.copilot import (BadRevisionRef, RevisionNotFound, answer_voice, call_with_timeout, explain_text,
                                       load_revision)
+from kirchhoff.engine.whatif import PARAM_BOUNDS
 from kirchhoff.runs.deps import Deps
 
 from .errors import err
@@ -51,15 +52,27 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         if error:
             return error
         model, _ = loaded
+        lo, hi = PARAM_BOUNDS[body.param]
+        if not lo <= body.value <= hi:
+            return err(422, "invalid_value")  # ruling P2-R17: an out-of-range what-if value, checked up front
+        # Task 15 residual fix (b): deps.erp() is fetched in its own call_with_timeout/except pair so a
+        # plain ValueError it might raise (HttpEnterpriseClient on a sandbox 422, unrelated to the what-if
+        # value) is never caught by the engine call's `except ValueError` below and mislabelled invalid_value.
         try:
-            res = call_with_timeout(lambda: deps.engine.what_if(deps.scenario(), model, body.param, body.value,
-                                                                body.revision_ref, deps.erp()), WHAT_IF_TIMEOUT_S)
+            erp = call_with_timeout(deps.erp, WHAT_IF_TIMEOUT_S)
         except FuturesTimeout:
             return err(504, "timeout")
-        except ValueError:
-            return err(422, "invalid_value")  # ruling P2-R17: an out-of-range what-if param, not a server error
         except EnterpriseUnavailable:
             return err(503, "enterprise_unavailable")
+        try:
+            res = call_with_timeout(lambda: deps.engine.what_if(deps.scenario(), model, body.param, body.value,
+                                                                body.revision_ref, erp), WHAT_IF_TIMEOUT_S)
+        except FuturesTimeout:
+            return err(504, "timeout")
+        except ValidationError:
+            raise  # a server bug (e.g. a malformed engine/erp record), never the caller's what-if value
+        except ValueError:
+            return err(422, "invalid_value")  # ruling P2-R17: the engine itself rejected the what-if value
         return res.model_dump(mode="json")
 
     @router.post("/api/explain")
