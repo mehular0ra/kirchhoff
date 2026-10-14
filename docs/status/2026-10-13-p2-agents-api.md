@@ -73,3 +73,19 @@ Task 8: fix round 1/5 implemented 6d0c4ff..541df85 (scoped re-review dispatched 
 Task 8: fix round 1/5 (6 addressed, 1 residual Important — SEQ_GAP fixed offset from last flushed event collides when a stale attempt ≥2 flushed nothing (gate resumes make every P2/P3 attempt ≥2); commits 6d0c4ff..541df85)
 Ruling P2-R5: round 2 = attempt-proportional gap (base + SEQ_GAP*max(0, cur-last); no events → 1 + SEQ_GAP*(cur-1)), pass attempt explicitly to next_seq; tests killing N1 (early-guard fence), N2 (pre-flush lease check), N6 (commit txn raises), N10 (no-events branch); failed-path txn leaves an already-done step alone (ambiguous commit error); TITLE_MAX → 1000; truncated payload re-checked against budget — cost if wrong: round 3
 Task 8: fix round 2 dispatched (resumed implementer; FIX_BASE 541df85)
+Task 8: fix round 2/5 implemented 541df85..6944260 (scoped re-review dispatched; check next_seq attempt param optional vs required)
+Task 8: fix round 2/5 (all addressed, 0 open — proportional SEQ_GAP; 26/26 mutants killed; probes 0 losses; commits 541df85..6944260)
+Task 8: complete (commits e78693f..6944260, review clean after 2 fix rounds)
+Task 10 carry (P2-R6): make next_seq's attempt REQUIRED; Task 10 call sites (plan lines ~4450 _worker writer, ~4511 _record_failure) pass attempt; attempt < last_attempt → raise LeaseLost (stale caller)
+Task 9: dispatched (BASE 6944260, implementer sonnet)
+Task 9: implemented 191c4d4 (review dispatched)
+Task 9: review Needs fixes — CRITICAL: unverified LLM quote reaches UI verbatim when digit-free (sanitize is not an always-template gate; brief code); Important: unit never checked against quote; minors: App-vs-App tie-break unpinned, U+2010/U+2212 dash folding
+Ruling P2-R7: unverified → always UNVERIFIED_TEMPLATE + value None; unit must appear in normalised quote else unverified (real tender fixture must still verify); pin App-vs-App; fold extra dashes — cost if wrong: false rejects on unit spellings (tested against real PDF)
+Task 9: fix round 1 dispatched (resumed implementer; FIX_BASE 191c4d4)
+Task 9: fix round 1/5 implemented 53ecf17 (scoped re-review dispatched)
+Task 9: fix round 1/5 (3 addressed, 1 new Important — unit_in_quote is unbounded substring: 'm' matches inside 'mm' (real §6.3.4 clause false-accepts unit m for 300 mm); commits 191c4d4..53ecf17)
+Ruling P2-R8: token-bounded unit match (no ASCII letter on either side of each alias form), tests incl. m-vs-mm on the real tender clause, min-in-aluminum, week-in-midweek, kW-vs-kWh; real tender must still verify 7/8 — cost if wrong: round 3
+Task 9: fix round 2 dispatched (resumed implementer; FIX_BASE 53ecf17)
+Task 9: fix round 2/5 (1 addressed, 0 open — token-bounded unit match; commits 53ecf17..0a9e8bd) — scoped re-review by controller (diff read; 10 unit cases incl. m-vs-mm, min-in-aluminum, kW-vs-kWh all correct; intake 38/38; real tender still 7/8 per implementer)
+Task 9: complete (commits 6944260..0a9e8bd, review clean after 2 fix rounds)
+Task 10: dispatched (BASE 0a9e8bd, implementer sonnet; carries P2-R6 required attempt + LeaseLost on stale, heartbeat self-fence at lost/45 s, _record_failure holds_lease guard)

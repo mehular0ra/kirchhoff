@@ -78,3 +78,11 @@ Task 10: carry to Task 14 dispatch (pre-step): check_golden must raise CaptureEr
 Task 11: dispatched (BASE 3929f4a, implementer sonnet; make seed-enterprise / any Firestore write deferred to controller)
 Bids-inbox addendum written (docs/superpowers/plans/2026-10-14-bids-inbox.md, 3915 lines, prototyped in scratch: WS4 64, WS2 262, web 102 tests) — plan review dispatched
 Task 11: implemented 56cf9ca (review dispatched; live seed load deferred to controller after review)
+Task 11: complete (commits 3929f4a..56cf9ca, review approved; consumer fidelity vs ws3-web staticData.ts: no mismatch; 17 PR ids agree; demo/ = 616 KB; --check green, byte-identical across hash seeds)
+Task 11: minor (deferred): BOQ CSVs lack the illustrative/fictional line (Task 9 boq_csv_bytes); no explicit '..' guard in write_world (inputs trusted)
+Live seed load (make seed-enterprise, 60 materials / 17 PRs / 9 opportunities + docs upload) BLOCKED by the auto-mode permission classifier for the controller — surfaced to user; not worked around
+Task 14 carry: captured hall-a.json / pune-edge-1.json MUST include the RunRecord with options (P3 OptionCards reads run.options) — verify in Task 14 review (P3-R6)
+Task 12: dispatched (BASE 56cf9ca, implementer sonnet; CODE ONLY — CORS apply/redeploys/smoke are controller-run with user approval)
+Task 12: implemented db6d6d9 (review dispatched; controller-run steps listed in report)
+Task 12: complete (commits 56cf9ca..db6d6d9, review approved; bucket CORS currently null; controller-run: storage_cors.sh → deploy_api.sh (image carries /app/seed bundles) → make deploy-web + smoke.sh — needs WS3 prebuild (sync-demo-docs) merged first and user approval for cloud actions)
+P4 status: Tasks 13–16 blocked on (a) deployed real UI + P2 API (Tasks 12–14), (b) user approval for cloud actions
