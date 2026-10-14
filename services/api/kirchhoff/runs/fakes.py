@@ -29,6 +29,8 @@ from kirchhoff.contracts import (Citation, ClauseRef, Connection, CoolingNode, C
                                  TopologyOption, WhatIfResult)
 from kirchhoff.intake.render import load_geometry, render_drawing, render_tender_pdf
 from kirchhoff.intake.tender_schema import load_tender
+from kirchhoff.store.memory import MemoryStore
+from kirchhoff.store.validate import firestore_safe_problems
 
 from .compat import ClashReport, FixCandidate
 
@@ -459,3 +461,53 @@ def build_fake_scenarios(root: Path, tender_yaml: Path, geometry_yaml: Path, gro
     (root / "grid").mkdir(exist_ok=True)
     (root / "solar").mkdir(exist_ok=True)
     return root
+
+
+class CheckedStore(MemoryStore):
+    """MemoryStore that records Firestore-safety problems (R7) in every written document (tests only)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.problems: list[tuple[str, list[str]]] = []
+
+    def _check(self, path: str, data: dict | None) -> None:
+        if data is not None and (found := firestore_safe_problems(data)):
+            self.problems.append((path, found[:3]))
+
+    def set_doc(self, path: str, data: dict) -> None:
+        self._check(path, data)
+        super().set_doc(path, data)
+
+    def update_doc(self, path: str, data: dict) -> None:
+        self._check(path, data)
+        super().update_doc(path, data)
+
+    def batch_set(self, items: list[tuple[str, dict]]) -> None:
+        for path, data in items:
+            self._check(path, data)
+        super().batch_set(items)
+
+    def transact(self, read_paths, fn):
+        def checked(snapshot):
+            writes = fn(snapshot)
+            for path, data in writes:
+                self._check(path, data)
+            return writes
+        return super().transact(read_paths, checked)
+
+
+def build_fake_deps(store, scenarios_dir: Path, seed_dir: Path | None = None, replies: dict | None = None,
+                    **overrides):
+    from kirchhoff.agents.runner import ReplayRunner
+
+    from .blobs import MemoryBlobStore
+    from .deps import Deps
+
+    engine = overrides.pop("engine", None) or FakeEngine()
+    kw = dict(store=store, engine=engine, runner=ReplayRunner({**FAKE_REPLIES, **(replies or {})}),
+              enterprise=FakeEnterprise(), blobs=MemoryBlobStore(), scenarios_dir=Path(scenarios_dir),
+              seed_dir=Path(seed_dir or scenarios_dir), voice_runner=ReplayRunner(dict(replies or {})),
+              asset_engines={k: getattr(engine, f"evaluate_{k}") for k in ("grid", "solar")
+                             if hasattr(engine, f"evaluate_{k}")})
+    kw.update(overrides)
+    return Deps(**kw)
