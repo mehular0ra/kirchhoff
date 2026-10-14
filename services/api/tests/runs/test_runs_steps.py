@@ -19,7 +19,7 @@ def ctx(deps, make_run):
     attempt = acquire_lease(deps.store, "u1", rid, deps.owner, deps.clock(), {"phase": "p2"})
     rp = run_path("u1", rid)
     events = EventWriter(deps.store, rp, phase="p2", step="p2.start", attempt=attempt,
-                         start_seq=next_seq(deps.store, rp), flush_interval_s=999)  # run_step flushes
+                         start_seq=next_seq(deps.store, rp, attempt), flush_interval_s=999)  # run_step flushes
     return PhaseContext(deps, "u1", rid, "p2", attempt, events)
 
 
@@ -112,7 +112,7 @@ def test_tool_wrapper_and_agent_fallback(ctx):
 
 def test_next_seq_continues_from_highest_written(ctx):
     ctx.deps.store.set_doc(f"{ctx.run_path}/events/000041", {"seq": 41})
-    assert next_seq(ctx.deps.store, ctx.run_path) == 42
+    assert next_seq(ctx.deps.store, ctx.run_path, ctx.attempt) == 42
 
 
 def test_unsafe_step_docs_fail_the_step_before_commit(ctx):
@@ -147,12 +147,12 @@ def test_next_seq_jumps_past_a_stale_attempts_range_to_avoid_id_collision(ctx):
     ctx.deps.store.set_doc(f"{ctx.run_path}/events/000003", {"seq": 3, "attempt": ctx.attempt})
     run = ctx.deps.store.get_doc(ctx.run_path)
     ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": ctx.attempt + 1}})
-    assert next_seq(ctx.deps.store, ctx.run_path) == 3 + 1 + 10_000
+    assert next_seq(ctx.deps.store, ctx.run_path, ctx.attempt + 1) == 3 + 1 + 10_000
 
 
 def test_next_seq_does_not_jump_when_the_attempt_is_unchanged(ctx):
     ctx.deps.store.set_doc(f"{ctx.run_path}/events/000005", {"seq": 5, "attempt": ctx.attempt})
-    assert next_seq(ctx.deps.store, ctx.run_path) == 6
+    assert next_seq(ctx.deps.store, ctx.run_path, ctx.attempt) == 6
 
 
 def test_stale_workers_pre_commit_flush_cannot_overwrite_the_committing_attempts_events(ctx):
@@ -173,7 +173,7 @@ def test_stale_workers_pre_commit_flush_cannot_overwrite_the_committing_attempts
         attB = acquire_lease(ctx.deps.store, "u1", rid, "other-owner", now)
         assert attB == attA + 1
         wB = EventWriter(ctx.deps.store, ctx.run_path, phase="p2", step="p2.race", attempt=attB,
-                         start_seq=next_seq(ctx.deps.store, ctx.run_path), flush_interval_s=999)
+                         start_seq=next_seq(ctx.deps.store, ctx.run_path, attB), flush_interval_s=999)
         deps_b = build_fake_deps(ctx.deps.store, ctx.deps.scenarios_dir, seed_dir=ctx.deps.seed_dir,
                                  owner="other-owner", blobs=ctx.deps.blobs, clock=lambda: now, heartbeat_s=3600.0)
         ctxB = PhaseContext(deps_b, "u1", rid, "p2", attB, wB)
@@ -251,8 +251,8 @@ def test_events_flush_happens_before_the_commit_transaction(scen_dir, tmp_path):
                     started_at=deps.clock())
     store.set_doc(f"workspaces/u1/runs/{rid}", rec.model_dump(mode="json"))
     attempt = acquire_lease(store, "u1", rid, deps.owner, deps.clock())
-    events = EventWriter(store, rp, phase="p2", step="p2.flush", attempt=attempt, start_seq=next_seq(store, rp),
-                         flush_interval_s=999)
+    events = EventWriter(store, rp, phase="p2", step="p2.flush", attempt=attempt,
+                         start_seq=next_seq(store, rp, attempt), flush_interval_s=999)
     ctx = PhaseContext(deps, "u1", rid, "p2", attempt, events)
 
     def fn():
@@ -381,10 +381,10 @@ def test_next_seq_proportional_gap_prevents_same_start_for_two_never_flushed_att
     run = ctx.deps.store.get_doc(ctx.run_path)
     att_mid = ctx.attempt + 1
     ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": att_mid}})
-    start_mid = next_seq(ctx.deps.store, ctx.run_path)  # attempt N: never flushed yet
+    start_mid = next_seq(ctx.deps.store, ctx.run_path, att_mid)  # attempt N: never flushed yet
     att_next = ctx.attempt + 2
     ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": att_next}})
-    start_next = next_seq(ctx.deps.store, ctx.run_path)  # attempt N+1: also never flushed; same last event
+    start_next = next_seq(ctx.deps.store, ctx.run_path, att_next)  # attempt N+1: also never flushed; same last event
     assert start_mid == 3 + 1 + 10_000 * (att_mid - ctx.attempt)
     assert start_next == 3 + 1 + 10_000 * (att_next - ctx.attempt)
     assert start_next > start_mid  # N10 (no-prior-write) scenario: no event has `att_mid`'s own attempt
@@ -396,7 +396,7 @@ def test_next_seq_gaps_proportionally_when_no_events_exist_yet(ctx):
     run = ctx.deps.store.get_doc(ctx.run_path)
     far_attempt = ctx.attempt + 3
     ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": far_attempt}})
-    assert next_seq(ctx.deps.store, ctx.run_path) == 1 + 10_000 * (far_attempt - 1)
+    assert next_seq(ctx.deps.store, ctx.run_path, far_attempt) == 1 + 10_000 * (far_attempt - 1)
 
 
 def test_next_seq_accepts_an_explicit_attempt_instead_of_inferring_from_the_run_doc(ctx):
@@ -408,6 +408,28 @@ def test_next_seq_accepts_an_explicit_attempt_instead_of_inferring_from_the_run_
     # the run doc's own lease attempt is unchanged (still ctx.attempt): the explicit value, not an
     # inferred one, drove the result above.
     assert ctx.deps.store.get_doc(ctx.run_path)["lease"]["attempt"] == ctx.attempt
+
+
+# ---------------------------------------------------------------------------
+# P2-R6: `attempt` is required, and a stale caller raises LeaseLost
+# ---------------------------------------------------------------------------
+
+
+def test_next_seq_requires_an_attempt(ctx):
+    """P2-R6: `attempt` is a required parameter, not an optional one that falls back to re-reading the
+    run doc's current lease attempt."""
+    with pytest.raises(TypeError):
+        next_seq(ctx.deps.store, ctx.run_path)
+
+
+def test_next_seq_raises_lease_lost_for_a_stale_attempt(ctx):
+    """P2-R6: an attempt lower than the highest written event's own attempt means a newer attempt has
+    already taken over (and may have written events this caller cannot see consistently); the caller
+    is stale and must stop, not silently compute a seq that could collide with what the new attempt
+    already wrote."""
+    ctx.deps.store.set_doc(f"{ctx.run_path}/events/000005", {"seq": 5, "attempt": ctx.attempt + 2})
+    with pytest.raises(LeaseLost):
+        next_seq(ctx.deps.store, ctx.run_path, ctx.attempt)
 
 
 def test_early_guard_fences_the_writer(ctx):
