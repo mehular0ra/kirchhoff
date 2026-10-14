@@ -4,7 +4,7 @@ import { Edges, Grid, Html, Instance, Instances, OrbitControls } from '@react-th
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import type { LucideIcon } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { EmptyState } from '@/components/Labels'
 import { CHAIN_COLORS } from '@/lib/agents'
@@ -16,7 +16,7 @@ import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
 import { useWorkspace, type WorkspaceView } from '../WorkspaceContext'
 import { buildHallScene, crossingPoint, midpoint, resample, type HallScene, type SceneTube, type V3 } from './hallScene'
-import { useDisposableState } from './useDisposableState'
+import { useLiveGeometry } from './useLiveGeometry'
 
 const BASE = {
   rack: '#3f4650',
@@ -75,23 +75,38 @@ function tubeGeometry(points: V3[], radius: number, pos: (p: V3) => V3): THREE.T
 function AnimatedTube({ tube, view, pos, onPick }: { tube: SceneTube; view: WorkspaceView; pos: (p: V3) => V3; onPick: () => void }) {
   const reduce = useReducedMotion()
   const meshRef = useRef<THREE.Mesh>(null)
+  // Geometry is owned imperatively (never held in React state, never built during render — spec
+  // ruling P3-R4): a plain useState/useEffect pair disposes the live geometry during Strict
+  // Mode's mount-time dry run, since its cleanup can't tell "about to be replaced" apart from
+  // "actually unmounting". `swap` is the only place that ever disposes anything, and it only
+  // ever does so after a genuinely new geometry is ready to take its place.
+  const { liveGeom, swap } = useLiveGeometry<THREE.TubeGeometry>(meshRef)
   const from = useRef<V3[] | null>(null)
   const target = useMemo(() => resample(tube.points, 32), [tube.points])
   const t0 = useRef(0)
-  // useDisposableState (not useState) so the geometry this effect replaces is disposed, not
-  // orphaned — the initial value from the lazy initializer is left alone on mount.
-  const [geom, setGeom] = useDisposableState(() => tubeGeometry(tube.points, tube.radius, pos))
+  // Tracks "do we currently own a built geometry from this effect" independently of `from`, so
+  // Strict Mode's extra cleanup+setup (which fires only around mount) always sees a consistent
+  // state to rebuild from — seeing `!built.current` is what makes the second setup run rebuild.
+  const built = useRef(false)
 
-  useEffect(() => {
-    if (reduce || !from.current) {
-      // Skip on the very first run (from.current is still null): the initial geometry built by
-      // useDisposableState's lazy initializer already matches `target`, so building again here
-      // would just discard it unused.
-      if (from.current) setGeom(tubeGeometry(tube.points, tube.radius, pos))
+  useLayoutEffect(() => {
+    if (reduce || !built.current) {
+      const g = tubeGeometry(tube.points, tube.radius, pos)
+      swap(g)
+      built.current = true
       from.current = target
-      return
+      return () => {
+        // Only dispose if nothing else (a later swap, or the hook's own unmount safety net) has
+        // already superseded or disposed this value — avoids ever disposing twice.
+        if (liveGeom.current === g) {
+          g.dispose()
+          liveGeom.current = null
+        }
+        built.current = false
+      }
     }
     t0.current = performance.now()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- swap/liveGeom are stable from the hook
   }, [target, tube.points, tube.radius, pos, reduce])
 
   useFrame(() => {
@@ -102,10 +117,7 @@ function AnimatedTube({ tube, view, pos, onPick }: { tube: SceneTube; view: Work
       const a = from.current![i]
       return [a[0] + (p[0] - a[0]) * e, a[1] + (p[1] - a[1]) * e, a[2] + (p[2] - a[2]) * e] as V3
     })
-    if (meshRef.current) {
-      meshRef.current.geometry.dispose()
-      meshRef.current.geometry = tubeGeometry(pts, tube.radius, pos)
-    }
+    swap(tubeGeometry(pts, tube.radius, pos))
     if (k >= 1) {
       from.current = target
       t0.current = 0
@@ -116,7 +128,6 @@ function AnimatedTube({ tube, view, pos, onPick }: { tube: SceneTube; view: Work
   return (
     <mesh
       ref={meshRef}
-      geometry={geom}
       onClick={(e) => {
         e.stopPropagation()
         onPick()
