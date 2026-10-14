@@ -6,6 +6,7 @@ from kirchhoff.contracts import DesignModel, Point3
 from .cooling import build_pipes, size_cooling
 from .layout import row_of_busway, row_x
 from .scenario import Scenario
+from .validate import validate_model
 
 Pt = tuple[float, float, float]
 
@@ -53,6 +54,7 @@ def feeder_specs(model: DesignModel) -> list[tuple[str, str, str]]:
 def route(scn: Scenario, model: DesignModel) -> DesignModel:
     """P3 default routing: feeder polylines (lengths recomputed) and pipes from geometry.yaml. Existing pipes
     are kept, so calling route() on an already-fixed model does not undo pipe fixes."""
+    validate_model(scn, model)
     routes = feeder_routes(scn, feeder_specs(model))
     conns = []
     for c in model.connections:

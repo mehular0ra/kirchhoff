@@ -23,6 +23,9 @@ def r08(ctx: Ctx) -> list[Finding]:
     return out
 
 
+R09_TOL_LPM = 1e-3 * 60.0  # >= cooling.py's 4-dp rounding of flow_lps (0.5e-4 L/s per pipe), as L/min
+
+
 def r09(ctx: Ctx) -> list[Finding]:
     branches = {p.id.removeprefix("BR-"): p for p in ctx.model.pipes if p.kind == "branch"}
     out = []
@@ -34,7 +37,7 @@ def r09(ctx: Ctx) -> list[Finding]:
             continue
         have = branches[row].flow_lps * 60.0 / len(racks)
         need = max(rack_required_flow_lps(ctx.scn, r) for r in racks) * 60.0
-        out.append(make_finding(ctx.scn, "R09", m.id, status_of(have >= need * (1 - 1e-9)), value=have, limit=need,
+        out.append(make_finding(ctx.scn, "R09", m.id, status_of(have >= need - R09_TOL_LPM), value=have, limit=need,
                                 unit="L/min", inputs={"branch": branches[row].id, "racks": float(len(racks))},
                                 explanation=f"Rack flow on {m.id} is {{value}} L/min against a requirement of "
                                             f"{{limit}} L/min."))

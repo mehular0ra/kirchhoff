@@ -1,5 +1,6 @@
 """Scenario files (spec §9): tender.yaml, catalogue.yaml, geometry.yaml under <repo>/scenarios/<name>/."""
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,7 @@ import yaml
 
 LABEL = "IEC-based, illustrative, not for construction"
 CATALOGUE_SECTIONS = ("transformers", "busways", "cables", "breakers", "ups", "sts", "switchboards", "cdus", "pipes")
+_NAME_RE = re.compile(r"^[a-z0-9_-]+$")
 
 
 @dataclass(frozen=True)
@@ -37,6 +39,8 @@ def _read_yaml(path: Path) -> Any:
 
 
 def load_scenario(name: str = "hall_a", root: Path | None = None) -> Scenario:
+    if not _NAME_RE.fullmatch(name):
+        raise ValueError(f"invalid scenario name {name!r}; must match [a-z0-9_-]+")
     base = scenarios_root(root) / name
     return Scenario(name=name, tender=_read_yaml(base / "tender.yaml"),
                     catalogue=_read_yaml(base / "catalogue.yaml"), geometry=_read_yaml(base / "geometry.yaml"))

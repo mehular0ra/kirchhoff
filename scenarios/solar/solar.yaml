@@ -1,0 +1,15 @@
+# Solar asset pack (spec §10): ~5 MWp ground-mount field beside the hall. Fictional.
+# IEC-based, illustrative, not for construction. Clear-sky yield only (no weather data).
+label: "IEC-based, illustrative, not for construction"
+name: "Deccan campus 5 MWp solar (fictional)"
+site: {lat_deg: 17.4, tmin_c: 8.0, tcell_max_c: 70.0, albedo: 0.2}
+target_mwp: 5.0
+field_polygon: [[0.0, 0.0], [370.0, 0.0], [370.0, 150.0], [320.0, 185.0], [0.0, 185.0]]   # metres
+setback_m: 5.0
+module: {id: MOD-550, pmax_w: 550.0, voc_v: 49.9, vmp_v: 41.9, beta_voc_pct_k: -0.28, gamma_vmp_pct_k: -0.35,
+         length_m: 2.278, width_m: 1.134}
+inverter: {id: INV-250, ac_kw: 250.0, vdc_max_v: 1500.0, mppt_min_v: 880.0}
+table: {modules_high: 2, gap_m: 0.5, gcr: 0.4, tilt_deg: 17.4}
+string_options: [26, 28, 30]
+dc_ac: {min: 1.1, max: 1.35, target: 1.25}
+performance_ratio: 0.80
