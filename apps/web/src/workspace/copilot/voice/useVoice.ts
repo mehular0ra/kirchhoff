@@ -26,7 +26,13 @@ export function useVoice(opts: {
 
   useEffect(
     () => () => {
+      // Never leave a mic stream or a spoken reply running past unmount (ruling P3-R2 fix round 1).
       void live.current?.stop().catch(() => undefined)
+      // Discards the in-progress clip: Recording.stop() stops the MediaRecorder and, via its own
+      // onstop handler, every track of the underlying getUserMedia stream (pushToTalk.ts). The
+      // resulting blob is never sent — only pttUp() does that, and it is not called here.
+      void rec.current?.stop().catch(() => undefined)
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
     },
     [],
   )
