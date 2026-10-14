@@ -1,0 +1,20 @@
+# Grid asset pack (spec §10): 132 kV double-circuit line to the campus substation. Fictional.
+# IEC-based, illustrative, not for construction.
+label: "IEC-based, illustrative, not for construction"
+name: "Deccan campus 132 kV intake (fictional)"
+system: {un_kv: 132.0, lv_kv: 33.0, grid_sk_mva: 5000.0, grid_rx: 0.1, pf: 0.95}
+substation: {id: SS-DECCAN, transformers: 2, rating_mva: 50.0, uk_pct: 12.5, pk_kw: 230.0}
+design:
+  line_capacity_mva: 100.0        # both campus transformers at rating; one circuit must carry it (N-1)
+  circuits: 2
+  regulation_max_pct: 5.0
+  loss_load_factor: 0.5
+  energy_price_usd_kwh: 0.08
+  evaluation_years: 10
+  switchgear_132_ka: 31.5
+  switchgear_33_ka: 25.0
+route_km: [[0.0, 0.0], [6.0, 2.5], [11.0, 6.0], [16.2, 7.9]]   # grid substation -> campus, plan km
+conductors:
+  - {id: ACSR-DOG, name: "ACSR Dog", area_mm2: 100, r_ohm_km: 0.2733, x_ohm_km: 0.40, ampacity_a: 300, price_usd_km_circuit: 28000}
+  - {id: ACSR-PANTHER, name: "ACSR Panther", area_mm2: 200, r_ohm_km: 0.1363, x_ohm_km: 0.39, ampacity_a: 487, price_usd_km_circuit: 42000}
+  - {id: ACSR-ZEBRA, name: "ACSR Zebra", area_mm2: 420, r_ohm_km: 0.0674, x_ohm_km: 0.37, ampacity_a: 737, price_usd_km_circuit: 68000}

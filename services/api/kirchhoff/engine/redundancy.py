@@ -70,7 +70,7 @@ def study(scn: Scenario, model: DesignModel) -> Study:
     chain = {b: (nx.ancestors(g, b) | {b}) - {"MV"} for b in busways}
     busway_system = {}
     for b in busways:
-        boards = [n for n in chain[b] if n in eq and eq[n].kind == "critical_board"]
+        boards = sorted(n for n in chain[b] if n in eq and eq[n].kind == "critical_board")
         busway_system[b] = eq[boards[0]].system if boards else ""
     feeder_of = {c.dst: c.id for c in model.connections if c.kind in ("busway", "cable") and c.dst in eq
                  and eq[c.dst].kind == "busway"}
