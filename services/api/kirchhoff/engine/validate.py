@@ -119,3 +119,22 @@ def validate_model(scn: Scenario, model: DesignModel) -> None:
         if not any(_point_on_polyline(first, [(pt.x, pt.y, pt.z) for pt in h.route], HEADER_TOL_M)
                   for h in zone_headers):
             raise ValueError(f"branch pipe {p.id} does not take off from a header in zone {p.zone!r}")
+
+    # Terminal pin: every pipe network's two true endpoints (the CDU riser a header starts from, and the
+    # row end a branch runs to) are authored geometry, not something a fix or a forged route patch may move.
+    # Comparing plan (x, y) only lets mutation M26 legitimately raise BR-R6's end z without tripping this.
+    header_geom = scn.geometry.get("pipes", {}).get("headers", {})
+    branch_geom = scn.geometry.get("pipes", {}).get("branches", {})
+    for p in model.pipes:
+        if p.kind == "header" and p.id in header_geom:
+            want = tuple(header_geom[p.id][0][:2])
+            got = (p.route[0].x, p.route[0].y)
+            if got != want:
+                raise ValueError(f"{p.id} start is not pinned to the scenario's authored CDU riser "
+                                 f"{want} (got {got})")
+        elif p.kind == "branch" and p.id in branch_geom:
+            want = tuple(branch_geom[p.id][-1][:2])
+            got = (p.route[-1].x, p.route[-1].y)
+            if got != want:
+                raise ValueError(f"{p.id} end is not pinned to the scenario's authored row end "
+                                 f"{want} (got {got})")
