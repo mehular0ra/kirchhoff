@@ -2,7 +2,7 @@
 
 Kirchhoff by Ordinal: Gemini agents design power and liquid cooling for an AI data-centre hall, a deterministic checker verifies every number against a clause-cited rule pack, and an engineer signs. Built for the Google Cloud × Hack2skill AI Builder Cup 2026. **Submission is due Sat 17 Oct 2026, 20:00 IST.**
 
-Team Ordinal: Mehul Arora (lead) and Jaydratha.
+Team Ordinal: Mehul Arora (lead) and Jayadratha.
 
 ## Read these first
 
@@ -19,7 +19,7 @@ Team Ordinal: Mehul Arora (lead) and Jaydratha.
 - `build`: the integration branch and the GitHub default. Only Mehul's controller session merges into it.
 - `ws1-engine`, `ws2-agents`, `ws3-web`, `ws4-infra`: workstream branches driven by Mehul's controller session through task-by-task subagents. **Do not commit to them.** They are pushed for visibility.
 - `main`: frozen pre-build state. It is fast-forwarded at release.
-- **Jaydratha and his agents:** branch from `build` as `jd/<topic>`, and open a pull request into `build`. Keep each PR to one task from `docs/status/BOARD.md` or one GitHub issue. Rebase on `build` before asking for review.
+- **Jayadratha and his agents:** branch from `build` as `jd/<topic>`, and open a pull request into `build`. Keep each PR to one task from `docs/status/BOARD.md` or one GitHub issue. Rebase on `build` before asking for review.
 
 ## Rules (everyone, every commit)
 

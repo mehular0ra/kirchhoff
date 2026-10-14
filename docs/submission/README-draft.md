@@ -167,7 +167,7 @@ docs/                  design spec and submission material
 
 **Ordinal**
 - **Mehul Arora**, team lead
-- **Jaydratha**
+- **Jayadratha**
 
 We wrote all the code in this repository during the AI Builder Cup 2026 build window.
 

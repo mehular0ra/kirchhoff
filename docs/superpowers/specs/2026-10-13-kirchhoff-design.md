@@ -1,6 +1,6 @@
 # Kirchhoff — design spec (v4.1)
 
-**Product:** Kirchhoff, by team Ordinal (Mehul Arora, lead; Jaydratha).
+**Product:** Kirchhoff, by team Ordinal (Mehul Arora, lead; Jayadratha).
 **One-liner:** Kirchhoff turns weeks of scarce senior-engineer work into one reviewed, signed design session. Gemini agents read the tender, design power and cooling for an AI data hall, and hand off to procurement and sales; a deterministic checker proves every number; the engineer decides and signs.
 **Tagline:** *AI designs. Physics checks. An engineer signs.*
 **Target:** Google Cloud × Hack2skill AI Builder Cup 2026, theme *Future of Work & Enterprise Productivity*. Secondary: Hitachi Startup Challenge 2026 (Smart Engineering).

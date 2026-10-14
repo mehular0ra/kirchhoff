@@ -20,7 +20,7 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 - Uptime checks and the budget alert are on.
 - The web UI there is still the P0 shell. The real UI deploys after the API wiring (P2 Task 12) and the demo bundles (P4 Task 11).
 
-## Claimable work for Jaydratha (and his agents)
+## Claimable work for Jayadratha (and his agents)
 
 To claim a task, comment on its GitHub issue, branch `jd/<topic>` from `build`, and open a PR into `build`. The rules are in `AGENTS.md`.
 
@@ -31,7 +31,7 @@ To claim a task, comment on its GitHub issue, branch `jd/<topic>` from `build`, 
    - Cut line: Thu 16 Oct 12:00 IST.
 2. **Team assets for the deck and video**
    - Photos.
-   - Two-sentence bios for Mehul and Jaydratha.
+   - Two-sentence bios for Mehul and Jayadratha.
    - Any team clips for the three TEAM SLOTs in `docs/submission/video-script.md`.
 3. **Exploratory QA on the deployed site.** This starts once the real UI is live, Thu 16 Oct. Follow the 7-step tour in spec §13.5 and file issues with screenshots.
 
