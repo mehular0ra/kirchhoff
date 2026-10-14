@@ -13,6 +13,17 @@ NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, 
                 "nine": 9, "ten": 10, "twelve": 12}
 BBox = tuple[float, float, float, float]
 
+# Common spelled-out forms of a unit found in the tender's own prose, alongside the symbol itself
+# (matched case-sensitively, so "kA" never matches "KA").
+UNIT_ALIASES: dict[str, tuple[str, ...]] = {
+    "%": ("%", "percent"),
+    "weeks": ("weeks", "week"),
+    "week": ("weeks", "week"),
+    "min": ("min", "minute", "minutes"),
+    "minutes": ("min", "minute", "minutes"),
+    "mps": ("mps", "m/s"),
+}
+
 
 @dataclass(frozen=True)
 class QuoteCheck:
@@ -78,7 +89,19 @@ def value_in_quote(value: float | int | str | None, quote: str) -> bool:
     return any(abs(f - num) <= 1e-6 * max(1.0, abs(num)) for f in found)
 
 
-def verify_quote(pdf: PdfText, page: int, quote: str, value: float | int | str | None) -> QuoteCheck:
+def unit_in_quote(unit: str | None, quote: str) -> bool:
+    if not unit:
+        return True
+    q = normalize(quote)
+    forms = UNIT_ALIASES.get(unit, (unit,))
+    # Token-bounded (P2-R8): no ASCII letter immediately before or after, so "m" doesn't match inside
+    # "mm" and "min"/"week" don't match inside "aluminum"/"midweek". A digit right before the unit is
+    # allowed ("300mm", "2.0%"), and matching stays case-sensitive for symbols ("kA" is not "KA").
+    return any(re.search(rf"(?<![A-Za-z]){re.escape(f)}(?![A-Za-z])", q) for f in forms)
+
+
+def verify_quote(pdf: PdfText, page: int, quote: str, value: float | int | str | None,
+                 unit: str | None = None) -> QuoteCheck:
     if page < 1 or page > pdf.page_count:
         return QuoteCheck(False, "page_out_of_range")
     q = normalize(quote)
@@ -88,4 +111,6 @@ def verify_quote(pdf: PdfText, page: int, quote: str, value: float | int | str |
         return QuoteCheck(False, "quote_not_found")
     if not value_in_quote(value, q):
         return QuoteCheck(False, "value_not_in_quote")
+    if not unit_in_quote(unit, q):
+        return QuoteCheck(False, "unit_not_in_quote")
     return QuoteCheck(True, "ok", pdf.find_bbox(page, q))

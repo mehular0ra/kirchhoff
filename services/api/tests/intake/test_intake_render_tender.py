@@ -57,3 +57,11 @@ def test_repo_tender_matches_fixture():
     def key(t):
         return [t.doc_id] + [(c.id, c.page, normalize(c.text), c.quote, c.limits) for c in t.clauses]
     assert key(load_tender(REPO_TENDER)) == key(load_tender(FIX / "tender.yaml"))
+
+
+def test_normalize_folds_unicode_hyphens_and_minus_to_ascii():
+    # U+2010 HYPHEN, U+2011 NON-BREAKING HYPHEN, U+2012 FIGURE DASH, U+2212 MINUS SIGN.
+    assert normalize("single‐failure") == "single-failure"
+    assert normalize("non‑breaking") == "non-breaking"
+    assert normalize("figure‒dash") == "figure-dash"
+    assert normalize("5−minute") == "5-minute"

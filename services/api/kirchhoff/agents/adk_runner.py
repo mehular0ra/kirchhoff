@@ -9,7 +9,9 @@ from .runner import MODEL, THINKING_LEVELS, AgentResult, AgentSpec, Attachment, 
 class AdkRunner:
     def __init__(self, model: str = MODEL, mode: str | None = None, app_name: str = "kirchhoff") -> None:
         self.model = model
-        self.mode = mode or os.environ.get("KIRCHHOFF_ADK_MODE", "workflow")  # "workflow" | "agent"
+        # agent mode measured fastest live (94 s against 130 s for workflow, 14 Oct); workflow still
+        # selectable via KIRCHHOFF_ADK_MODE.
+        self.mode = mode or os.environ.get("KIRCHHOFF_ADK_MODE", "agent")  # "workflow" | "agent"
         self.app_name = app_name
 
     def run(self, spec: AgentSpec, key: str, message: str, tools: Sequence[Callable] = (),
@@ -22,7 +24,13 @@ class AdkRunner:
         from google.adk.agents import LlmAgent
         from google.genai import types
 
-        agent = LlmAgent(name=spec.name, model=self.model, instruction=spec.instruction, tools=list(tools),
+        # instruction=<callable> (an InstructionProvider), not a bare str: ADK's canonical_instruction()
+        # only sets bypass_state_injection=True for the callable form. Every NUMBERS_RULE-bearing spec
+        # (specs.py) has a literal "{value}"/"{limit}" in its instruction text -- those are placeholder
+        # tokens for the *app's* sanitizer, not ADK session-state refs, but the plain-str path runs them
+        # through inject_session_state() regardless and raises KeyError("value" not in session.state).
+        agent = LlmAgent(name=spec.name, model=self.model, instruction=lambda _ctx: spec.instruction,
+                         tools=list(tools),
                          generate_content_config=types.GenerateContentConfig(
                              thinking_config=types.ThinkingConfig(thinking_level=THINKING_LEVELS[spec.thinking])))
         if self.mode == "agent":

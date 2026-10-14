@@ -1,6 +1,6 @@
 from kirchhoff.contracts import Citation, DesignBrief, OpenQuestion, Requirement
 from kirchhoff.intake.score import load_ground_truth, score_intake, value_matches
-from kirchhoff.intake.verify import PdfText, value_in_quote, verify_quote
+from kirchhoff.intake.verify import PdfText, unit_in_quote, value_in_quote, verify_quote
 
 
 def test_verified_quote_has_bbox(tender_pdf):
@@ -23,6 +23,41 @@ def test_wrong_page_wrong_value_and_out_of_range(tender_pdf):
         assert verify_quote(pdf, 4, q, 2.5).reason == "value_not_in_quote"
         assert verify_quote(pdf, 99, q, 2.0).reason == "page_out_of_range"
         assert verify_quote(pdf, 4, "2.0%", 2.0).reason == "quote_too_short"
+
+
+def test_wrong_unit_is_unverified_and_correct_unit_verifies(tender_pdf):
+    q = "shall not exceed 2.0% at the worst-case design current"
+    with PdfText(tender_pdf) as pdf:
+        assert verify_quote(pdf, 4, q, 2.0, "A").reason == "unit_not_in_quote"
+        assert verify_quote(pdf, 4, q, 2.0, "%").ok
+        assert verify_quote(pdf, 4, q, 2.0).ok  # unit optional, defaults to no check
+
+
+def test_quote_with_unicode_hyphen_verifies(tender_pdf):
+    # §4.5 renders "single-failure"; an extracted quote with U+2010 should still normalize and match.
+    with PdfText(tender_pdf) as pdf:
+        assert verify_quote(pdf, 4, "worst single‐failure load", None).ok
+
+
+def test_unit_matching_is_token_bounded_not_a_bare_substring_check():
+    # P2-R8: a unit alias must not match as a substring inside a longer word, or inside another unit
+    # that happens to contain it as a prefix (e.g. "m" inside "mm").
+    assert not unit_in_quote("m", "clearance of at least 300 mm from structural columns")
+    assert unit_in_quote("mm", "clearance of at least 300 mm from structural columns")
+    assert unit_in_quote("mm", "a gap of 300mm is required")  # digit immediately before is fine
+    assert not unit_in_quote("min", "an aluminum frame")
+    assert not unit_in_quote("week", "scheduled midweek")
+    assert not unit_in_quote("kW", "rated 500 kWh")
+    assert unit_in_quote("%", "shall not exceed 2.0% at the worst-case design current")
+
+
+def test_unit_m_against_the_real_clearance_clause_is_unverified(tender_pdf):
+    # End-to-end P2-R8 regression: §6.3.4's real text is "...clearance of at least 300 mm from
+    # structural columns." A requirement that claims unit "m" (not "mm") for value 300 must not verify
+    # just because "m" is a substring of "mm".
+    with PdfText(tender_pdf) as pdf:
+        chk = verify_quote(pdf, 6, "clearance of at least 300 mm from structural columns", 300, "m")
+    assert not chk.ok and chk.reason == "unit_not_in_quote"
 
 
 def test_value_in_quote_handles_words_strings_and_separators():

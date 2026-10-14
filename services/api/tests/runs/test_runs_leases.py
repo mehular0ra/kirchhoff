@@ -75,3 +75,30 @@ def test_heartbeat_keeps_a_run_counted_past_the_original_60s_window():
         assert heartbeat(s, uid, rid, "w", 1, now=50.0) is True
     with pytest.raises(CapReached):
         acquire_lease(s, "d", "4", "w", now=65.0)
+
+
+# --- Fix round 1: Minor 1, a transactional `expect` precondition ------------------------------------
+
+
+def test_expect_true_lets_the_claim_through():
+    s = _store_with_runs(("u1", "r1"))
+    s.set_doc(run_path("u1", "r1"), {"id": "r1", "status": "at_gate", "gate": "plan", "lease": None})
+    assert acquire_lease(s, "u1", "r1", "w1", now=100.0, expect=lambda run: run["status"] == "at_gate") == 1
+
+
+def test_expect_false_aborts_with_no_write_at_all():
+    s = _store_with_runs(("u1", "r1"))
+    s.set_doc(run_path("u1", "r1"), {"id": "r1", "status": "done", "gate": None, "lease": None})
+    before = s.get_doc(run_path("u1", "r1"))
+    assert acquire_lease(s, "u1", "r1", "w1", now=100.0, expect=lambda run: run["status"] == "at_gate") is None
+    assert s.get_doc(run_path("u1", "r1")) == before  # nothing written: not the run, not LIVE_RUNS_DOC
+
+
+def test_expect_is_evaluated_on_the_actual_transaction_snapshot_not_a_stale_read():
+    """The whole point of `expect`: it must see the run doc as it is INSIDE the transaction, not as it
+    was read earlier by the caller -- otherwise it can't close a check-then-act race at all."""
+    s = _store_with_runs(("u1", "r1"))
+    s.set_doc(run_path("u1", "r1"), {"id": "r1", "status": "at_gate", "gate": "plan", "lease": None})
+    # Simulate the run changing state *between* a caller's earlier read and this acquire_lease call.
+    s.set_doc(run_path("u1", "r1"), {"id": "r1", "status": "expired", "gate": None, "lease": None})
+    assert acquire_lease(s, "u1", "r1", "w1", now=100.0, expect=lambda run: run["status"] == "at_gate") is None

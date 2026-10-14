@@ -4,7 +4,8 @@ import unicodedata
 PDF_TEXT_KW = {"x_tolerance": 1.5, "y_tolerance": 3}
 
 _TRANSLATE = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"',
-                            "–": "-", "—": "-", " ": " "})
+                            "–": "-", "—": "-", " ": " ",
+                            "‐": "-", "‑": "-", "‒": "-", "−": "-"})
 
 
 def normalize(s: str | None) -> str:
