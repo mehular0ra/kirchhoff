@@ -1,6 +1,7 @@
-import type { IntegrationsSnapshot, ProjectBundle, World } from '@/lib/types'
+import type { InboxSnapshot, IntegrationsSnapshot, ProjectBundle, World } from '@/lib/types'
 import { normalizeBundle, type Bundle } from '@/lib/types'
 import hallMini from './hall-mini.json'
+import inbox from './inbox.json'
 import integrations from './integrations.json'
 import world from './world.json'
 
@@ -15,4 +16,8 @@ export function fixtureWorld(): World {
 
 export function fixtureIntegrations(): IntegrationsSnapshot {
   return structuredClone(integrations) as unknown as IntegrationsSnapshot
+}
+
+export function fixtureInbox(): InboxSnapshot {
+  return structuredClone(inbox) as unknown as InboxSnapshot
 }

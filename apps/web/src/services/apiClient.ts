@@ -3,10 +3,13 @@
 import type {
   AssetResult,
   Autonomy,
+  InboxSnapshot,
   Material,
   Opportunity,
+  PursueResult,
   PurchaseRequisition,
   TopologyId,
+  TriageResult,
   WhatIfParam,
   WhatIfResult,
 } from '@/lib/types'
@@ -51,6 +54,9 @@ export interface ApiClient {
   erpPrs(): Promise<PurchaseRequisition[]>
   crmOpportunities(): Promise<Opportunity[]>
   fileBlob(path: string): Promise<Blob>
+  inbox(): Promise<InboxSnapshot>
+  triage(emailId: string): Promise<TriageResult>
+  pursue(emailId: string): Promise<PursueResult>
 }
 
 const TIMEOUT_MS = 12_000
@@ -66,6 +72,14 @@ const DETAIL_TEXT: Record<string, string> = {
   invalid_answer: 'That answer is not one of the offered options.',
   option_not_offered: 'That option was not offered for this run.',
   timeout: 'The engine took too long to answer; try again.',
+  inbox_unavailable: 'The live inbox is unavailable; the recorded triage is shown.',
+  email_not_found: 'That email is not in the bids inbox.',
+  precomputed: 'Only the Hall B email can be triaged live; this one shows the recorded triage.',
+  triage_rate_limit: 'You have reached the hourly limit for live triage; the recorded triage is shown.',
+  triage_failed: 'The Inbox agent could not finish this triage.',
+  not_triaged: 'Triage this email before pursuing it.',
+  cannot_pursue: 'Only bids with a Pursue or Clarify verdict in one of our asset packs can be pursued.',
+  enterprise_unavailable: 'The CRM sandbox is not answering right now.',
 }
 
 export function describeApiError(e: unknown): string {
@@ -141,5 +155,8 @@ export function httpApiClient(
       if (!f.ok) throw new ApiError(f.status, f.statusText)
       return f.blob()
     },
+    inbox: () => call('/api/inbox'),
+    triage: (emailId) => post(`/api/inbox/${encodeURIComponent(emailId)}/triage`),
+    pursue: (emailId) => post(`/api/inbox/${encodeURIComponent(emailId)}/pursue`),
   }
 }

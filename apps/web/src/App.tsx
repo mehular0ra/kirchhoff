@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Route, Routes, useLocation } from 'react-router'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { EmptyState } from './components/Labels'
+import { InboxPage } from './inbox/InboxPage'
 import { Dashboard } from './pages/Dashboard'
 import { Landing } from './pages/Landing'
 import { NotFound } from './pages/NotFound'
@@ -26,6 +27,8 @@ export default function App() {
             <Route path="p/:pid/review/:rev" element={<ReviewPage />} />
             <Route path="p/grid-132kv" element={<AssetPackPage pack="grid" pid="grid-132kv" />} />
             <Route path="p/solar-5mwp" element={<AssetPackPage pack="solar" pid="solar-5mwp" />} />
+            <Route path="inbox" element={<InboxPage />} />
+            <Route path="inbox/:emailId" element={<InboxPage />} />
             <Route path="integrations" element={<IntegrationsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
