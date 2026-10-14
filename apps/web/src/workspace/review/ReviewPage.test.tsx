@@ -81,3 +81,43 @@ test('real signed Hall A bundle: stamp hash matches the bundle, diff shows the r
   }
   expect(within(handoff).getByText('Design approved')).toBeInTheDocument()
 })
+
+test('Handoff PR status is icon plus text: blocked and submitted both render an icon, not colour alone', () => {
+  const b = fixtureBundle()
+  b.prs = [
+    {
+      id: 'PR-BLOCKED',
+      project_id: b.project.id,
+      revision: 'r2',
+      status: 'blocked',
+      created_at: 1700000000,
+      lines: [{ material_id: 'X', description: 'x', qty: 1, unit_price: 1, lead_time_weeks: 0 }],
+    },
+    {
+      id: 'PR-OK',
+      project_id: b.project.id,
+      revision: 'r2',
+      status: 'submitted',
+      created_at: 1700000000,
+      lines: [{ material_id: 'Y', description: 'y', qty: 1, unit_price: 1, lead_time_weeks: 0 }],
+    },
+  ]
+  renderWithProviders(<ReviewView bundle={b} source="static" revId="r2" runQuery="" />)
+  const handoff = screen.getByRole('region', { name: 'Handoff' })
+
+  const blockedItem = within(handoff).getByText('PR-BLOCKED').closest('li')!
+  expect(within(blockedItem).getByText(/blocked: SLD, BOQ and PR lines disagree \(R12\)/)).toBeInTheDocument()
+  expect(blockedItem.querySelector('svg')).toBeTruthy()
+
+  const okItem = within(handoff).getByText('PR-OK').closest('li')!
+  expect(within(okItem).getByText('submitted')).toBeInTheDocument()
+  expect(okItem.querySelector('svg')).toBeTruthy()
+})
+
+test('first revision has no parent: the diff section shows an explanation, not a bare heading', () => {
+  const b = fixtureBundle()
+  renderWithProviders(<ReviewView bundle={b} source="static" revId="r1" runQuery="" />)
+  const changes = screen.getByRole('region', { name: 'Changes from parent' })
+  expect(within(changes).queryByText('First revision (no parent)')).not.toBeInTheDocument()
+  expect(within(changes).getByText('First revision — nothing to compare against')).toBeInTheDocument()
+})

@@ -13,7 +13,7 @@ import { diffModels, type ElementChange } from '@/lib/diff'
 import { fmtNum, fmtTs, shortHash } from '@/lib/format'
 import { countByStatus, currentRun, exportsOf, findingsFor, latestRevision, parentRevision, revisionById, type DataSource } from '@/lib/select'
 import { STATUS_META, statusRank } from '@/lib/status'
-import type { Bundle } from '@/lib/types'
+import type { Bundle, FindingStatus, PurchaseRequisition } from '@/lib/types'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { describeApiError } from '@/services/apiClient'
 import { useServices } from '@/services/services'
@@ -25,6 +25,20 @@ function show(v: unknown): string {
   if (v === null || v === undefined) return '—'
   if (Array.isArray(v)) return v.length && typeof v[0] === 'object' ? 'route' : v.join(', ')
   return String(v)
+}
+
+// PR status is always icon + text (global constraint), never colour alone: reuse STATUS_META's icons.
+const PR_STATUS_ICON: Record<PurchaseRequisition['status'], FindingStatus> = { draft: 'n/a', submitted: 'pass', blocked: 'fail' }
+
+function PrStatus({ status }: { status: PurchaseRequisition['status'] }) {
+  const meta = STATUS_META[PR_STATUS_ICON[status]]
+  const Icon = meta.icon
+  const text = status === 'blocked' ? 'blocked: SLD, BOQ and PR lines disagree (R12)' : status
+  return (
+    <span className={`inline-flex items-center gap-1 ${status === 'blocked' ? 'text-rose-300' : 'text-zinc-300'}`}>
+      <Icon aria-hidden className="size-3.5" /> {text}
+    </span>
+  )
 }
 
 function ChangeLine({ c }: { c: ElementChange }) {
@@ -120,10 +134,14 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
       </section>
 
       <section aria-label="Changes from parent" className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-          {parent ? `Changes from ${parent.id}` : 'First revision (no parent)'}
-        </h2>
-        {diff && (diff.changes.length ? <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">{diff.changes.map((c) => <ChangeLine key={c.id} c={c} />)}</ul> : <p className="text-sm text-zinc-400">No model changes.</p>)}
+        {parent ? (
+          <>
+            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Changes from {parent.id}</h2>
+            {diff && (diff.changes.length ? <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">{diff.changes.map((c) => <ChangeLine key={c.id} c={c} />)}</ul> : <p className="text-sm text-zinc-400">No model changes.</p>)}
+          </>
+        ) : (
+          <EmptyState title="First revision — nothing to compare against" />
+        )}
       </section>
 
       <section aria-label="Assumptions ledger" className="flex flex-col gap-2">
@@ -181,9 +199,7 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
             {prs.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-zinc-100">{p.id}</span>
-                <span className={p.status === 'blocked' ? 'text-rose-300' : 'text-zinc-300'}>
-                  {p.status === 'blocked' ? 'blocked: SLD, BOQ and PR lines disagree (R12)' : p.status}
-                </span>
+                <PrStatus status={p.status} />
                 <span className="text-zinc-400">
                   {p.lines.map((l) => `${l.qty} × ${l.material_id}`).join(', ')} · {fmtTs(p.created_at)}
                 </span>
