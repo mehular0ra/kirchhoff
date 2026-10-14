@@ -90,6 +90,10 @@ def test_resume_and_ownership(client, staged, auth):
     other = TestClient(create_app(deps=staged, verify_token=lambda token: "u2"))
     assert other.post(f"/api/runs/{rid}/resume", headers=auth).status_code == 404
     assert other.post(f"/api/runs/{rid}/gates/plan", json={}, headers=auth).status_code == 404
+    r = other.post(f"/api/runs/{rid}/gates/review", json={"decision": "approved"}, headers=auth)
+    assert r.status_code == 404
+    assert staged.store.list_docs("workspaces/u1/approvals") == []
+    assert staged.store.list_docs("workspaces/u2/approvals") == []
 
 
 def test_gate_expiry(client, staged, auth):

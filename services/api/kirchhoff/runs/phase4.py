@@ -4,7 +4,8 @@ from collections import defaultdict
 from kirchhoff.agents.ports import HALL_B_OPPORTUNITY_ID, STAGE_DESIGN_APPROVED
 from kirchhoff.contracts import Approval, PurchaseRequisition
 
-from .revisions import latest_revision, load_revision_model
+from .policy import REVIEWER_NAME, REVIEWER_ROLE
+from .revisions import load_revision_model
 from .steps import PhaseContext, PhaseOutcome, StepOutput, run_step
 
 S_SIGN, S_PRS, S_R12, S_CRM, S_AUDIT = "p4.sign", "p4.create_prs", "p4.r12_recheck", "p4.crm", "p4.audit"
@@ -25,13 +26,22 @@ def _model(ctx: PhaseContext, rev: str):
 
 
 def _sign(ctx: PhaseContext) -> StepOutput:
-    rev = latest_revision(ctx.deps.store, ctx.uid, ctx.rid)
-    approvals = [Approval.model_validate(a) for a in ctx.deps.store.list_docs(f"{ctx.ws_path}/approvals")
-                 if a.get("revision") == rev["id"] and a.get("decision") == "approved"]
-    appr = max(approvals, key=lambda a: a.ts)
+    """Important 1 (fix round 1): the approval doc and the signed revision are written HERE, under this
+    step's own lease-checked commit, not by the route that claimed the gate. The route only patches the
+    run doc's `review` field (approval id, comment, ts, the rev it approved) before claiming the lease;
+    this step reads that patch back and is the sole writer of the approval + signed-revision docs, which
+    makes a retry of this very step idempotent (same id, same content, same path -- not a second doc)."""
+    review = ctx.run().get("review") or {}
+    rev_id = review["rev"]  # the rev the engineer actually approved, not whatever is "latest" right now
+    rev = ctx.deps.store.get_doc(f"{ctx.ws_path}/revisions/{rev_id}")
+    appr = Approval(id=review["approval_id"], revision=rev_id, approver_name=REVIEWER_NAME, role=REVIEWER_ROLE,
+                    decision="approved", comment=review.get("comment", ""), ts=review["ts"])
     ctx.ledger(S_SIGN, "system", "did",
-               f"{rev['id']} signed by {appr.approver_name} ({appr.role}); hash {rev['hash'][:12]}")
-    return StepOutput(data={"rev": rev["id"], "hash": rev["hash"], "approval_id": appr.id})
+               f"{rev_id} signed by {appr.approver_name} ({appr.role}); hash {rev['hash'][:12]}")
+    signed = {**rev, "status": "signed"}
+    return StepOutput(data={"rev": rev_id, "hash": rev["hash"], "approval_id": appr.id},
+                      docs=[(f"{ctx.ws_path}/approvals/{appr.id}", appr.model_dump(mode="json")),
+                            (f"{ctx.ws_path}/revisions/{rev_id}", signed)])
 
 
 def _create_prs(ctx: PhaseContext, sign: dict) -> StepOutput:

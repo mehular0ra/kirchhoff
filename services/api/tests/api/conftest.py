@@ -10,6 +10,10 @@ INTAKE_FIX = Path(__file__).resolve().parents[1] / "intake" / "fixtures"
 GROUND_TRUTH = Path(__file__).resolve().parents[4] / "scenarios" / "hall_a" / "ground_truth.yaml"
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "live: calls real Vertex AI; run with KIRCHHOFF_LIVE=1")
+
+
 @pytest.fixture(scope="session")
 def scen_dir(tmp_path_factory):
     return build_fake_scenarios(tmp_path_factory.mktemp("scenarios"), INTAKE_FIX / "tender.yaml",

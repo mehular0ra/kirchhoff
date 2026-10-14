@@ -2,13 +2,14 @@ import uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kirchhoff.contracts import Approval, OpenQuestion, PlanStep, RunRecord, TopologyId
 from kirchhoff.runs.deps import Deps
 from kirchhoff.runs.leases import CapReached, run_path
 from kirchhoff.runs.orchestrator import (GateExpired, LeaseBusy, WrongState, ensure_gate, resume_from_gate,
                                         resume_run, start_phase)
+from kirchhoff.runs.policy import REVIEWER_NAME, REVIEWER_ROLE
 from kirchhoff.runs.revisions import latest_revision
 
 from .errors import err
@@ -30,12 +31,9 @@ class OptionGate(BaseModel):
     option_id: TopologyId
 
 
-REVIEWER_NAME, REVIEWER_ROLE = "You (Demo Reviewer)", "Reviewer"
-
-
 class ReviewGate(BaseModel):
     decision: Literal["approved", "rejected"]
-    comment: str = ""
+    comment: str = Field("", max_length=500)
 
 
 def make_router(deps: Deps, current_uid) -> APIRouter:
@@ -115,6 +113,31 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         except CapReached:
             return err(429, "global_cap", offer="replay")
 
+    def _open_fail_count(uid: str, rev: dict) -> int:
+        """Minor 1: fail CLOSED. An empty/missing check_summary must not read as "zero fails" -- count
+        the revision's own findings docs instead of trusting an absent summary."""
+        summary = rev.get("check_summary") or {}
+        if summary:
+            return int(summary.get("fail", 0))
+        findings = deps.store.list_docs(f"workspaces/{uid}/revisions/{rev['id']}/findings")
+        return sum(1 for f in findings if f.get("status") == "fail")
+
+    def _reject(uid: str, rid: str, appr: Approval) -> bool:
+        """Important 1: Reject is ONE transaction -- it checks at_gate/review with no live lease (the
+        same pattern as Task 10's `_expire`) and writes the rejected approval doc and the run status
+        together, so a reject can never land on a run a concurrent resume already claimed."""
+        rp = run_path(uid, rid)
+
+        def fn(snap: dict[str, dict | None]):
+            run = snap[rp]
+            if (run is None or run.get("status") != "at_gate" or run.get("gate") != "review"
+                    or (run.get("lease") or {}).get("owner")):
+                return []
+            return [(rp, {**run, "status": "done", "gate": None, "finished_at": deps.clock()}),
+                    (f"workspaces/{uid}/approvals/{appr.id}", appr.model_dump(mode="json"))]
+
+        return bool(deps.store.transact([rp], fn))
+
     @router.post("/api/runs/{rid}/gates/review", status_code=202)
     def gate_review(rid: str, body: ReviewGate, uid: str = Depends(current_uid)):
         try:
@@ -128,16 +151,30 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         rev = latest_revision(deps.store, uid, rid)
         if rev is None:
             return err(409, "wrong_state")
-        if body.decision == "approved" and (rev.get("check_summary") or {}).get("fail", 0) > 0:
+        if body.decision == "approved" and _open_fail_count(uid, rev) > 0:
             return err(409, "open_findings")
         now = deps.clock()
         appr = Approval(id=uuid.uuid4().hex[:12], revision=rev["id"], approver_name=REVIEWER_NAME, role=REVIEWER_ROLE,
                         decision=body.decision, comment=body.comment, ts=now)
-        deps.store.set_doc(f"workspaces/{uid}/approvals/{appr.id}", appr.model_dump(mode="json"))
         if body.decision == "rejected":
-            deps.store.update_doc(run_path(uid, rid), {"status": "done", "gate": None, "finished_at": now})
+            if not _reject(uid, rid, appr):
+                # The run moved on between our ensure_gate check and this transactional write (a
+                # concurrent resume claimed it, or the gate expired in between): report the precise,
+                # CURRENT reason instead of silently pretending the reject landed.
+                try:
+                    ensure_gate(deps, uid, rid, "review")
+                except WrongState:
+                    return err(409, "wrong_state")
+                except GateExpired:
+                    return err(409, "gate_expired")
+                return err(409, "wrong_state")
             return {"ok": True}
-        deps.store.update_doc(f"workspaces/{uid}/revisions/{rev['id']}", {"status": "signed"})
-        return advance(uid, rid, "review", {})
+        # Important 1: claim first, record second. Nothing is written here for an approval -- only
+        # `resume_from_gate`'s own lease-claiming transaction (inside `advance`) may land, and only if
+        # the run is still genuinely at the review gate. `p4.sign` reads this `review` patch off the run
+        # doc and writes the approval doc + the signed revision itself, under its own step's lease-
+        # checked commit, so a 429/409/retry here leaves no approval and no signed revision behind.
+        review = {"approval_id": appr.id, "comment": body.comment, "ts": now, "rev": rev["id"]}
+        return advance(uid, rid, "review", {"review": review})
 
     return router
