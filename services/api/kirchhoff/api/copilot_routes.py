@@ -1,13 +1,18 @@
 from concurrent.futures import TimeoutError as FuturesTimeout
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
-from kirchhoff.agents.copilot import BadRevisionRef, RevisionNotFound, call_with_timeout, explain_text, load_revision
+from kirchhoff.agents.copilot import (BadRevisionRef, RevisionNotFound, answer_voice, call_with_timeout, explain_text,
+                                      load_revision)
 from kirchhoff.runs.deps import Deps
 
 from .errors import err
+
+VOICE_MIME = {"audio/webm", "audio/ogg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/mpeg"}
+VOICE_MAX_BYTES = 2_000_000
 
 try:
     from kirchhoff.enterprise.client import EnterpriseUnavailable  # WS4-owned module
@@ -67,5 +72,23 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         if finding is None:
             return err(404, "finding_not_found")
         return {"text": explain_text(deps, model, finding)}
+
+    @router.post("/api/voice")
+    async def voice(audio: UploadFile = File(...), revision_ref: str = Form("seed:hall-a@r2"),
+                    uid: str = Depends(current_uid)):
+        data = await audio.read()
+        if len(data) > VOICE_MAX_BYTES:
+            return err(413, "audio_too_large")
+        mime = (audio.content_type or "").split(";")[0].strip().lower()
+        if mime not in VOICE_MIME:
+            return err(415, "unsupported_audio")
+        try:
+            return await run_in_threadpool(answer_voice, deps, uid, revision_ref, data, mime)
+        except RevisionNotFound:
+            return err(404, "revision_not_found")
+        except ValueError:
+            return err(422, "bad_revision_ref")
+        except FuturesTimeout:
+            return err(504, "timeout")
 
     return router
