@@ -21,10 +21,17 @@ from .outputs import load_outputs, pack_outputs
 
 log = logging.getLogger("kirchhoff.runs")
 PAYLOAD_MAX = 9_000  # event docs stay < 10 KB (spec §11)
+TITLE_MAX = 200  # M-1: title/detail are clipped so the *whole* serialized event, not just the payload,
+DETAIL_MAX = 500  # stays comfortably under the EventWriter's MAX_EVENT_BYTES (10,000) hard cap.
+EVENT_BUDGET = 9_200  # payload truncation budgets against this, leaving headroom for title/detail/fixed fields
 TXN_DOC_LIMIT = 400  # Firestore transaction write limit is 500
 AGENT_LABEL = {"intake": "Intake", "orchestrator": "Orchestrator", "layout": "Layout", "power": "Power",
                "cooling": "Cooling", "procurement": "Procurement", "checker": "Checker", "docs": "Docs",
                "copilot": "Co-pilot", "asset": "Asset agent", "system": "Kirchhoff"}
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
 class LeaseLost(Exception):
@@ -94,8 +101,14 @@ class PhaseContext:
         if self.lease_lost.is_set():  # another worker owns the run: drop pending events, write nothing more
             self.events.fence()
             raise LeaseLost(step)
+        # M-1: title/detail can themselves be arbitrarily long (an LLM narration, a ledger entry's full
+        # text); clip them so the whole serialized event, not just the payload, stays under the cap.
+        title = _clip(title or "", TITLE_MAX)
+        detail = _clip(detail or "", DETAIL_MAX)
         payload = json.loads(json.dumps(payload or {}, default=str))  # engine tuples -> lists, numpy scalars -> str
-        if json_size_bytes(payload) > PAYLOAD_MAX:
+        overhead = json_size_bytes({"step": step, "agent": agent, "kind": kind, "title": title, "detail": detail})
+        budget = max(0, min(PAYLOAD_MAX, EVENT_BUDGET - overhead))
+        if json_size_bytes(payload) > budget:
             payload = {"truncated": True, "keys": sorted(payload)[:50]}
         # The P0 writer validates Firestore safety (ValueError) and assigns seq; `step=` tags parallel steps.
         return self.events.emit(agent, kind, title, detail, payload, step=step)
@@ -164,8 +177,15 @@ def _check_docs(docs: list[tuple[str, dict]]) -> None:
             raise ValueError(f"step doc {path} is not Firestore-safe: {problems[:3]}")
 
 
+def _fence_and_lose(ctx: PhaseContext, step_id: str) -> None:
+    ctx.lease_lost.set()
+    ctx.events.fence()
+    raise LeaseLost(step_id)
+
+
 def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> dict:
-    if ctx.lease_lost.is_set():
+    if ctx.lease_lost.is_set():  # I-1(c)/M-6: fence here too, not only on the transactional paths below
+        ctx.events.fence()
         raise LeaseLost(step_id)
     deps, store = ctx.deps, ctx.deps.store
     step_path = f"{ctx.run_path}/steps/{step_id}"
@@ -186,38 +206,50 @@ def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> d
 
     store.transact([ctx.run_path, step_path], begin)
     if state.get("lost"):
-        ctx.lease_lost.set()
-        ctx.events.fence()
-        raise LeaseLost(step_id)
+        _fence_and_lose(ctx, step_id)
     if state.get("done"):
         return ctx.outputs(step_id)
+
+    # M-3: everything from here through the commit transaction is one failure domain. A non-JSON output
+    # reaching pack_outputs, a flush error, or a commit-transaction error must all mark the step failed
+    # (while the lease is still held) and re-raise, not leave it stuck "running" forever.
     try:
         out = fn()
         _check_docs(out.docs)
-    except (LeaseLost, ParkAtGate):
+        docs = list(out.docs)
+        if len(docs) > TXN_DOC_LIMIT:
+            # M-4: no unleased bulk pre-write path. Oversized steps fail loudly, before anything is
+            # written, instead of batch-writing part of the docs outside the lease-checked transaction.
+            raise ValueError(f"step {step_id} returned {len(docs)} docs; the transactional limit is "
+                             f"{TXN_DOC_LIMIT}")
+        if ctx.lease_lost.is_set():  # I-1(b): a concurrent heartbeat already saw another owner take over
+            raise LeaseLost(step_id)
+        ctx.events.flush()
+        out_path, out_doc = pack_outputs(deps.blobs, ctx.run_path, step_id, out.data)
+        done = StepRecord(id=step_id, phase=ctx.phase, status="done", attempt=ctx.attempt, outputs_ref=out_path,
+                          started_at=started, finished_at=deps.clock())
+
+        def commit(snap: dict[str, dict | None]):
+            if not holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt):
+                return []
+            return [*docs, (out_path, out_doc), (step_path, done.model_dump())]
+
+        wrote = store.transact([ctx.run_path], commit)
+    except LeaseLost:
+        _fence_and_lose(ctx, step_id)
+    except ParkAtGate:
         raise
     except Exception:
         failed = StepRecord(id=step_id, phase=ctx.phase, status="failed", attempt=ctx.attempt, started_at=started,
                             finished_at=deps.clock())
-        store.transact([ctx.run_path], lambda snap: [(step_path, failed.model_dump())]
-                       if holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt) else [])
+        wrote_failed = store.transact([ctx.run_path], lambda snap: [(step_path, failed.model_dump())]
+                                      if holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt) else [])
+        if not wrote_failed:
+            # I-1(c)/M-6: nobody held the lease to mark the step failed either; this is a lease loss,
+            # not a step failure, so fence and surface it as LeaseLost instead of the original exception.
+            _fence_and_lose(ctx, step_id)
         raise
-    ctx.events.flush()
-    out_path, out_doc = pack_outputs(deps.blobs, ctx.run_path, step_id, out.data)
-    docs = list(out.docs)
-    if len(docs) > TXN_DOC_LIMIT:  # idempotent pre-writes; the done marker still lands only in the commit
-        store.batch_set(docs[:-TXN_DOC_LIMIT])
-        docs = docs[-TXN_DOC_LIMIT:]
-    done = StepRecord(id=step_id, phase=ctx.phase, status="done", attempt=ctx.attempt, outputs_ref=out_path,
-                      started_at=started, finished_at=deps.clock())
 
-    def commit(snap: dict[str, dict | None]):
-        if not holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt):
-            return []
-        return [*docs, (out_path, out_doc), (step_path, done.model_dump())]
-
-    if not store.transact([ctx.run_path], commit):
-        ctx.lease_lost.set()
-        ctx.events.fence()
-        raise LeaseLost(step_id)
+    if not wrote:
+        _fence_and_lose(ctx, step_id)
     return json.loads(json.dumps(out.data))
