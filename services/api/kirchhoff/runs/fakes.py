@@ -153,14 +153,22 @@ class FakeEngine:
         return res
 
     def route(self, scn, model):
+        """Mirrors the real `routing.route` (ruling P2-R3a): feeder routes are always recomputed, but
+        `cooling_nodes`/`pipes` are only filled when empty, so calling route() on an already-fixed model
+        never undoes a fix (e.g. a pipe tier changed by `apply_fix`)."""
         self._log("route")
         conns = [c.model_copy(update={"route": [Point3(x=66.0, y=2.0 if c.id.startswith("FA") else 34.2, z=3.2),
                                                 Point3(x=6.0, y=2.0, z=3.2)]}) for c in model.connections]
-        pipes = [Pipe(id="H-Z1", kind="header", zone="Z1", dn=200, tier="pipe_high", flow_lps=10.5,
-                      route=[Point3(x=12.0, y=30.0, z=3.8), Point3(x=12.0, y=21.0, z=3.8)]),
-                 Pipe(id="H-Z2", kind="header", zone="Z2", dn=200, tier="pipe_high", flow_lps=10.5,
-                      route=[Point3(x=31.0, y=30.0, z=3.8), Point3(x=31.0, y=21.0, z=3.8)])]
-        return model.model_copy(update={"connections": conns, "pipes": pipes})
+        out = model.model_copy(update={"connections": conns})
+        if not out.cooling_nodes:
+            out = out.model_copy(update={"cooling_nodes": self.size_cooling(scn, out.racks)})
+        if not out.pipes:
+            pipes = [Pipe(id="H-Z1", kind="header", zone="Z1", dn=200, tier="pipe_high", flow_lps=10.5,
+                          route=[Point3(x=12.0, y=30.0, z=3.8), Point3(x=12.0, y=21.0, z=3.8)]),
+                     Pipe(id="H-Z2", kind="header", zone="Z2", dn=200, tier="pipe_high", flow_lps=10.5,
+                          route=[Point3(x=31.0, y=30.0, z=3.8), Point3(x=31.0, y=21.0, z=3.8)])]
+            out = out.model_copy(update={"pipes": pipes})
+        return out
 
     def detect_clashes(self, model) -> ClashReport:
         self._log("detect_clashes")
@@ -188,6 +196,7 @@ class FakeEngine:
 
     def check(self, scn, model, erp, pr_lines=None) -> list[Finding]:
         self._log("check")
+        self.validate_model(scn, model)  # ruling P2-R3c: mirrors the real facade's `check`
         rack_kw = model.loads.get("rack_kw", 132.0)
         hot = rack_kw > 150.0
         t, fa, h = _find(model.equipment, "T-A1"), _find(model.connections, "FA-01"), _find(model.pipes, "H-Z2")
@@ -219,8 +228,18 @@ class FakeEngine:
 
     def fix_candidates(self, scn, model, finding, erp) -> list[FixCandidate]:
         """Every rule except R05 and R11 returns [] (final-review ruling); only those two findings ever reach
-        this fake with a non-trivial fix, matching the real engine's narrower `fix_candidates`."""
+        this fake with a non-trivial fix, matching the real engine's narrower `fix_candidates`.
+
+        Ruling P2-R3b: mirrors the real engine -- [] once the finding no longer fails on this model (so a
+        second fix pass over an already-fixed finding is a no-op, not a repeat offer), and a ValueError for
+        a finding id this model's checker never produced (the real engine has no candidates to look up for
+        an id it doesn't recognise)."""
         self._log("fix_candidates")
+        current = {f.id: f for f in self.check(scn, model, erp)}
+        if finding.id not in current:
+            raise ValueError(f"unknown finding id {finding.id!r}")
+        if current[finding.id].status != "fail":
+            return []
         cands: list[FixCandidate] = []
         if finding.id == "R05:FA-01":
             cands = [FixCandidate(id="FA-01:upsize-BW-2000", finding_id=finding.id,

@@ -23,6 +23,7 @@ OWNER = {"R01": "power", "R02": "power", "R03": "power", "R04": "power", "R04b":
 RECHECK_RULES = ("R01", "R04", "R04b")
 DEFAULT_LEAD_LIMIT_WEEKS = 26
 TOPOLOGY_ORDER = {"2N": 0, "DR": 1, "BLOCK": 2}
+REVIEWER_NAME, REVIEWER_ROLE = "You (Demo Reviewer)", "Reviewer"
 
 
 def lead_limit_weeks(scn) -> int:
