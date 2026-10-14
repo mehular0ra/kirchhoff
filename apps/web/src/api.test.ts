@@ -16,8 +16,8 @@ describe('apiFetch', () => {
 
   it('sets application/json content-type for a string body', async () => {
     await apiFetch('/api/x', { method: 'POST', body: JSON.stringify({ a: 1 }) })
-    const [, init] = (fetch as any).mock.calls[0]
-    const headers = init.headers as Headers
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const headers = init?.headers as Headers
     expect(headers.get('Content-Type')).toBe('application/json')
   })
 
@@ -25,15 +25,15 @@ describe('apiFetch', () => {
     const fd = new FormData()
     fd.append('a', '1')
     await apiFetch('/api/x', { method: 'POST', body: fd })
-    const [, init] = (fetch as any).mock.calls[0]
-    const headers = init.headers as Headers
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const headers = init?.headers as Headers
     expect(headers.has('Content-Type')).toBe(false)
   })
 
   it('always sets the Authorization header', async () => {
     await apiFetch('/api/x')
-    const [, init] = (fetch as any).mock.calls[0]
-    const headers = init.headers as Headers
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    const headers = init?.headers as Headers
     expect(headers.get('Authorization')).toBe('Bearer fake-id-token')
   })
 })

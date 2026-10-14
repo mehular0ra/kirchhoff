@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
+import { Hint } from '@/components/Hint'
 import { AgentDot } from '@/components/Labels'
 import { StatusBadge } from '@/components/StatusBadge'
 import { AGENTS } from '@/lib/agents'
@@ -154,7 +155,11 @@ export function AgentLanes() {
   const lanes = buildLanes(bundle)
   return (
     <nav aria-label="Agent lanes" data-tour="lanes" className="h-full overflow-y-auto">
-      <h2 className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Agents</h2>
+      <Hint id="lanes" text="One lane per agent: its tool calls, results, findings and logged assumptions. Click a finding to open it.">
+        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Agents
+        </h2>
+      </Hint>
       <ul>
         {lanes.map((l) => (
           <LaneView key={l.agent} lane={l} />

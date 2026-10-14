@@ -18,10 +18,11 @@ export interface Disposable {
  * replacement (a route-change effect, a reduced-motion snap, a useFrame animation step) through
  * this same `swap`, so `liveGeom` is never stale relative to what the mesh actually holds.
  *
- * The route-change effect that builds a new value is responsible for disposing it in its own
- * cleanup, but only if it is *still* `liveGeom` at cleanup time (it may already have been
- * disposed by something else, e.g. the safety net below, or superseded by a later swap) — see
- * AnimatedTube. This hook itself only adds a safety net: whatever is live when the component
+ * Callers should route(reduce/mount/route-change) decisions through a small decision hook of
+ * their own — see `useTubeGeometry` for AnimatedTube's — rather than disposing in that effect's
+ * own cleanup: a cleanup fires on *every* dependency change, not just a Strict Mode dry run, so
+ * resetting state there to "rebuild next time" ends up applying to every real update too (fix
+ * round 3's regression). This hook only adds a safety net: whatever is live when the component
  * truly unmounts gets disposed exactly once, covering the case where the last swap came from
  * useFrame (no React effect holds a cleanup for that value).
  */

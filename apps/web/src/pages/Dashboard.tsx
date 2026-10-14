@@ -1,5 +1,5 @@
 import { CirclePlay, Factory, SunMedium, UtilityPole, Zap, type LucideIcon } from 'lucide-react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { ProjectStateBadge } from '@/components/ProjectState'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { useWorld } from '@/data/useWorld'
 import { fmtRelative } from '@/lib/format'
 import { readJson } from '@/lib/storage'
 import type { AssetPack, Project } from '@/lib/types'
+import { useTour } from '@/onboarding/tour/tour'
 import { Welcome } from './Welcome'
 
 const PACKS: { id: AssetPack; label: string; icon: LucideIcon }[] = [
@@ -60,13 +61,13 @@ function ProjectCard({ p }: { p: Project }) {
 
 export function Dashboard() {
   const { world, error } = useWorld()
-  const navigate = useNavigate()
+  const startTour = useTour((s) => s.start)
   if (error) return <EmptyState title="Could not load the demo world">{error}</EmptyState>
   if (!world) return <EmptyState title="Loading projects…" />
   const activity = [...world.activity].sort((a, b) => b.ts - a.ts)
   return (
     <div className="mx-auto grid h-full max-w-7xl grid-cols-1 gap-6 overflow-auto p-6 lg:grid-cols-[1fr_18rem]">
-      <Welcome onStartTour={() => navigate('/app/p/hall-a?tab=matrix')} />
+      <Welcome onStartTour={startTour} />
       <section aria-labelledby="projects-h" data-tour="projects" className="flex flex-col gap-6">
         <div>
           <h1 id="projects-h" className="text-lg font-semibold">

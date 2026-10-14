@@ -1,0 +1,35 @@
+{
+  "project": { "id": "grid-132kv", "name": "Deccan campus · 132 kV intake", "client": "Narmada Transmission", "asset_pack": "grid", "state": "checked", "sample": true, "updated_at": 1759900000 },
+  "events": [
+    { "seq": 1, "phase": "p1", "step": "asset.evaluate", "attempt": 1, "agent": "asset", "kind": "tool_call", "title": "evaluate_grid", "detail": "", "payload": { "tool": "evaluate_grid", "args": {} }, "ts": 1759899000 },
+    {
+      "seq": 2, "phase": "p1", "step": "asset.evaluate", "attempt": 1, "agent": "asset", "kind": "tool_result", "title": "evaluate_grid", "detail": "",
+      "payload": {
+        "tool": "evaluate_grid",
+        "summary": {
+          "options": [
+            { "id": "ACSR-PANTHER", "name": "ACSR Panther", "ampacity_a": 520, "regulation_pct": 2.4, "losses_kw": 610 },
+            { "id": "ACSR-ZEBRA", "name": "ACSR Zebra", "ampacity_a": 790, "regulation_pct": 1.7, "losses_kw": 410 },
+            { "id": "ACSR-MOOSE", "name": "ACSR Moose", "ampacity_a": 880, "regulation_pct": 1.5, "losses_kw": 370 }
+          ],
+          "recommended": "ACSR-ZEBRA",
+          "findings": [
+            { "id": "G01:L1", "rule_id": "G01", "element_id": "L1", "status": "pass", "title": "Line ampacity", "value": 790, "limit": 500, "unit": "A", "explanation": "Zebra carries {value} against a {limit} requirement." },
+            { "id": "G02:L1", "rule_id": "G02", "element_id": "L1", "status": "warn", "title": "Voltage regulation", "value": 1.7, "limit": 2.0, "unit": "%" }
+          ],
+          "geometry": { "route": [[0, 0], [6000, 2500], [18000, 3200]], "substation": [18000, 3200] },
+          "sld": {
+            "nodes": [
+              { "id": "L1", "kind": "line", "label": "132 kV double-circuit line" },
+              { "id": "T1", "kind": "transformer", "label": "2 × 50 MVA 132/33 kV" },
+              { "id": "B33", "kind": "bus", "label": "33 kV campus bus" }
+            ],
+            "edges": [ { "src": "L1", "dst": "T1", "label": "132 kV" }, { "src": "T1", "dst": "B33", "label": "33 kV" } ]
+          }
+        }
+      },
+      "ts": 1759899100
+    },
+    { "seq": 3, "phase": "p1", "step": "asset.evaluate", "attempt": 1, "agent": "asset", "kind": "message", "title": "Recommends ACSR Zebra: lowest-loss option with regulation margin", "detail": "", "payload": {}, "ts": 1759899110 }
+  ]
+}
