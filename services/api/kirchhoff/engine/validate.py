@@ -1,6 +1,8 @@
 """validate_model (spec §6.3): a facade-level sanity check on a DesignModel. Every facade entry point that
 takes a model calls this first, so a malformed or tampered model fails loudly with a clear ValueError instead
 of a confusing low-level crash deep inside pandapower or shapely, or — worse — a silently wrong verdict."""
+import math
+
 from kirchhoff.contracts import DesignModel
 
 from .scenario import Scenario, cat_item, cat_section
@@ -8,6 +10,29 @@ from .scenario import Scenario, cat_item, cat_section
 EQUIPMENT_SECTION = {"mv_board": "switchboards", "transformer": "transformers", "lv_board": "switchboards",
                     "critical_board": "switchboards", "sts": "sts", "ups": "ups", "busway": "busways"}
 CONNECTION_SECTION = {"busway": "busways", "cable": "cables"}
+CONNECTION_KINDS = {"cable", "busway", "internal"}
+HEADER_TOL_M = 1e-6
+
+
+def _point_on_segment(pt: tuple[float, float, float], a: tuple[float, float, float],
+                      b: tuple[float, float, float], tol: float) -> bool:
+    ax, ay, az = a
+    bx, by, bz = b
+    px, py, pz = pt
+    abx, aby, abz = bx - ax, by - ay, bz - az
+    ab_len2 = abx * abx + aby * aby + abz * abz
+    if ab_len2 == 0.0:
+        t = 0.0
+    else:
+        apx, apy, apz = px - ax, py - ay, pz - az
+        t = max(0.0, min(1.0, (apx * abx + apy * aby + apz * abz) / ab_len2))
+    cx, cy, cz = ax + t * abx, ay + t * aby, az + t * abz
+    return math.dist((px, py, pz), (cx, cy, cz)) <= tol
+
+
+def _point_on_polyline(pt: tuple[float, float, float], polyline: list[tuple[float, float, float]],
+                       tol: float) -> bool:
+    return any(_point_on_segment(pt, a, b, tol) for a, b in zip(polyline, polyline[1:]))
 
 
 def _resolves(scn: Scenario, catalogue_id: str) -> bool:
@@ -39,6 +64,9 @@ def validate_model(scn: Scenario, model: DesignModel) -> None:
         if dup:
             raise ValueError(f"duplicate {label} id(s): {', '.join(sorted(dup))}")
 
+    if "MV" not in eq_ids:
+        raise ValueError("model has no MV equipment")
+
     known = set(eq_ids) | set(node_ids)
     for c in model.connections:
         for ref, which in ((c.src, "src"), (c.dst, "dst")):
@@ -48,6 +76,15 @@ def validate_model(scn: Scenario, model: DesignModel) -> None:
         for fid in r.feeds:
             if fid not in known:
                 raise ValueError(f"rack {r.id} feeds reference unknown busway {fid!r}")
+
+    eq_by_id = {e.id: e for e in model.equipment}
+    for c in model.connections:
+        if c.kind not in CONNECTION_KINDS:
+            raise ValueError(f"connection {c.id} has unknown kind {c.kind!r}")
+        dst = eq_by_id.get(c.dst)
+        if dst is not None and dst.kind == "busway" and c.kind not in {"busway", "cable"}:
+            raise ValueError(f"connection {c.id} feeds a busway but has kind {c.kind!r} "
+                             f"(must be 'busway' or 'cable')")
 
     for e in model.equipment:
         if e.catalogue_id:
@@ -66,6 +103,19 @@ def validate_model(scn: Scenario, model: DesignModel) -> None:
                 raise ValueError(f"connection {c.id} has unknown catalogue id {c.catalogue_id!r}")
         if c.route and len(c.route) < 2:
             raise ValueError(f"connection {c.id} route has fewer than 2 points")
+    valid_dns = {int(i["dn"]) for i in cat_section(scn, "pipes")}
     for p in model.pipes:
         if len(p.route) < 2:
             raise ValueError(f"pipe {p.id} route has fewer than 2 points")
+        if p.dn not in valid_dns:
+            raise ValueError(f"pipe {p.id} has unknown DN {p.dn!r}")
+
+    headers = [p for p in model.pipes if p.kind == "header"]
+    for p in model.pipes:
+        if p.kind != "branch":
+            continue
+        first = (p.route[0].x, p.route[0].y, p.route[0].z)
+        zone_headers = [h for h in headers if h.zone == p.zone]
+        if not any(_point_on_polyline(first, [(pt.x, pt.y, pt.z) for pt in h.route], HEADER_TOL_M)
+                  for h in zone_headers):
+            raise ValueError(f"branch pipe {p.id} does not take off from a header in zone {p.zone!r}")
