@@ -1,0 +1,364 @@
+{
+  "project": {
+    "id": "hall-a",
+    "name": "Deccan AI Campus · Hall A",
+    "client": "Deccan Compute",
+    "asset_pack": "datahall",
+    "state": "signed",
+    "sample": true,
+    "updated_at": 1760000530
+  },
+  "brief": {
+    "project_id": "hall-a",
+    "requirements": [
+      {
+        "id": "REQ-4.6",
+        "text": "Voltage drop UPS output board to furthest tap-off at worst-case current",
+        "value": 2.0,
+        "unit": "%",
+        "citation": { "doc_id": "tender-hall-a", "page": 4, "quote": "shall not exceed 2.0%", "bbox": [72.0, 310.5, 290.2, 324.0], "clause": "§4.6" },
+        "verified": true
+      },
+      {
+        "id": "REQ-6.3.4",
+        "text": "No liquid-carrying pipework above electrical",
+        "value": null,
+        "unit": null,
+        "citation": { "doc_id": "tender-hall-a", "page": 7, "quote": "No liquid-carrying pipework shall be routed above electrical busways", "bbox": [72.0, 200.0, 400.0, 214.0], "clause": "§6.3.4" },
+        "verified": true
+      },
+      {
+        "id": "REQ-2.3",
+        "text": "Equipment on site within the award window",
+        "value": 26,
+        "unit": "weeks",
+        "citation": { "doc_id": "tender-hall-a", "page": 2, "quote": "within 26 weeks of award", "bbox": null, "clause": "§2.3" },
+        "verified": false
+      }
+    ],
+    "open_questions": [
+      {
+        "id": "Q-redundancy",
+        "text": "§4.2 requires 2N; Appendix B accepts block or distributed redundancy. Which governs?",
+        "options": ["2N", "compare_all"],
+        "citations": [
+          { "doc_id": "tender-hall-a", "page": 3, "quote": "The critical power system shall be 2N", "bbox": [72.0, 400.0, 300.0, 414.0], "clause": "§4.2" },
+          { "doc_id": "tender-hall-a", "page": 12, "quote": "block or distributed redundancy acceptable", "bbox": [72.0, 120.0, 330.0, 134.0], "clause": "Appendix B" }
+        ],
+        "default_resolution": "2N",
+        "resolution": "compare_all"
+      }
+    ],
+    "intake_score": { "extracted": 3, "verified": 2 },
+    "drawing_check": { "agrees": true, "differences": [] }
+  },
+  "runs": [
+    {
+      "id": "run-hall-a",
+      "project_id": "hall-a",
+      "status": "done",
+      "autonomy": "ask",
+      "phase": "p4",
+      "gate": null,
+      "plan": [
+        { "id": "p2.place_racks", "agent": "layout", "title": "Place racks (default placement)", "note": "" },
+        { "id": "p2.power_options", "agent": "power", "title": "Enumerate topologies", "note": "" },
+        { "id": "p2.cooling_sizing", "agent": "cooling", "title": "Size CDUs and zones", "note": "" },
+        { "id": "p2.annotate_options", "agent": "procurement", "title": "Check ERP lead times", "note": "" }
+      ],
+      "open_questions": [
+        {
+          "id": "Q-redundancy",
+          "text": "§4.2 requires 2N; Appendix B accepts block or distributed redundancy. Which governs?",
+          "options": ["2N", "compare_all"],
+          "citations": [
+            { "doc_id": "tender-hall-a", "page": 3, "quote": "The critical power system shall be 2N", "bbox": [72.0, 400.0, 300.0, 414.0], "clause": "§4.2" }
+          ],
+          "default_resolution": "2N",
+          "resolution": "compare_all"
+        }
+      ],
+      "options": [
+        {
+          "id": "2N",
+          "installed_mva": 18.9,
+          "normal_loading_pct": 38,
+          "failover_loading_pct": 76,
+          "cost": 4200000,
+          "losses_kw": 310.5,
+          "max_lead_time_weeks": 12,
+          "spof_count": 0,
+          "swaps": [{ "line": "T-A1", "from": "TX-2500", "to": "TX-3150", "reason": "R15" }]
+        },
+        {
+          "id": "DR",
+          "installed_mva": 12.6,
+          "normal_loading_pct": 57,
+          "failover_loading_pct": 76,
+          "cost": 3600000,
+          "losses_kw": 280.2,
+          "max_lead_time_weeks": 12,
+          "spof_count": 0,
+          "swaps": []
+        }
+      ],
+      "selected_option": "2N",
+      "metrics": {},
+      "lease": null,
+      "started_at": 1760000000,
+      "finished_at": 1760000400
+    }
+  ],
+  "steps": [
+    { "id": "p1.intake", "phase": "p1", "status": "done", "attempt": 1, "outputs_ref": null, "started_at": 1760000000, "finished_at": 1760000030 },
+    { "id": "p2.place_racks", "phase": "p2", "status": "done", "attempt": 1, "outputs_ref": null, "started_at": 1760000100, "finished_at": 1760000110 },
+    { "id": "p2.power_options", "phase": "p2", "status": "done", "attempt": 1, "outputs_ref": null, "started_at": 1760000110, "finished_at": 1760000130 },
+    { "id": "p2.cooling_sizing", "phase": "p2", "status": "done", "attempt": 1, "outputs_ref": null, "started_at": 1760000110, "finished_at": 1760000125 },
+    { "id": "p3.check", "phase": "p3", "status": "done", "attempt": 2, "outputs_ref": null, "started_at": 1760000200, "finished_at": 1760000300 }
+  ],
+  "events": [
+    { "seq": 1, "phase": "p1", "step": "p1.intake", "attempt": 1, "agent": "intake", "kind": "status", "title": "Reading tender", "detail": "", "payload": {}, "ts": 1760000000 },
+    { "seq": 2, "phase": "p1", "step": "p1.intake", "attempt": 1, "agent": "intake", "kind": "tool_call", "title": "verify_quote", "detail": "", "payload": { "tool": "verify_quote", "args": { "page": 4 } }, "ts": 1760000004 },
+    { "seq": 3, "phase": "p1", "step": "p1.intake", "attempt": 1, "agent": "intake", "kind": "tool_result", "title": "verify_quote", "detail": "", "payload": { "tool": "verify_quote", "summary": { "verified": true } }, "ts": 1760000006 },
+    { "seq": 4, "phase": "p1", "step": "p1.intake", "attempt": 1, "agent": "intake", "kind": "artifact", "title": "Design brief", "detail": "", "payload": { "type": "brief", "ref": "brief" }, "ts": 1760000030 },
+    { "seq": 5, "phase": "p1", "step": "p1.plan", "attempt": 1, "agent": "orchestrator", "kind": "plan", "title": "Plan ready", "detail": "", "payload": { "plan": [], "open_questions": [] }, "ts": 1760000040 },
+    { "seq": 6, "phase": "p1", "step": "p1.plan", "attempt": 1, "agent": "orchestrator", "kind": "gate", "title": "Plan gate", "detail": "", "payload": { "gate": "plan" }, "ts": 1760000041 },
+    { "seq": 7, "phase": "p2", "step": "p2.place_racks", "attempt": 1, "agent": "layout", "kind": "tool_call", "title": "place_racks", "detail": "", "payload": { "tool": "place_racks", "args": {} }, "ts": 1760000100 },
+    { "seq": 8, "phase": "p2", "step": "p2.place_racks", "attempt": 1, "agent": "layout", "kind": "message", "title": "Layout placed the racks in rows R1–R6", "detail": "", "payload": {}, "ts": 1760000110 },
+    { "seq": 9, "phase": "p2", "step": "p2.power_options", "attempt": 1, "agent": "power", "kind": "tool_result", "title": "enumerate_topologies", "detail": "", "payload": { "tool": "enumerate_topologies", "summary": { "options": "2N, DR" } }, "ts": 1760000130 },
+    { "seq": 10, "phase": "p2", "step": "p2.cooling_sizing", "attempt": 1, "agent": "cooling", "kind": "tool_result", "title": "size_cdus", "detail": "", "payload": { "tool": "size_cdus", "summary": { "zone": "Z2" } }, "ts": 1760000125 },
+    { "seq": 11, "phase": "p2", "step": "p2.annotate_options", "attempt": 1, "agent": "procurement", "kind": "message", "title": "TX-2500 breaks §2.3; swapped to TX-3150 (in stock)", "detail": "", "payload": {}, "ts": 1760000140 },
+    { "seq": 12, "phase": "p2", "step": "p2.annotate_options", "attempt": 1, "agent": "procurement", "kind": "artifact", "title": "Options", "detail": "", "payload": { "type": "options", "ref": "options" }, "ts": 1760000141 },
+    { "seq": 13, "phase": "p2", "step": "p2.annotate_options", "attempt": 1, "agent": "orchestrator", "kind": "gate", "title": "Option gate", "detail": "", "payload": { "gate": "option" }, "ts": 1760000142 },
+    { "seq": 14, "phase": "p3", "step": "p3.check", "attempt": 1, "agent": "checker", "kind": "status", "title": "Stale attempt", "detail": "", "payload": {}, "ts": 1760000200 },
+    { "seq": 15, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "artifact", "title": "Revision r1", "detail": "", "payload": { "type": "revision", "ref": "r1" }, "ts": 1760000210 },
+    { "seq": 16, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "finding", "title": "R05 FA-01", "detail": "", "payload": { "finding_id": "R05:FA-01", "rule_id": "R05", "element_id": "FA-01", "status": "fail", "rev": "r1" }, "ts": 1760000211 },
+    { "seq": 17, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "finding", "title": "R11 H-Z2", "detail": "", "payload": { "finding_id": "R11:H-Z2", "rule_id": "R11", "element_id": "H-Z2", "status": "fail", "rev": "r1" }, "ts": 1760000212 },
+    { "seq": 18, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "finding", "title": "R01 T-A1", "detail": "", "payload": { "finding_id": "R01:T-A1", "rule_id": "R01", "element_id": "T-A1", "status": "pass", "rev": "r1" }, "ts": 1760000213 },
+    { "seq": 19, "phase": "p3", "step": "p3.fix", "attempt": 1, "agent": "power", "kind": "ledger", "title": "Fix chosen", "detail": "", "payload": { "entry": { "kind": "did", "agent": "power", "text": "Chose a parallel cable feeder for FA-01" } }, "ts": 1760000250 },
+    { "seq": 20, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "artifact", "title": "Revision r2", "detail": "", "payload": { "type": "revision", "ref": "r2" }, "ts": 1760000280 },
+    { "seq": 21, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "finding", "title": "R05 FA-01", "detail": "", "payload": { "finding_id": "R05:FA-01", "rule_id": "R05", "element_id": "FA-01", "status": "pass", "rev": "r2" }, "ts": 1760000281 },
+    { "seq": 22, "phase": "p3", "step": "p3.check", "attempt": 2, "agent": "checker", "kind": "finding", "title": "R11 H-Z2", "detail": "", "payload": { "finding_id": "R11:H-Z2", "rule_id": "R11", "element_id": "H-Z2", "status": "pass", "rev": "r2" }, "ts": 1760000282 },
+    { "seq": 23, "phase": "p3", "step": "p3.docs", "attempt": 1, "agent": "docs", "kind": "artifact", "title": "Calc report", "detail": "", "payload": { "type": "export", "ref": "/demo/files/hall-a/calc-report.pdf" }, "ts": 1760000290 },
+    { "seq": 24, "phase": "p3", "step": "p3.docs", "attempt": 1, "agent": "orchestrator", "kind": "gate", "title": "Review gate", "detail": "", "payload": { "gate": "review" }, "ts": 1760000300 },
+    { "seq": 25, "phase": "p4", "step": "p4.handoff", "attempt": 1, "agent": "procurement", "kind": "message", "title": "Submitted PR-2026-0142 to ERP", "detail": "", "payload": {}, "ts": 1760000520 }
+  ],
+  "revisions": [
+    {
+      "id": "r1",
+      "project_id": "hall-a",
+      "parent": null,
+      "author": "Kirchhoff agents",
+      "hash": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9",
+      "model": {
+        "topology": "2N",
+        "racks": [
+          { "id": "R1-01", "row": "R1", "x": 6.0, "y": 15.9, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] },
+          { "id": "R1-02", "row": "R1", "x": 6.0, "y": 16.5, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] },
+          { "id": "R1-03", "row": "R1", "x": 6.0, "y": 17.1, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] },
+          { "id": "R1-04", "row": "R1", "x": 6.0, "y": 17.7, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] }
+        ],
+        "equipment": [
+          { "id": "MV", "kind": "mv_board", "rating": 33, "unit": "kV", "catalogue_id": null, "system": null, "room": null, "params": {} },
+          { "id": "T-A1", "kind": "transformer", "rating": 3150, "unit": "kVA", "catalogue_id": "TX-3150", "system": "A", "room": "A", "params": {} },
+          { "id": "T-B1", "kind": "transformer", "rating": 3150, "unit": "kVA", "catalogue_id": "TX-3150", "system": "B", "room": "B", "params": {} },
+          { "id": "A1", "kind": "lv_board", "rating": 5000, "unit": "A", "catalogue_id": null, "system": "A", "room": "A", "params": {} },
+          { "id": "B1", "kind": "lv_board", "rating": 5000, "unit": "A", "catalogue_id": null, "system": "B", "room": "B", "params": {} },
+          { "id": "UPS-A1", "kind": "ups", "rating": 2500, "unit": "kW", "catalogue_id": "UPS-500", "system": "A", "room": "A", "params": {} },
+          { "id": "UPS-B1", "kind": "ups", "rating": 2500, "unit": "kW", "catalogue_id": "UPS-500", "system": "B", "room": "B", "params": {} },
+          { "id": "CB-A1", "kind": "critical_board", "rating": 4000, "unit": "A", "catalogue_id": null, "system": "A", "room": "A", "params": {} },
+          { "id": "CB-B1", "kind": "critical_board", "rating": 4000, "unit": "A", "catalogue_id": null, "system": "B", "room": "B", "params": {} },
+          { "id": "A-01", "kind": "busway", "rating": 1600, "unit": "A", "catalogue_id": "BW-1600", "system": "A", "room": null, "params": {} },
+          { "id": "B-01", "kind": "busway", "rating": 1600, "unit": "A", "catalogue_id": "BW-1600", "system": "B", "room": null, "params": {} }
+        ],
+        "connections": [
+          { "id": "L-MV-TA1", "src": "MV", "dst": "T-A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-MV-TB1", "src": "MV", "dst": "T-B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-TA1-A1", "src": "T-A1", "dst": "A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-TB1-B1", "src": "T-B1", "dst": "B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-A1-UPSA1", "src": "A1", "dst": "UPS-A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-B1-UPSB1", "src": "B1", "dst": "UPS-B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-UPSA1-CBA1", "src": "UPS-A1", "dst": "CB-A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-UPSB1-CBB1", "src": "UPS-B1", "dst": "CB-B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          {
+            "id": "FA-01", "src": "CB-A1", "dst": "A-01", "kind": "busway", "length_m": 82, "catalogue_id": "BW-1600",
+            "route": [ { "x": 66, "y": 4, "z": 3.2 }, { "x": 66, "y": 2, "z": 3.2 }, { "x": 5.7, "y": 2, "z": 3.2 }, { "x": 5.7, "y": 15.6, "z": 3.2 } ]
+          },
+          {
+            "id": "FB-03", "src": "CB-B1", "dst": "B-01", "kind": "busway", "length_m": 40, "catalogue_id": "BW-1600",
+            "route": [ { "x": 30, "y": 40, "z": 3.2 }, { "x": 30, "y": 35, "z": 3.2 }, { "x": 6.3, "y": 35, "z": 3.2 }, { "x": 6.3, "y": 20.4, "z": 3.2 } ]
+          }
+        ],
+        "cooling_nodes": [
+          { "id": "CDU-1", "kind": "cdu", "zone": "Z2", "capacity_kw": 1200, "x": 8.0, "y": 30.0 },
+          { "id": "M-R1", "kind": "manifold", "zone": "Z2", "capacity_kw": null, "x": 6.0, "y": 18.0 }
+        ],
+        "pipes": [
+          {
+            "id": "H-Z2", "kind": "header", "zone": "Z2", "dn": 200, "tier": "pipe_high", "flow_lps": 41.2,
+            "route": [ { "x": 8, "y": 30, "z": 3.8 }, { "x": 8, "y": 24, "z": 3.8 }, { "x": 6, "y": 24, "z": 3.8 }, { "x": 6, "y": 20.4, "z": 3.8 } ]
+          },
+          {
+            "id": "BR-R1", "kind": "branch", "zone": "Z2", "dn": 150, "tier": "pipe_low", "flow_lps": 20.6,
+            "route": [ { "x": 6, "y": 20.4, "z": 2.6 }, { "x": 6, "y": 15.6, "z": 2.6 } ]
+          }
+        ],
+        "geometry": {
+          "hall": [60, 36],
+          "columns": [[0, 0], [12, 0], [0, 12], [12, 12]],
+          "keepouts": [[10, 10, 18, 26]],
+          "rooms": { "A": [60, 0, 72, 10], "B": [24, 36, 36, 46] },
+          "tiers": { "pipe_low": 2.6, "busway": 3.2, "pipe_high": 3.8 }
+        },
+        "loads": { "rack_kw": 132, "liquid_fraction": 0.8, "aux_mw": 0.3, "pumps_kw": 135 }
+      },
+      "model_url": null,
+      "summary": "First checked revision",
+      "check_summary": { "pass": 3, "fail": 2, "warn": 1, "n/a": 0 },
+      "status": "checked",
+      "ledger": [
+        { "kind": "assumed", "agent": "intake", "text": "Heat split 80% liquid / 20% air per tender assumption" },
+        { "kind": "not_checked", "agent": "checker", "text": "Earth-fault loop impedance (IEC 60364-4-41 §411)" }
+      ],
+      "created_at": 1760000210
+    },
+    {
+      "id": "r2",
+      "project_id": "hall-a",
+      "parent": "r1",
+      "author": "Kirchhoff agents",
+      "hash": "f9e8d7c6b5a40312f9e8d7c6b5a40312f9e8d7c6b5a40312f9e8d7c6b5a40312",
+      "model": {
+        "topology": "2N",
+        "racks": [
+          { "id": "R1-01", "row": "R1", "x": 6.0, "y": 15.9, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] },
+          { "id": "R1-02", "row": "R1", "x": 6.0, "y": 16.5, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] },
+          { "id": "R1-03", "row": "R1", "x": 6.0, "y": 17.1, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] },
+          { "id": "R1-04", "row": "R1", "x": 6.0, "y": 17.7, "w": 0.6, "d": 1.2, "kw": 132.0, "liquid_fraction": 0.8, "feeds": ["A-01", "B-01"] }
+        ],
+        "equipment": [
+          { "id": "MV", "kind": "mv_board", "rating": 33, "unit": "kV", "catalogue_id": null, "system": null, "room": null, "params": {} },
+          { "id": "T-A1", "kind": "transformer", "rating": 3150, "unit": "kVA", "catalogue_id": "TX-3150", "system": "A", "room": "A", "params": {} },
+          { "id": "T-B1", "kind": "transformer", "rating": 3150, "unit": "kVA", "catalogue_id": "TX-3150", "system": "B", "room": "B", "params": {} },
+          { "id": "A1", "kind": "lv_board", "rating": 5000, "unit": "A", "catalogue_id": null, "system": "A", "room": "A", "params": {} },
+          { "id": "B1", "kind": "lv_board", "rating": 5000, "unit": "A", "catalogue_id": null, "system": "B", "room": "B", "params": {} },
+          { "id": "UPS-A1", "kind": "ups", "rating": 2500, "unit": "kW", "catalogue_id": "UPS-500", "system": "A", "room": "A", "params": {} },
+          { "id": "UPS-B1", "kind": "ups", "rating": 2500, "unit": "kW", "catalogue_id": "UPS-500", "system": "B", "room": "B", "params": {} },
+          { "id": "CB-A1", "kind": "critical_board", "rating": 4000, "unit": "A", "catalogue_id": null, "system": "A", "room": "A", "params": {} },
+          { "id": "CB-B1", "kind": "critical_board", "rating": 4000, "unit": "A", "catalogue_id": null, "system": "B", "room": "B", "params": {} },
+          { "id": "A-01", "kind": "busway", "rating": 1600, "unit": "A", "catalogue_id": "BW-1600", "system": "A", "room": null, "params": {} },
+          { "id": "B-01", "kind": "busway", "rating": 1600, "unit": "A", "catalogue_id": "BW-1600", "system": "B", "room": null, "params": {} }
+        ],
+        "connections": [
+          { "id": "L-MV-TA1", "src": "MV", "dst": "T-A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-MV-TB1", "src": "MV", "dst": "T-B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-TA1-A1", "src": "T-A1", "dst": "A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-TB1-B1", "src": "T-B1", "dst": "B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-A1-UPSA1", "src": "A1", "dst": "UPS-A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-B1-UPSB1", "src": "B1", "dst": "UPS-B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-UPSA1-CBA1", "src": "UPS-A1", "dst": "CB-A1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          { "id": "L-UPSB1-CBB1", "src": "UPS-B1", "dst": "CB-B1", "kind": "internal", "length_m": 0, "catalogue_id": null, "route": [] },
+          {
+            "id": "FA-01", "src": "CB-A1", "dst": "A-01", "kind": "cable", "length_m": 82, "catalogue_id": "CBL-8x240",
+            "route": [ { "x": 66, "y": 4, "z": 3.2 }, { "x": 66, "y": 2, "z": 3.2 }, { "x": 5.7, "y": 2, "z": 3.2 }, { "x": 5.7, "y": 15.6, "z": 3.2 } ]
+          },
+          {
+            "id": "FB-03", "src": "CB-B1", "dst": "B-01", "kind": "busway", "length_m": 40, "catalogue_id": "BW-1600",
+            "route": [ { "x": 30, "y": 40, "z": 3.2 }, { "x": 30, "y": 35, "z": 3.2 }, { "x": 6.3, "y": 35, "z": 3.2 }, { "x": 6.3, "y": 20.4, "z": 3.2 } ]
+          }
+        ],
+        "cooling_nodes": [
+          { "id": "CDU-1", "kind": "cdu", "zone": "Z2", "capacity_kw": 1200, "x": 8.0, "y": 30.0 },
+          { "id": "M-R1", "kind": "manifold", "zone": "Z2", "capacity_kw": null, "x": 6.0, "y": 18.0 }
+        ],
+        "pipes": [
+          {
+            "id": "H-Z2", "kind": "header", "zone": "Z2", "dn": 200, "tier": "pipe_low", "flow_lps": 41.2,
+            "route": [ { "x": 8, "y": 30, "z": 3.8 }, { "x": 8, "y": 24.5, "z": 3.8 }, { "x": 8, "y": 24.5, "z": 2.6 }, { "x": 6, "y": 24, "z": 2.6 }, { "x": 6, "y": 20.4, "z": 2.6 } ]
+          },
+          {
+            "id": "BR-R1", "kind": "branch", "zone": "Z2", "dn": 150, "tier": "pipe_low", "flow_lps": 20.6,
+            "route": [ { "x": 6, "y": 20.4, "z": 2.6 }, { "x": 6, "y": 15.6, "z": 2.6 } ]
+          }
+        ],
+        "geometry": {
+          "hall": [60, 36],
+          "columns": [[0, 0], [12, 0], [0, 12], [12, 12]],
+          "keepouts": [[10, 10, 18, 26]],
+          "rooms": { "A": [60, 0, 72, 10], "B": [24, 36, 36, 46] },
+          "tiers": { "pipe_low": 2.6, "busway": 3.2, "pipe_high": 3.8 }
+        },
+        "loads": { "rack_kw": 132, "liquid_fraction": 0.8, "aux_mw": 0.3, "pumps_kw": 135 }
+      },
+      "model_url": null,
+      "summary": "Fixes for R05 and R11",
+      "check_summary": { "pass": 5, "fail": 0, "warn": 1, "n/a": 0 },
+      "status": "signed",
+      "ledger": [
+        { "kind": "did", "agent": "power", "text": "Chose a parallel cable feeder for FA-01" },
+        { "kind": "did", "agent": "cooling", "text": "Dropped H-Z2 to the low tier at the crossing" },
+        { "kind": "assumed", "agent": "intake", "text": "Heat split 80% liquid / 20% air per tender assumption" },
+        { "kind": "not_checked", "agent": "checker", "text": "Earth-fault loop impedance (IEC 60364-4-41 §411)" }
+      ],
+      "created_at": 1760000280
+    }
+  ],
+  "findings": {
+    "r1": [
+      {
+        "id": "R05:FA-01", "rule_id": "R05", "element_id": "FA-01", "status": "fail", "title": "Voltage drop above limit",
+        "clause_refs": [{ "standard": "IEC 60364-5-52", "clause": "§525" }],
+        "tender_refs": [{ "doc_id": "tender-hall-a", "page": 4, "quote": "shall not exceed 2.0%", "bbox": [72.0, 310.5, 290.2, 324.0], "clause": "§4.6" }],
+        "formula": "ΔU% = 100·√3·I·L·(R cosφ + X sinφ)/U",
+        "inputs": { "I_A": 1546, "L_m": 82, "U_V": 415 },
+        "value": 2.16, "limit": 2.0, "unit": "%",
+        "explanation": "FA-01 drops {value} at failover current, above the {limit} limit of §4.6.",
+        "fix": { "candidate": "FA-01:parallel-cable", "label": "Parallel cable feeder", "reason": "Largest ΔV margin for a similar cost", "deltas": { "dv_pct": 0.84, "cost_delta": 18000 } },
+        "rejected_fix": { "candidate": "FA-01:upsize-2000", "label": "Upsize FA-01 to 2,000 A busway", "reason": "Smaller ΔV margin", "deltas": { "dv_pct": 1.66, "cost_delta": 24000 } }
+      },
+      {
+        "id": "R11:H-Z2", "rule_id": "R11", "element_id": "H-Z2", "status": "fail", "title": "Liquid piping above electrical",
+        "clause_refs": [],
+        "tender_refs": [{ "doc_id": "tender-hall-a", "page": 7, "quote": "No liquid-carrying pipework shall be routed above electrical busways", "bbox": [72.0, 200.0, 400.0, 214.0], "clause": "§6.3.4" }],
+        "formula": "", "inputs": { "over": "FB-03", "tier": "pipe_high" },
+        "value": null, "limit": null, "unit": null,
+        "explanation": "H-Z2 runs above FB-03 on the high tier.",
+        "fix": { "candidate": "H-Z2:drop-low", "label": "Drop H-Z2 to the low tier at the crossing", "reason": "No reroute needed", "deltas": { "cost_delta": 2000 } },
+        "rejected_fix": { "candidate": "H-Z2:reroute", "label": "Reroute H-Z2 around FB-03", "reason": "Longer run", "deltas": { "cost_delta": 9000 } }
+      },
+      { "id": "R01:T-A1", "rule_id": "R01", "element_id": "T-A1", "status": "pass", "title": "Transformer loading", "value": 76, "limit": 100, "unit": "%", "explanation": "Failover loading {value} is within {limit}." },
+      { "id": "R02:A-01", "rule_id": "R02", "element_id": "A-01", "status": "pass", "title": "Busway rating", "value": 1546, "limit": 1600, "unit": "A" },
+      { "id": "R15:T-A1", "rule_id": "R15", "element_id": "T-A1", "status": "pass", "title": "Lead time", "value": 12, "limit": 26, "unit": "weeks" },
+      { "id": "R10:BR-R1", "rule_id": "R10", "element_id": "BR-R1", "status": "warn", "title": "Pipe velocity near limit", "value": 2.4, "limit": 2.5, "unit": "m/s" }
+    ],
+    "r2": [
+      { "id": "R05:FA-01", "rule_id": "R05", "element_id": "FA-01", "status": "pass", "title": "Voltage drop", "value": 0.84, "limit": 2.0, "unit": "%" },
+      { "id": "R11:H-Z2", "rule_id": "R11", "element_id": "H-Z2", "status": "pass", "title": "Liquid piping above electrical", "inputs": { "tier": "pipe_low" } },
+      { "id": "R01:T-A1", "rule_id": "R01", "element_id": "T-A1", "status": "pass", "title": "Transformer loading", "value": 76, "limit": 100, "unit": "%" },
+      { "id": "R02:A-01", "rule_id": "R02", "element_id": "A-01", "status": "pass", "title": "Busway rating", "value": 1546, "limit": 1600, "unit": "A" },
+      { "id": "R15:T-A1", "rule_id": "R15", "element_id": "T-A1", "status": "pass", "title": "Lead time", "value": 12, "limit": 26, "unit": "weeks" },
+      { "id": "R10:BR-R1", "rule_id": "R10", "element_id": "BR-R1", "status": "warn", "title": "Pipe velocity near limit", "value": 2.4, "limit": 2.5, "unit": "m/s" }
+    ]
+  },
+  "approvals": [
+    { "id": "ap-1", "revision": "r2", "approver_name": "Priya Raman", "role": "Lead Electrical Engineer (Reviewer)", "decision": "approved", "comment": "Checked; release to procurement.", "ts": 1760000500 }
+  ],
+  "prs": [
+    {
+      "id": "PR-2026-0142", "project_id": "hall-a", "revision": "r2", "status": "submitted", "created_at": 1760000520,
+      "lines": [{ "material_id": "TX-3150", "description": "Transformer 3.15 MVA cast-resin Dyn11", "qty": 2, "unit_price": 210000, "lead_time_weeks": 12 }]
+    }
+  ],
+  "crm": { "opportunity_id": "opp-hall-a", "stage": "Design approved", "updated_at": 1760000530 },
+  "what_ifs": [
+    {
+      "revision_ref": "seed:hall-a@r2", "param": "rack_kw", "value": 200,
+      "findings": [
+        { "id": "R01:T-A1", "rule_id": "R01", "element_id": "T-A1", "status": "fail", "title": "Transformer loading", "value": 114, "limit": 100, "unit": "%" },
+        { "id": "R02:A-01", "rule_id": "R02", "element_id": "A-01", "status": "fail", "title": "Busway rating", "value": 2343, "limit": 1600, "unit": "A" },
+        { "id": "R08:CDU-1", "rule_id": "R08", "element_id": "CDU-1", "status": "fail", "title": "CDU capacity", "value": 2.56, "limit": 2.4, "unit": "MW" }
+      ],
+      "impact_chain": [["R1-01", "A-01", "CB-A1", "A1", "T-A1"], ["R1-01", "Z2", "CDU-1"]]
+    }
+  ]
+}

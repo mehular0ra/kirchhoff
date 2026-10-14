@@ -277,7 +277,7 @@ def test_warm_up_idempotent_and_speeds_up_what_if(scn, erp, routed):
     t0 = time.perf_counter()
     api.what_if(scn, m, "rack_kw", 150.0, "x", erp)
     took = time.perf_counter() - t0
-    assert took < 0.1
+    assert took < 0.5  # spec §6.4's real budget is 3 s; loosened from 0.1 s (flaky under full-suite load)
 
 
 

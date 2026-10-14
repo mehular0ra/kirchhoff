@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# copied at build time by scripts/sync-demo-docs.mjs (Task 10)
+public/demo/docs/

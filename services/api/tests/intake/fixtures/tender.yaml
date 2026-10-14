@@ -1,0 +1,138 @@
+# Hall A tender (fictional, authored for the Kirchhoff demo).
+# Single source for the rendered tender PDF (WS2 renders each clause on `page`) and for engine limits.
+# `quote` is a verbatim substring of `text` that contains the clause's key value (used for citations).
+doc_id: tender-hall-a
+title: "Deccan AI Campus, Hall A: electrical and liquid-cooling design-build, technical requirements"
+client: "Deccan Compute (fictional)"
+site: "AI campus near Hyderabad (fictional)"
+reference: "DC-HA-TS-001 Rev 0"
+notice: "Fictional tender authored for the Kirchhoff demo. IEC-based, illustrative, not for construction."
+clauses:
+  - id: "§1.1"
+    title: "Scope of works"
+    page: 1
+    text: >-
+      The contractor shall design, supply, install and commission the electrical power distribution and the
+      direct liquid cooling for Data Hall A, from the 33 kV main switchboard to the rack power inlets and the
+      rack coolant manifolds.
+    quote: "from the 33 kV main switchboard to the rack power inlets"
+    limits: {}
+  - id: "§2.3"
+    title: "Programme"
+    page: 2
+    text: >-
+      All major electrical and mechanical equipment shall be on site no later than 26 weeks from contract
+      award. Equipment that cannot be delivered within this period shall not be specified.
+    quote: "no later than 26 weeks from contract award"
+    limits: {max_lead_time_weeks: 26}
+  - id: "§3.1"
+    title: "IT load"
+    page: 3
+    text: >-
+      The hall shall accommodate 48 racks in 6 rows of 8, each rack rated 132 kW. For design purposes 80% of
+      rack heat is rejected to liquid and 20% to air.
+    quote: "each rack rated 132 kW"
+    limits: {racks: 48, rows: 6, racks_per_row: 8, rack_kw: 132, liquid_fraction: 0.8}
+  - id: "§3.2"
+    title: "Auxiliary load"
+    page: 3
+    text: >-
+      Auxiliary load on the LV system, including CDU pumps, fan walls and controls, shall be taken as 0.30 MW
+      in total. CDU pumps are UPS-backed; other auxiliary loads are not.
+    quote: "shall be taken as 0.30 MW in total"
+    limits: {aux_mw: 0.30}
+  - id: "§3.3"
+    title: "Electrical supply"
+    page: 3
+    text: >-
+      Supply is at 33 kV, 50 Hz, from a main switchboard with two incomers and an automatic bus-coupler; the
+      source fault level is 1,000 MVA with R/X 0.1. Distribution is at 415 V with a design power factor of 0.95.
+    quote: "the source fault level is 1,000 MVA"
+    limits: {mv_kv: 33, lv_v: 415, freq_hz: 50, source_sk_mva: 1000, source_rx: 0.1, pf: 0.95}
+  - id: "§4.2"
+    title: "Redundancy"
+    page: 4
+    text: "The critical power distribution shall be 2N, with each rack fed from two independent systems."
+    quote: "shall be 2N"
+    limits: {}
+  - id: "§4.3"
+    title: "Transformer loading"
+    page: 4
+    text: >-
+      Transformer loading shall not exceed 80% of rating in normal operation and 100% of rating under any
+      single failure.
+    quote: "shall not exceed 80% of rating in normal operation"
+    limits: {tx_normal_max_pct: 80, tx_n1_max_pct: 100}
+  - id: "§4.4"
+    title: "Short-circuit ratings"
+    page: 4
+    text: >-
+      Switchgear and busways shall be rated for the maximum prospective short-circuit current at their point
+      of installation.
+    quote: "rated for the maximum prospective short-circuit current"
+    limits: {}
+  - id: "§4.5"
+    title: "UPS"
+    page: 4
+    text: >-
+      Each UPS system shall carry its worst single-failure load with a battery autonomy of not less than
+      5 minutes.
+    quote: "not less than 5 minutes"
+    limits: {ups_autonomy_min: 5}
+  - id: "§4.6"
+    title: "Voltage drop"
+    page: 4
+    text: >-
+      The voltage drop from the UPS output board to the furthest busway tap-off shall not exceed 2.0% at the
+      worst-case design current.
+    quote: "shall not exceed 2.0%"
+    limits: {dv_max_pct: 2.0}
+  - id: "§5.1"
+    title: "Containment tiers"
+    page: 5
+    text: >-
+      Overhead services shall run on three tiers: low-level pipework at 2.6 m, busways at 3.2 m and
+      mechanical mains at 3.8 m above finished floor.
+    quote: "mechanical mains at 3.8 m"
+    limits: {tier_pipe_low_m: 2.6, tier_busway_m: 3.2, tier_pipe_high_m: 3.8}
+  - id: "§6.1"
+    title: "Coolant"
+    page: 6
+    text: >-
+      Coolant supply temperature shall be 30 °C with a design temperature rise of 10 K across each rack.
+    quote: "design temperature rise of 10 K"
+    limits: {supply_temp_c: 30, delta_t_k: 10}
+  - id: "§6.2"
+    title: "CDU redundancy and pressure"
+    page: 6
+    text: >-
+      CDUs shall be provided N+1 per hydraulic zone. The index-circuit pressure drop shall be within the CDU
+      available external head.
+    quote: "CDUs shall be provided N+1 per hydraulic zone"
+    limits: {cdu_spare_per_zone: 1}
+  - id: "§6.3.4"
+    title: "Liquid above electrical"
+    page: 6
+    text: >-
+      No liquid-carrying pipework shall be routed above electrical busways or feeders. Pipework shall keep a
+      clearance of at least 300 mm from structural columns.
+    quote: "No liquid-carrying pipework shall be routed above electrical busways"
+    limits: {column_clearance_mm: 300}
+  - id: "§6.4"
+    title: "Velocity"
+    page: 6
+    text: "Coolant velocity in any pipe shall not exceed 2.5 m/s."
+    quote: "shall not exceed 2.5 m/s"
+    limits: {pipe_velocity_max_ms: 2.5}
+  - id: "§6.5"
+    title: "Continuous cooling"
+    page: 6
+    text: "CDU pumps shall be fed from two independent UPS-backed supplies to maintain continuous cooling."
+    quote: "two independent UPS-backed supplies"
+    limits: {}
+  - id: "App. B"
+    title: "Appendix B: acceptable alternatives"
+    page: 7
+    text: "Block or distributed redundancy acceptable, subject to the loading limits of §4.3."
+    quote: "Block or distributed redundancy acceptable"
+    limits: {}

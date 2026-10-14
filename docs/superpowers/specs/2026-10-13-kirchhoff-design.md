@@ -1,6 +1,6 @@
 # Kirchhoff — design spec (v4.1)
 
-**Product:** Kirchhoff, by team Ordinal (Mehul Arora, lead; Jaydratha).
+**Product:** Kirchhoff, by team Ordinal (Mehul Arora, lead; Jayadratha).
 **One-liner:** Kirchhoff turns weeks of scarce senior-engineer work into one reviewed, signed design session. Gemini agents read the tender, design power and cooling for an AI data hall, and hand off to procurement and sales; a deterministic checker proves every number; the engineer decides and signs.
 **Tagline:** *AI designs. Physics checks. An engineer signs.*
 **Target:** Google Cloud × Hack2skill AI Builder Cup 2026, theme *Future of Work & Enterprise Productivity*. Secondary: Hitachi Startup Challenge 2026 (Smart Engineering).
@@ -517,3 +517,29 @@ GitHub repo created private, made public before submission.
 - Video under 3:00 per section 3.
 - Live URL, public GitHub repo, brief (section 7 is its source; states why Cloud Run over Agent Runtime and why native PDF input with verified quotes over File Search).
 - Benchmarks slide uses only section 4's measured values.
+
+## 20. Bids inbox (added 14 Oct, user-approved; Should, after Must items)
+
+**Why:** an EPC bid starts in a shared `bids@` mailbox, not in an upload box. The inbox is Kirchhoff's front door: "the first step of a bid, handled before anyone opens the email". It reuses Intake, the trust rules, the CRM sandbox and the demo world.
+
+**What:**
+- **Mailbox (sandbox, simulated):** `bids@meridian-power.example` holds about 6 seeded emails in the demo world:
+  1. Deccan Compute: Hall B tender (tender PDF, hall drawing, one addendum). This is the live target.
+  2. Konkan Cloud: a clarification reply on the existing Pune Edge project.
+  3. A forwarded chain with a scanned BOQ (image PDF).
+  4. Narmada Transmission: a 400 kV substation request (outside appetite).
+  5. A vendor brochure (not a bid).
+  6. Suryodaya Renewables: a solar EPC enquiry (in appetite, thin).
+- **Inbox agent** (Gemini 3.8 Flash, multimodal, low thinking):
+  - Classifies each attachment: tender, drawing, addendum, BOQ, brochure or other.
+  - Links the email to a CRM account and opportunity, or proposes a new one.
+  - Extracts client, site, asset type, MW, redundancy, bid due date and lead-time clause. Extraction follows §6.3 trust rules: verbatim quotes are verified with pdfplumber where the PDF has text, and scanned pages are marked "unverified (scan)".
+- **Fit check (deterministic, no LLM):** rules from `world.yaml` give a verdict of Pursue / Clarify / Decline, each with its reasons.
+  - The rules cover asset packs the firm does, MW range, regions, and days to the bid deadline.
+  - The **day-zero supply check** applies R15 logic before bidding. It sizes the transformer implied by the extracted MW and redundancy and checks its ERP lead time against the tender's lead-time clause. Example: "26-week limit; the 2.5 MVA unit is 98 weeks; expect an in-stock swap".
+- **Pursue** creates the project and moves or creates the CRM opportunity at "Qualification" (the existing CRM stage; no stage is renamed). For Hall B it then opens the normal Intake flow.
+- **Static first:** triage results for all seeded emails are precomputed (run once with the real agent, then frozen into the demo bundle). A live "Triage" button exists only on the Hall B email.
+
+**Cut line (checkpoint Thu 16 Oct 12:00 IST):** if Must items are behind, ship only the static inbox page with precomputed triage. Drop the live Triage button and the endpoint.
+
+**Video:** the 0:10–0:30 beat becomes "the tender lands in the bids inbox; Kirchhoff triages it, checks fit and supply, and opens the project". The intake card stream follows.

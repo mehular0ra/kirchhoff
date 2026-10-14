@@ -54,17 +54,23 @@ _WARMED_UP = False
 
 def warm_up() -> None:
     """I-6: pay pandapower's lazy import and first-call JIT/setup cost once, up front, instead of on the first
-    real request. Idempotent and cheap after the first call."""
+    real request. Idempotent and cheap after the first call.
+
+    Warms the 2N model AFTER its R15 swap (spec §8.2: the seed revision ships on the swapped 3.15 MVA
+    transformer, not the raw 2.5 MVA pre-swap one), since that's the short-circuit cache key the first
+    real what-if / chip_what_ifs call on the seed revision actually looks up (Minor 5, followup brief)."""
     global _WARMED_UP
     if _WARMED_UP:
         return
-    from .scenario import cat_section
+    from .erp import default_erp
+    from .options import annotate_options, power_options
     from .shortcircuit import short_circuit
-    from .topology import build_model
 
     scn = load_scenario("hall_a")
     racks = place_racks(scn)
-    tx_id = sorted(cat_section(scn, "transformers"), key=lambda t: (t["rating_kva"], t["unit_price"], t["id"]))[0]["id"]
-    model = build_model(scn, racks, "2N", tx_id)
+    erp = default_erp()
+    options = power_options(scn, racks)
+    annotated = annotate_options(scn, options, erp)
+    model = next(m for o, m in annotated if o.id == "2N")
     short_circuit(scn, model)
     _WARMED_UP = True
