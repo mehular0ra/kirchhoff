@@ -102,3 +102,23 @@ def test_fallback_seed_from_erp_yaml(tmp_path):
     assert [m.id for m in seed.materials] == ["TX-3150"]
     assert {o.id for o in seed.opportunities} == {"opp-hall-a", "opp-hall-b"}
     assert fallback_seed(tmp_path / "missing.yaml").materials == []
+
+
+def test_visitor_created_opportunities(sandbox):
+    from kirchhoff.contracts import Opportunity
+    from kirchhoff.enterprise.sandbox import STAGES
+
+    assert "Qualification" in STAGES  # existing stage; unchanged by this task (ruling B1)
+    opp = Opportunity(id="opp-em-suryodaya-solar", account="Suryodaya Renewables",
+                      name="Enquiry: solar EPC near Anantapur", stage="Qualification", value=0.0)
+    assert sandbox.create_opportunity("u1", opp) == opp
+    assert sandbox.create_opportunity("u1", opp.model_copy(update={"name": "changed"})).name == opp.name  # idempotent
+    assert opp.id in {o.id for o in sandbox.list_opportunities("u1")}
+    assert opp.id not in {o.id for o in sandbox.list_opportunities("u2")} | {o.id for o in sandbox.list_opportunities(None)}
+    assert sandbox.set_opportunity_stage("u1", "opp-hall-b", "Qualification").stage == "Qualification"
+    with pytest.raises(ValueError):
+        sandbox.create_opportunity("u1", opp.model_copy(update={"id": "opp-hall-b"}))  # a seed opportunity
+    with pytest.raises(ValueError):
+        sandbox.create_opportunity("u1", opp.model_copy(update={"id": "opp-x", "stage": "Shipped"}))
+    sandbox.reset_visitor("u1")
+    assert opp.id not in {o.id for o in sandbox.list_opportunities("u1")}

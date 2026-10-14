@@ -80,6 +80,49 @@ class ActivityCfg(_M):
     text: str
 
 
+class RegionCfg(_M):
+    name: str
+    places: list[str]  # case-insensitive substrings of the extracted site that place it in this region
+
+
+class Appetite(_M):
+    """The firm's bid appetite (spec §20): the deterministic fit rules WS2's kirchhoff.inbox.fit applies."""
+    asset_types: list[Literal["datahall", "grid", "solar"]]
+    mw: tuple[float, float]
+    regions: list[RegionCfg]
+    min_days_to_bid_due: int
+    lead_time_check: bool = True
+
+
+class InboxAttachmentCfg(_M):
+    id: str
+    name: str
+    reuse: str | None = None  # a WS2-rendered PDF in scenarios/hall_a/out/, served at /demo/docs/{reuse}
+    file: str | None = None  # a PDF rendered by the inbox generator into /demo/inbox/{file}
+    render: Literal["letter", "scan"] | None = None
+    title: str = ""
+    lines: list[str] = []
+
+
+class InboxEmailCfg(_M):
+    id: str
+    from_name: str
+    from_addr: str
+    from_org: str
+    subject: str
+    days_ago: float
+    body: str
+    attachments: list[InboxAttachmentCfg] = []
+    project_id: str | None = None  # an existing world project this email is about (hall-b)
+    live_triage: bool = False
+
+
+class InboxCfg(_M):
+    mailbox: str
+    appetite: Appetite
+    emails: list[InboxEmailCfg]
+
+
 class WorldConfig(_M):
     seed: int
     now: float
@@ -92,6 +135,7 @@ class WorldConfig(_M):
     extra_materials: list[ExtraMaterialCfg]
     historical_prs: list[HistoricalPrCfg] = []
     activity: list[ActivityCfg] = []
+    inbox: InboxCfg | None = None
 
     def ts(self, days_ago: float) -> float:
         return round(self.now - days_ago * DAY_S, 3)

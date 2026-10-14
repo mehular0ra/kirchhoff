@@ -91,7 +91,19 @@ def test_make_enterprise_client_modes(tmp_path, small_seed):
 
 def test_clients_match_the_ws2_enterprise_protocol():
     ports = pytest.importorskip("kirchhoff.agents.ports")
-    for name in ("list_materials", "create_pr", "set_pr_status", "set_opportunity_stage", "reset_visitor"):
+    names = [n for n in vars(ports.EnterpriseClient) if not n.startswith("_")]  # grows with WS2's protocol
+    assert {"list_materials", "create_pr", "set_pr_status", "set_opportunity_stage", "reset_visitor"} <= set(names)
+    for name in names:
         want = list(inspect.signature(getattr(ports.EnterpriseClient, name)).parameters)
         for cls in (LocalEnterpriseClient, HttpEnterpriseClient):
             assert list(inspect.signature(getattr(cls, name)).parameters) == want, (cls.__name__, name)
+
+
+def test_http_client_creates_visitor_opportunities(http_client):
+    from kirchhoff.contracts import Opportunity
+
+    opp = Opportunity(id="opp-em-x", account="Suryodaya Renewables", name="Enquiry", stage="Qualification", value=0.0)
+    assert http_client.create_opportunity("u1", opp) == opp
+    assert "opp-em-x" in {o.id for o in http_client.list_opportunities("u1")}
+    with pytest.raises(ValueError):
+        http_client.create_opportunity("u1", opp.model_copy(update={"id": "opp-hall-b"}))
