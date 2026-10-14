@@ -6,6 +6,7 @@ import { useWorldProject } from '@/data/useWorld'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
+import { ComplianceMatrix } from './matrix/ComplianceMatrix'
 import { RequirementsPanel } from './RequirementsPanel'
 import { RevisionTimeline } from './RevisionTimeline'
 import { SldView } from './sld/SldView'
@@ -56,7 +57,7 @@ export function WorkspacePage() {
       </Suspense>
     ),
     sld: <SldView />,
-    matrix: <EmptyState title="Compliance matrix">Checker results for the selected revision appear here.</EmptyState>,
+    matrix: <ComplianceMatrix />,
     options: <EmptyState title="Topology options">Costed options appear here after Power and Procurement.</EmptyState>,
     docs: <EmptyState title="Documents">Tender, drawings and exports appear here.</EmptyState>,
   }
