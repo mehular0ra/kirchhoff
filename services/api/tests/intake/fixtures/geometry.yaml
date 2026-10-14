@@ -1,0 +1,48 @@
+# Hall A pinned geometry (spec §9.1, v4.1). Metres; x east, y north; origin at the hall's south-west corner.
+# Tiers: pipe_low 2.6, busway 3.2, pipe_high 3.8. Header polylines are authored so that exactly one
+# header segment (H-Z2) crosses above an electrical run (feeder FB-03, at about y 24); locked by tests.
+label: "IEC-based, illustrative, not for construction"
+hall: [0.0, 0.0, 60.0, 36.0]
+columns: {xs: [0, 12, 24, 36, 48, 60], ys: [0, 12, 24, 36]}
+keepouts:
+  - {id: KO-1, name: "Fire-suppression room", rect: [10.0, 10.0, 18.0, 26.0]}
+rooms:
+  A: {rect: [60.0, 0.0, 72.0, 10.0], exit: [66.0, 4.0], corridor: south}
+  B: {rect: [24.0, 36.0, 36.0, 46.0], exit: [30.0, 40.0], corridor: north}
+gallery: [0.0, 28.0, 60.0, 33.0]
+tiers: {pipe_low: 2.6, busway: 3.2, pipe_high: 3.8}
+rows:
+  - {id: R1, x: 6.0, zone: Z1}
+  - {id: R2, x: 22.0, zone: Z1}
+  - {id: R3, x: 28.0, zone: Z2}
+  - {id: R4, x: 34.0, zone: Z2}
+  - {id: R5, x: 40.0, zone: Z3}
+  - {id: R6, x: 46.0, zone: Z3}
+racks: {per_row: 8, w: 0.6, d: 1.2, y_south: 15.6, y_north: 20.4}
+busways: {offset_a: -0.3, offset_b: 0.3, taps: 8}
+corridors:
+  south: {y_outer: 2.0, pitch: 0.4, row_end_y: 15.6}
+  north: {y_outer: 35.0, pitch: -0.4, row_end_y: 20.4}
+feeder_vertical_allowance_m: 6.4   # 2 x 3.2 m vertical (spec §9.1)
+zones:
+  Z1: {rows: [R1, R2], bay: [7.0, 28.0, 21.0, 33.0]}
+  Z2: {rows: [R3, R4], bay: [28.6, 28.0, 33.4, 33.0]}
+  Z3: {rows: [R5, R6], bay: [40.6, 28.0, 45.4, 33.0]}
+cdu_y: 31.0
+manifold_y: 21.0
+pipes:
+  headers:   # zone main headers on pipe_high; first point is the CDU outlet riser
+    H-Z1: [[8.0, 30.5, 1.2], [8.0, 30.5, 3.8], [20.0, 30.5, 3.8], [20.0, 21.0, 3.8]]
+    H-Z2: [[31.0, 30.5, 1.2], [31.0, 30.5, 3.8], [31.0, 24.0, 3.8], [26.0, 24.0, 3.8], [26.0, 21.0, 3.8]]
+    H-Z3: [[43.0, 30.5, 1.2], [43.0, 30.5, 3.8], [43.0, 21.0, 3.8]]
+  branches:  # row branches on pipe_low; first point is the take-off on the header
+    BR-R1: [[8.0, 30.5, 3.8], [8.0, 30.5, 2.6], [6.0, 30.5, 2.6], [6.0, 15.6, 2.6]]
+    BR-R2: [[20.0, 21.0, 3.8], [20.0, 21.0, 2.6], [22.0, 21.0, 2.6], [22.0, 15.6, 2.6]]
+    BR-R3: [[26.0, 21.0, 3.8], [26.0, 21.0, 2.6], [28.0, 21.0, 2.6], [28.0, 15.6, 2.6]]
+    BR-R4: [[31.0, 24.0, 3.8], [31.0, 24.0, 2.6], [34.0, 24.0, 2.6], [34.0, 15.6, 2.6]]
+    BR-R5: [[43.0, 21.0, 3.8], [43.0, 21.0, 2.6], [40.0, 21.0, 2.6], [40.0, 15.6, 2.6]]
+    BR-R6: [[43.0, 21.0, 3.8], [43.0, 21.0, 2.6], [46.0, 21.0, 2.6], [46.0, 15.6, 2.6]]
+reroutes:    # authored alternative routes offered as R11 "reroute" fix candidates
+  H-Z2:
+    H-Z2: [[31.0, 30.5, 1.2], [31.0, 30.5, 3.8], [31.0, 21.0, 3.8]]
+    BR-R3: [[31.0, 21.0, 3.8], [31.0, 21.0, 2.6], [28.0, 21.0, 2.6], [28.0, 15.6, 2.6]]
