@@ -7,6 +7,7 @@ from .checker import run_rules
 from .erp import ErpView
 from .redundancy import build_graph
 from .scenario import Scenario, with_limit
+from .validate import validate_model
 
 PARAM_BOUNDS = {"rack_kw": (1.0, 400.0), "liquid_fraction": (0.0, 1.0), "dv_limit_pct": (0.1, 10.0),
                 "tx_loading_cap_pct": (1.0, 150.0)}
@@ -71,6 +72,7 @@ def impact_chains(model: DesignModel, findings: list[Finding]) -> list[list[str]
 
 def what_if(scn: Scenario, model: DesignModel, param: str, value: float, revision_ref: str, erp: ErpView
             ) -> WhatIfResult:
+    validate_model(scn, model)
     s2, m2 = shadow(scn, model, param, value)
     findings = run_rules(s2, m2, erp)
     bad = [f for f in findings if f.status in ("fail", "warn")]

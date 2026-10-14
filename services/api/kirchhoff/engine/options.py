@@ -11,6 +11,7 @@ from .redundancy import Study, study
 from .scenario import Scenario, cat_item, cat_section, limit
 from .shortcircuit import short_circuit
 from .topology import TOPOLOGIES, build_model, size_ups_and_breakers
+from .validate import validate_model
 
 
 def r01_ok(scn: Scenario, model: DesignModel, st: Study | None = None) -> bool:
@@ -70,6 +71,8 @@ def option_metrics(scn: Scenario, model: DesignModel, erp: ErpView | None = None
 def power_options(scn: Scenario, racks: list[Rack]) -> list[tuple[TopologyOption, DesignModel]]:
     """One entry per topology that passes R01 at its minimum transformer rating (spec §9.6: block is never
     offered on 2.5 MVA because it loads 96% in normal operation)."""
+    if not racks:
+        raise ValueError("power_options requires at least one rack")
     out = []
     txs = sorted(cat_section(scn, "transformers"), key=lambda t: (t["rating_kva"], t["unit_price"], t["id"]))
     for topo in TOPOLOGIES:
@@ -155,6 +158,7 @@ def annotate_options(scn: Scenario, options: list[tuple[TopologyOption, DesignMo
     with ERP lead times; swaps are recorded on the option."""
     out = []
     for _opt, model in options:
+        validate_model(scn, model)
         swaps: list[dict] = []
         for f in run_rules(scn, model, erp, only=["R15"]):
             if f.status != "fail":

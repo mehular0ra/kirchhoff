@@ -11,6 +11,7 @@ from .cooling import index_dp_kpa, route_length_m
 from .erp import ErpView
 from .scenario import Scenario, cat_item, cat_section
 from .spatial import electrical_runs, footprint
+from .validate import validate_model
 
 DROP_MARGIN_M = 0.6
 
@@ -155,6 +156,7 @@ def fix_candidates(scn: Scenario, model: DesignModel, finding: Finding, erp: Erp
     """The caller's Finding is never trusted (spec §6.3): the engine's own Checker run is the only source of
     truth for whether `finding.id` is a real, currently-failing element, and every candidate is built from the
     engine's own Finding, never from the caller's `finding.inputs`."""
+    validate_model(scn, model)
     all_findings = run_rules(scn, model, erp)
     own = next((f for f in all_findings if f.id == finding.id), None)
     if own is None:

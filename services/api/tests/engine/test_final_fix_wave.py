@@ -181,6 +181,81 @@ def test_r09_still_fails_90pct_liquid_fraction(scn, erp):
     assert {f.rule_id for f in wi.findings} == {"R09"}
 
 
+
+
+# ---------------------------------------------------------------- I-5 ----
+
+def test_validate_model_passes_on_golden_model(scn, routed):
+    api.validate_model(scn, routed["2N"])  # must not raise
+
+
+def test_validate_model_rejects_duplicate_cdu_ids(scn, routed):
+    m = routed["2N"]
+    dup = m.model_copy(update={"cooling_nodes": m.cooling_nodes + [m.cooling_nodes[0]]})
+    with pytest.raises(ValueError):
+        api.validate_model(scn, dup)
+
+
+def test_duplicate_cdu_ids_never_silently_pass_r08(scn, erp, routed):
+    m = routed["2N"]
+    dup = m.model_copy(update={"cooling_nodes": m.cooling_nodes + [m.cooling_nodes[0]]})
+    with pytest.raises(ValueError):
+        api.check(scn, dup, erp)
+
+
+def test_validate_model_rejects_empty_racks_via_power_options(scn):
+    with pytest.raises(ValueError):
+        api.power_options(scn, [])
+
+
+def test_validate_model_rejects_model_without_mv(scn, erp, routed):
+    m = routed["2N"]
+    no_mv = m.model_copy(update={"equipment": [e for e in m.equipment if e.id != "MV"]})
+    with pytest.raises(ValueError):
+        api.check(scn, no_mv, erp)
+
+
+def test_validate_model_rejects_pipe_with_empty_route(scn, erp, routed):
+    m = routed["2N"]
+    bad = m.model_copy(update={"pipes": [p.model_copy(update={"route": []}) if p.id == "BR-R1" else p
+                                         for p in m.pipes]})
+    with pytest.raises(ValueError):
+        api.check(scn, bad, erp)
+
+
+def test_route_calls_validate_model(scn, annotated):
+    m2n = annotated["2N"][1]
+    bad = m2n.model_copy(update={"equipment": [e for e in m2n.equipment if e.id != "MV"]})
+    with pytest.raises(ValueError):
+        api.route(scn, bad)
+
+
+def test_annotate_options_calls_validate_model(scn, erp):
+    from kirchhoff.contracts import TopologyOption
+
+    bad_model = api.power_options(scn, api.place_racks(scn))[0][1]
+    bad_model = bad_model.model_copy(update={"equipment": [e for e in bad_model.equipment if e.id != "MV"]})
+    fake_opt = TopologyOption(id="2N", installed_mva=1.0, normal_loading_pct=1.0, failover_loading_pct=1.0,
+                              cost=0.0, losses_kw=0.0, max_lead_time_weeks=0, spof_count=0, swaps=[])
+    with pytest.raises(ValueError):
+        api.annotate_options(scn, [(fake_opt, bad_model)], erp)
+
+
+def test_what_if_calls_validate_model(scn, erp, routed):
+    m = routed["2N"]
+    bad = m.model_copy(update={"equipment": [e for e in m.equipment if e.id != "MV"]})
+    with pytest.raises(ValueError):
+        api.what_if(scn, bad, "rack_kw", 150.0, "x", erp)
+
+
+def test_fix_candidates_calls_validate_model(scn, erp, routed):
+    m = routed["2N"]
+    real = _finding(scn, erp, m, "R05:FA-01")
+    bad = m.model_copy(update={"equipment": [e for e in m.equipment if e.id != "MV"]})
+    with pytest.raises(ValueError):
+        api.fix_candidates(scn, bad, real, erp)
+
+
 def test_m5_warnings_regions_are_lock_guarded():
     import threading
 
