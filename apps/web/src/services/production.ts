@@ -3,6 +3,7 @@ import { apiFetch } from '@/api'
 import { firestoreSource } from '@/data/liveSource'
 import { fetchJson } from '@/data/staticData'
 import { db, ensureSignedIn } from '@/firebase'
+import { startLiveVoice } from '@/workspace/copilot/voice/liveVoice'
 import { httpApiClient } from './apiClient'
 import type { Services } from './services'
 
@@ -12,6 +13,6 @@ export function productionServices(): Services {
     getJson: fetchJson,
     live: firestoreSource(db),
     uid: async () => (await ensureSignedIn()).uid,
-    startLiveVoice: null, // wired to Gemini Live in Task 17
+    startLiveVoice,
   }
 }

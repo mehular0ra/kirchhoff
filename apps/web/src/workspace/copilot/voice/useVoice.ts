@@ -1,0 +1,90 @@
+// Voice state machine: Gemini Live first; on failure (or when Live is not configured) switch
+// automatically to push-to-talk via POST /api/voice (spec §6.5).
+import { useEffect, useRef, useState } from 'react'
+import type { VoiceResponse } from '@/services/apiClient'
+import { useServices, type LiveVoiceCall, type LiveVoiceHandle } from '@/services/services'
+import { canRecord, startRecording, type Recording } from './pushToTalk'
+
+export type VoiceMode = 'off' | 'connecting' | 'live' | 'ptt' | 'recording' | 'thinking'
+
+const LIVE_TIMEOUT_MS = 8000
+
+export function useVoice(opts: {
+  revisionRef: string | null
+  onToolCall: (call: LiveVoiceCall) => Promise<Record<string, unknown>>
+  onPushToTalk: (res: VoiceResponse) => void
+}) {
+  const { api, startLiveVoice } = useServices()
+  const [mode, setMode] = useState<VoiceMode>('off')
+  const [note, setNote] = useState<string | null>(null)
+  const live = useRef<LiveVoiceHandle | null>(null)
+  const rec = useRef<Recording | null>(null)
+  const optsRef = useRef(opts)
+  useEffect(() => {
+    optsRef.current = opts
+  }, [opts])
+
+  useEffect(
+    () => () => {
+      void live.current?.stop().catch(() => undefined)
+    },
+    [],
+  )
+
+  const startLive = async () => {
+    setNote(null)
+    if (!startLiveVoice) {
+      setMode('ptt')
+      setNote('Live voice is not available here; hold the button to talk.')
+      return
+    }
+    setMode('connecting')
+    try {
+      live.current = await Promise.race([
+        startLiveVoice({ onToolCall: (c) => optsRef.current.onToolCall(c) }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), LIVE_TIMEOUT_MS)),
+      ])
+      setMode('live')
+    } catch {
+      setMode('ptt')
+      setNote('Gemini Live could not connect; switched to push-to-talk.')
+    }
+  }
+
+  const stopLive = async () => {
+    await live.current?.stop().catch(() => undefined)
+    live.current = null
+    setMode('off')
+  }
+
+  const pttDown = async () => {
+    if (!canRecord()) {
+      setNote('This browser cannot record audio; use the typed box.')
+      return
+    }
+    try {
+      rec.current = await startRecording()
+      setMode('recording')
+    } catch {
+      setNote('Microphone permission was denied; use the typed box.')
+    }
+  }
+
+  const pttUp = async () => {
+    const r = rec.current
+    if (!r) return
+    rec.current = null
+    setMode('thinking')
+    try {
+      const blob = await r.stop()
+      if (!optsRef.current.revisionRef) throw new Error('no revision')
+      optsRef.current.onPushToTalk(await api.voice(blob, optsRef.current.revisionRef))
+    } catch {
+      setNote('The voice service is unreachable; use the typed box or the chips.')
+    } finally {
+      setMode('ptt')
+    }
+  }
+
+  return { mode, note, startLive, stopLive, pttDown, pttUp }
+}

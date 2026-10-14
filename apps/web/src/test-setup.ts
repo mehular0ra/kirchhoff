@@ -33,6 +33,41 @@ Element.prototype.hasPointerCapture ??= () => false
 Element.prototype.releasePointerCapture ??= () => {}
 window.scrollTo = (() => {}) as typeof window.scrollTo
 
+// jsdom has no media/speech APIs. These are inert stubs so canRecord() reports true (as it would
+// in a real browser) and the co-pilot's push-to-talk/speech-synthesis code paths can be exercised
+// in tests without ever touching a real microphone or Live session (none of these record audio).
+class MediaRecorderStub {
+  static isTypeSupported() {
+    return true
+  }
+  ondataavailable: ((e: { data: Blob }) => void) | null = null
+  onstop: (() => void) | null = null
+  start() {}
+  stop() {
+    this.ondataavailable?.({ data: new Blob() })
+    this.onstop?.()
+  }
+}
+;(globalThis as Record<string, unknown>).MediaRecorder ??= MediaRecorderStub
+if (!navigator.mediaDevices) {
+  Object.defineProperty(navigator, 'mediaDevices', {
+    value: { getUserMedia: async () => ({ getTracks: () => [] }) },
+    configurable: true,
+  })
+}
+if (!window.speechSynthesis) {
+  Object.defineProperty(window, 'speechSynthesis', {
+    value: { cancel: () => {}, speak: () => {} },
+    configurable: true,
+  })
+}
+;(globalThis as Record<string, unknown>).SpeechSynthesisUtterance ??= class {
+  text: string
+  constructor(text: string) {
+    this.text = text
+  }
+}
+
 afterEach(() => {
   cleanup()
   localStorage.clear()
