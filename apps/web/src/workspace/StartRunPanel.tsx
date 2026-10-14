@@ -1,4 +1,4 @@
-import { CirclePlay, FileText, LoaderCircle, Upload, Zap } from 'lucide-react'
+import { CirclePlay, CircleX, FileText, LoaderCircle, Upload, Zap } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
@@ -95,8 +95,8 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
         </Button>
       </div>
       {error && (
-        <p role="alert" className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-200">
-          {error}
+        <p role="alert" className="flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-200">
+          <CircleX aria-hidden className="size-4 shrink-0" /> {error}
         </p>
       )}
     </div>

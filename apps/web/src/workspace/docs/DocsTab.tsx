@@ -5,6 +5,7 @@ import { exportsOf } from '@/lib/select'
 import type { LedgerEntry } from '@/lib/types'
 import { useServices } from '@/services/services'
 import { useUi } from '@/store/ui'
+import { PlanGate } from '../gates/PlanGate'
 import { useWorkspace } from '../WorkspaceContext'
 
 const LEDGER_TITLES: Record<LedgerEntry['kind'], string> = {
@@ -48,14 +49,18 @@ export function useOpenExport() {
 }
 
 export function DocsTab() {
-  const { bundle, rev } = useWorkspace()
+  const { bundle, rev, run, source } = useWorkspace()
   const openCitation = useUi((s) => s.openCitation)
   const openExport = useOpenExport()
   const docs = [...new Set((bundle.brief?.requirements ?? []).map((r) => r.citation.doc_id))]
   const exports = exportsOf(bundle)
   if (!docs.length && !exports.length && !rev) return <EmptyState title="No documents yet">The tender, drawings and exports appear as the run progresses.</EmptyState>
+  // The interactive plan gate already appears in GateBanner above the canvas; here it is always
+  // read-only, so the engineer can still see how the open question was resolved after the gate passes.
+  const atLivePlanGate = source === 'live' && run?.status === 'at_gate' && run.gate === 'plan'
   return (
     <div className="flex h-full flex-col gap-5 overflow-auto p-3 text-sm">
+      {run && !atLivePlanGate && <PlanGate run={run} interactive={false} />}
       <section aria-label="Inputs" className="flex flex-col gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Inputs</h3>
         {docs.map((d) => (

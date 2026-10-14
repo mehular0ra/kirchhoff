@@ -1,10 +1,11 @@
 import { cn } from 'cn'
-import { ArrowRight, Check, Hand } from 'lucide-react'
+import { ArrowRight, Check, CircleX, Hand } from 'lucide-react'
 import { useState } from 'react'
 import { EmptyState, IllustrativeLabel, Num } from '@/components/Labels'
 import { Button } from '@/components/ui/button'
 import { fmtNum, fmtQty, fmtUsd } from '@/lib/format'
 import type { TopologyOption } from '@/lib/types'
+import { describeApiError } from '@/services/apiClient'
 import { useServices } from '@/services/services'
 import { useWorkspace } from '../WorkspaceContext'
 
@@ -41,8 +42,8 @@ export function OptionCards() {
     setError(null)
     try {
       await api.optionGate(run.id, id)
-    } catch {
-      setError('Could not reach the API; try again.')
+    } catch (e) {
+      setError(describeApiError(e))
     } finally {
       setBusy(null)
     }
@@ -100,8 +101,8 @@ export function OptionCards() {
         })}
       </div>
       {error && (
-        <p role="alert" className="text-xs text-rose-300">
-          {error}
+        <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-300">
+          <CircleX aria-hidden className="size-3.5" /> {error}
         </p>
       )}
       <IllustrativeLabel />

@@ -1,4 +1,4 @@
-import { Hand, ListChecks } from 'lucide-react'
+import { CircleX, Hand, ListChecks } from 'lucide-react'
 import { useState } from 'react'
 import { AgentDot } from '@/components/Labels'
 import { TenderChip } from '@/components/TenderChip'
@@ -107,8 +107,8 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
             Approve plan
           </Button>
           {error && (
-            <span role="alert" className="text-xs text-rose-300">
-              {error}
+            <span role="alert" className="inline-flex items-center gap-1.5 text-xs text-rose-300">
+              <CircleX aria-hidden className="size-3.5" /> {error}
             </span>
           )}
         </div>
