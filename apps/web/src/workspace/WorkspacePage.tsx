@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { useProjectData } from '@/data/useProjectData'
 import { useWorldProject } from '@/data/useWorld'
+import type { Project } from '@/lib/types'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
@@ -10,10 +11,13 @@ import { FindingDrawer } from './finding/FindingDrawer'
 import { ComplianceMatrix } from './matrix/ComplianceMatrix'
 import { RequirementsPanel } from './RequirementsPanel'
 import { RevisionTimeline } from './RevisionTimeline'
+import { RunBar } from './RunBar'
 import { SldView } from './sld/SldView'
+import { LIVE_TARGET, StartRunPanel } from './StartRunPanel'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceProvider } from './WorkspaceContext'
 
+// three.js and pdf.js are large: load them only when the 3D tab or a citation opens.
 const HallView = lazy(() => import('./hall/HallView'))
 const PdfViewer = lazy(() => import('./finding/PdfViewer'))
 
@@ -40,6 +44,11 @@ export function WorkspacePage() {
   const runId = params.get('run')
   const replay = params.get('replay') === '1'
   const project = useWorldProject(pid)
+  if (pid === LIVE_TARGET && !runId && !replay) return <StartRunPanel project={project} />
+  return <LoadedWorkspace key={`${pid}:${runId}:${replay}`} pid={pid} runId={runId} replay={replay} project={project} />
+}
+
+function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: string | null; replay: boolean; project: Project | null }) {
   const data = useProjectData(pid, { runId, replay, project })
   useUrlState(pid)
 
@@ -72,8 +81,11 @@ export function WorkspacePage() {
           <aside className="min-h-0 border-r">
             <AgentLanes />
           </aside>
-          <section aria-label="Canvas" className="min-h-0">
-            <CanvasTabs panes={panes} />
+          <section aria-label="Canvas" className="flex min-h-0 flex-col">
+            <RunBar replay={data.replay} controls={data.controls} />
+            <div className="min-h-0 flex-1">
+              <CanvasTabs panes={panes} />
+            </div>
           </section>
           <aside aria-label="Co-pilot" className="min-h-0 overflow-y-auto border-l">
             <RequirementsPanel />
