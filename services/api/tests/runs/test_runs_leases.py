@@ -49,3 +49,29 @@ def test_global_cap_counts_only_live_leases():
     assert acquire_lease(s, "d", "4", "w", now=102.0) == 1
     assert set(s.get_doc(LIVE_RUNS_DOC)["runs"]) == {"b__2", "c__3", "d__4"}
     assert acquire_lease(s, "a", "1", "w", now=200.0) == 2  # b, c, d are stale (> 60 s) by now
+
+
+# --- Fix round 1: targeted regression coverage for the concurrency review ----------------------------
+
+
+def test_cap_reached_leaves_live_runs_doc_untouched():
+    s = _store_with_runs(("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
+    for uid, rid in [("a", "1"), ("b", "2"), ("c", "3")]:
+        assert acquire_lease(s, uid, rid, "w", now=100.0) == 1
+    before = s.get_doc(LIVE_RUNS_DOC)
+    with pytest.raises(CapReached):
+        acquire_lease(s, "d", "4", "w", now=101.0)
+    assert s.get_doc(LIVE_RUNS_DOC) == before  # the transaction wrote nothing, not even a no-op write
+
+
+def test_heartbeat_keeps_a_run_counted_past_the_original_60s_window():
+    s = _store_with_runs(("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
+    for uid, rid in [("a", "1"), ("b", "2"), ("c", "3")]:
+        acquire_lease(s, uid, rid, "w", now=0.0)
+    # Without heartbeats, all three would be stale by now=65 (65 - 0 > STALE_S) and the cap
+    # would not apply to "d". Heartbeating each at now=50 keeps them fresh (65 - 50 = 15 < STALE_S),
+    # so the cap still blocks "d" at now=65.
+    for uid, rid in [("a", "1"), ("b", "2"), ("c", "3")]:
+        assert heartbeat(s, uid, rid, "w", 1, now=50.0) is True
+    with pytest.raises(CapReached):
+        acquire_lease(s, "d", "4", "w", now=65.0)

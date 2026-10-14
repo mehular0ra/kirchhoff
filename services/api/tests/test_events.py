@@ -210,3 +210,95 @@ def test_emit_after_close_raises_and_arms_no_timer():
     time.sleep(0.05)
     assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1]
     w.close()  # idempotent
+
+
+# --- Fix round 1: close()/flush() must wait for an in-flight batch, never return early ---------------
+
+
+class SlowStore(MemoryStore):
+    """A store whose batch_set takes `delay` seconds; optionally fails its first call."""
+
+    def __init__(self, delay: float, fail_first: bool = False) -> None:
+        super().__init__()
+        self.delay, self.fail_first, self.calls = delay, fail_first, 0
+
+    def batch_set(self, items):
+        self.calls += 1
+        n = self.calls
+        time.sleep(self.delay)
+        if self.fail_first and n == 1:
+            raise RuntimeError("deadline exceeded")
+        super().batch_set(items)
+
+
+def test_close_waits_for_an_in_flight_timer_batch_before_returning():
+    store = SlowStore(delay=0.1)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.02)
+    for _ in range(3):
+        w.emit("system", "status", "x")
+    time.sleep(0.05)  # the trailing timer has fired; its 0.1 s batch_set is in flight
+    w.close()  # must block until that batch is durable, not just snapshot newer (zero) events
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1, 2, 3]
+
+
+def test_close_after_a_failing_in_flight_batch_never_strands_events():
+    """close() waits for the in-flight (failing) timer batch, then performs its own flush of
+    whatever that batch requeued. Here the store recovers on the very next call, so close()'s own
+    flush succeeds and the events become durable -- matching the documented contract: close()
+    either makes the events durable itself or raises; they are never silently dropped."""
+    store = SlowStore(delay=0.1, fail_first=True)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.02)
+    for _ in range(3):
+        w.emit("system", "status", "x")
+    time.sleep(0.05)  # the trailing timer's batch (which will fail once) is in flight
+    w.close()  # waits for that batch to fail and requeue, then flushes again itself
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1, 2, 3]
+    assert store.calls == 2  # the failing in-flight attempt, then close()'s own successful retry
+
+
+def test_close_raises_and_does_not_strand_events_when_the_store_stays_down():
+    """If close()'s own flush also fails (the store has not recovered), close() must raise rather
+    than return having silently dropped the events; they stay queued (requeued by flush()) and a
+    later close(), once the store recovers, delivers them."""
+
+    class AlwaysFailStore(SlowStore):
+        def batch_set(self, items):
+            self.calls += 1
+            time.sleep(self.delay)
+            raise RuntimeError("still unavailable")
+
+    store = AlwaysFailStore(delay=0.1)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.02)
+    for _ in range(3):
+        w.emit("system", "status", "x")
+    time.sleep(0.05)  # the trailing timer's batch (which will fail) is in flight
+    with pytest.raises(RuntimeError, match="still unavailable"):
+        w.close()
+    assert store.list_docs(f"{RP}/events") == []  # not silently stranded as "durable"
+    # Once the store recovers, a later close() is not lost -- it delivers the requeued events.
+    store.batch_set = MemoryStore.batch_set.__get__(store)
+    w.close()
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1, 2, 3]
+
+
+def test_flush_blocks_until_a_concurrent_timer_batch_is_also_durable():
+    store = SlowStore(delay=0.08)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.02)
+    w.emit("system", "status", "one")
+    time.sleep(0.04)  # the trailing timer fired; its batch_set for "one" is still in flight
+    w.emit("system", "status", "two")  # queued after the in-flight batch's snapshot
+    w.flush()  # must wait behind the in-flight batch, then flush "two", before returning
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1, 2]
+    w.close()
+
+
+def test_backoff_grows_and_caps_at_5s_recorded_without_real_timers():
+    store = FlakyStore(fails=100)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=1.0)
+    delays: list[float] = []
+    w._arm = lambda delay: delays.append(delay)  # record instead of arming a real threading.Timer
+    w.emit("system", "status", "x")
+    delays.clear()  # drop the initial arm from emit() itself; we only care about retry backoffs
+    for _ in range(MAX_FLUSH_RETRIES + 1):
+        w._timer_flush()  # drive the retry sequence directly; no sleeping
+    assert delays == [2.0, 4.0, 5.0, 5.0, 5.0]  # 1*2**n for n=1..5, capped at MAX_BACKOFF_S

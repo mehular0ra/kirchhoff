@@ -34,6 +34,10 @@ def _fresh_others(live: dict | None, key: str, now: float) -> dict[str, float]:
 
 def acquire_lease(store: Store, uid: str, rid: str, owner: str, now: float,
                   run_patch: dict | None = None) -> int | None:
+    """Returns the new attempt, or `None` if the run is missing or its lease is live. Raises
+    `CapReached` (nothing written, including to `LIVE_RUNS_DOC`) when the global cap is already
+    held by other runs. `run_patch`, if given, is a *shallow* merge into the run doc (top-level
+    keys only -- it replaces a key's whole value, it does not deep-merge nested dicts)."""
     path, key = run_path(uid, rid), _key(uid, rid)
 
     def fn(snap: dict[str, dict | None]):
@@ -65,6 +69,10 @@ def heartbeat(store: Store, uid: str, rid: str, owner: str, attempt: int, now: f
 
 
 def release_lease(store: Store, uid: str, rid: str, owner: str, attempt: int, run_patch: dict) -> bool:
+    """Returns True iff `owner`/`attempt` held the lease and the release was written. `run_patch`
+    is a *shallow* merge into the run doc, same as `acquire_lease`. The lease itself is always set
+    to `{"owner": None, "attempt": attempt, "heartbeat_at": 0.0}`, overriding any `lease` key in
+    `run_patch`."""
     path, key = run_path(uid, rid), _key(uid, rid)
 
     def fn(snap: dict[str, dict | None]):
