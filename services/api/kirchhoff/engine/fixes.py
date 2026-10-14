@@ -112,13 +112,23 @@ def _metrics(scn: Scenario, before: DesignModel, after: DesignModel, finding: Fi
 
 
 def fix_candidates(scn: Scenario, model: DesignModel, finding: Finding, erp: ErpView) -> list[FixCandidate]:
+    """The caller's Finding is never trusted (spec §6.3): the engine's own Checker run is the only source of
+    truth for whether `finding.id` is a real, currently-failing element, and every candidate is built from the
+    engine's own Finding, never from the caller's `finding.inputs`."""
+    all_findings = run_rules(scn, model, erp)
+    own = next((f for f in all_findings if f.id == finding.id), None)
+    if own is None:
+        raise ValueError(f"unknown finding id {finding.id!r}")
+    if own.status != "fail":
+        return []
+    finding = own
     if finding.rule_id == "R05":
         raw = _feeder_candidates(scn, model, finding)
     elif finding.rule_id == "R11":
         raw = _pipe_candidates(scn, model, finding)
     else:
         return []
-    base_fail = {f.id for f in run_rules(scn, model, erp) if f.status == "fail"}
+    base_fail = {f.id for f in all_findings if f.status == "fail"}
     base_cost = boq_cost(scn, model)
     out: list[FixCandidate] = []
     upsize_taken = False
