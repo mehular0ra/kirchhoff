@@ -537,7 +537,7 @@ GitHub repo created private, made public before submission.
 - **Fit check (deterministic, no LLM):** rules from `world.yaml` give a verdict of Pursue / Clarify / Decline, each with its reasons.
   - The rules cover asset packs the firm does, MW range, regions, and days to the bid deadline.
   - The **day-zero supply check** applies R15 logic before bidding. It sizes the transformer implied by the extracted MW and redundancy and checks its ERP lead time against the tender's lead-time clause. Example: "26-week limit; the 2.5 MVA unit is 98 weeks; expect an in-stock swap".
-- **Pursue** creates the project and moves or creates the CRM opportunity at "Qualifying". For Hall B it then opens the normal Intake flow.
+- **Pursue** creates the project and moves or creates the CRM opportunity at "Qualification" (the existing CRM stage; no stage is renamed). For Hall B it then opens the normal Intake flow.
 - **Static first:** triage results for all seeded emails are precomputed (run once with the real agent, then frozen into the demo bundle). A live "Triage" button exists only on the Hall B email.
 
 **Cut line (checkpoint Thu 16 Oct 12:00 IST):** if Must items are behind, ship only the static inbox page with precomputed triage. Drop the live Triage button and the endpoint.
