@@ -1,0 +1,20 @@
+{
+  "digest": "62bd8719535a3577db9c6956e9c657525c91915075cef9b354b91e7ad08824da",
+  "files": {
+    "apps/web/public/demo/files/grid-132kv/summary.pdf": "885181e3146f294f6b04f73e10ec2886fffc95200303ba19a05c09217f4bb1cb",
+    "apps/web/public/demo/files/hall-a/boq.csv": "9a8e7777992157555b06ebf077fa1ebcf14d8ca32132c8e4f76472df2412a84c",
+    "apps/web/public/demo/files/hall-a/calc-report.pdf": "63a49942eb83bf424831d6256fa4d8d40ef8bc6bb9a5a514c1b9a9e947cf8822",
+    "apps/web/public/demo/files/pune-edge-1/boq.csv": "22fc260336b0c05d46b914ab3cfbf5ad8142e5f6359073f31d1c1bbae33299cf",
+    "apps/web/public/demo/files/pune-edge-1/calc-report.pdf": "ef63cc08b60c8098a1ff43a79e60c3ee88415f49e8084889c61c849febb73ff9",
+    "apps/web/public/demo/files/solar-5mwp/summary.pdf": "4e9c0fca171b847c7699f4e69b8f3fec4ee297de1d6b5a28593f4acb9a76f88b",
+    "apps/web/public/demo/files/vindhya-lv/boq.csv": "dd689ac83ac5bb272f4aed67241f1e0d2d81d4ee8b92d3c20eaae18fafc2ab01",
+    "apps/web/public/demo/integrations.json": "bc926d7039d63b85e740fe9fe6f6279949d081406788230950094882c8685208",
+    "apps/web/public/demo/projects/grid-132kv.json": "9099f8bf2ba1f8397f338919724f2850d6ed08b258004fd738a46eb838a394eb",
+    "apps/web/public/demo/projects/hall-a.json": "0e8a92820b82cdf478fdbc0500a1b010d84d555600c5b5bfe77ee9cade191da7",
+    "apps/web/public/demo/projects/pune-edge-1.json": "e39c4f567385c983afb94a486a6d81ef9e03e83cd903347ea73aab43f240643b",
+    "apps/web/public/demo/projects/solar-5mwp.json": "13e2aaf8c27cb0ad8d34cbc6d9ecd8bfb8335ce851cade91e43fbb888be5dc5e",
+    "apps/web/public/demo/projects/vindhya-lv.json": "689be88c0a5d685f597422b7d7bc946d2858d55b82e22247f11fce9f045adf5f",
+    "apps/web/public/demo/world.json": "1da72c8e28a892f76260f5e4a895d2c16d5a70dd938f283813aa242894abfc07",
+    "scenarios/demo_world/out/enterprise_seed.json": "e9713eaa4134df967355a1bd80d8c33ff624ed63dee1ac030f8dadccc8df55c5"
+  }
+}

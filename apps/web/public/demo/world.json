@@ -1,0 +1,313 @@
+{
+  "org": {
+    "name": "Meridian Power Engineering",
+    "tagline": "Data-centre and grid EPC contractor"
+  },
+  "people": [
+    {
+      "id": "priya",
+      "name": "Priya Raman",
+      "role": "Lead Electrical Engineer (Reviewer)",
+      "initials": "PR"
+    },
+    {
+      "id": "arjun",
+      "name": "Arjun Mehta",
+      "role": "Design Engineer",
+      "initials": "AM"
+    },
+    {
+      "id": "kavya",
+      "name": "Kavya Iyer",
+      "role": "Cooling Engineer",
+      "initials": "KI"
+    },
+    {
+      "id": "rohan",
+      "name": "Rohan Das",
+      "role": "Procurement Lead",
+      "initials": "RD"
+    },
+    {
+      "id": "neha",
+      "name": "Neha Kapoor",
+      "role": "Account Manager",
+      "initials": "NK"
+    }
+  ],
+  "projects": [
+    {
+      "id": "hall-a",
+      "name": "Deccan AI Campus · Hall A",
+      "client": "Deccan Compute",
+      "asset_pack": "datahall",
+      "state": "signed",
+      "sample": true,
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "hall-b",
+      "name": "Deccan AI Campus · Hall B",
+      "client": "Deccan Compute",
+      "asset_pack": "datahall",
+      "state": "not_started",
+      "sample": true,
+      "updated_at": 1792045800.0
+    },
+    {
+      "id": "pune-edge-1",
+      "name": "Konkan Cloud · Pune Edge Phase 1",
+      "client": "Konkan Cloud",
+      "asset_pack": "datahall",
+      "state": "signed",
+      "sample": true,
+      "updated_at": 1790922600.0
+    },
+    {
+      "id": "grid-132kv",
+      "name": "Deccan campus · 132 kV intake",
+      "client": "Narmada Transmission",
+      "asset_pack": "grid",
+      "state": "checked",
+      "sample": true,
+      "updated_at": 1791613800.0
+    },
+    {
+      "id": "solar-5mwp",
+      "name": "Deccan campus · 5 MWp solar",
+      "client": "Suryodaya Renewables",
+      "asset_pack": "solar",
+      "state": "draft",
+      "sample": true,
+      "updated_at": 1791354600.0
+    },
+    {
+      "id": "vindhya-lv",
+      "name": "Vindhya Steel · Mill LV upgrade",
+      "client": "Vindhya Steel",
+      "asset_pack": "datahall",
+      "state": "archived",
+      "sample": true,
+      "updated_at": 1788849000.0
+    }
+  ],
+  "activity": [
+    {
+      "id": "act-001",
+      "ts": 1792047196.0,
+      "actor": "Neha Kapoor",
+      "project_id": "hall-b",
+      "text": "opened Hall B design-build; the design has not started"
+    },
+    {
+      "id": "act-002",
+      "ts": 1791873000.0,
+      "actor": "Neha Kapoor",
+      "project_id": "hall-a",
+      "text": "moved Deccan AI Campus · Hall A to Design approved in the CRM"
+    },
+    {
+      "id": "act-003",
+      "ts": 1791872826.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0148 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-004",
+      "ts": 1791872825.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0147 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-005",
+      "ts": 1791872824.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0146 to the ERP sandbox (2 lines)"
+    },
+    {
+      "id": "act-006",
+      "ts": 1791872823.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0145 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-007",
+      "ts": 1791872822.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0144 to the ERP sandbox (6 lines)"
+    },
+    {
+      "id": "act-008",
+      "ts": 1791872821.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0143 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-009",
+      "ts": 1791872820.0,
+      "actor": "Procurement agent",
+      "project_id": "hall-a",
+      "text": "submitted PR-2026-0142 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-010",
+      "ts": 1791872700.0,
+      "actor": "Priya Raman",
+      "project_id": "hall-a",
+      "text": "approved and signed r2 of Deccan AI Campus · Hall A"
+    },
+    {
+      "id": "act-011",
+      "ts": 1791865500.0,
+      "actor": "Checker",
+      "project_id": "hall-a",
+      "text": "flagged R05 FA-01, R11 H-Z2 on r1"
+    },
+    {
+      "id": "act-012",
+      "ts": 1791700260.0,
+      "actor": "Neha Kapoor",
+      "project_id": "hall-a",
+      "text": "shared the signed Hall A package with Deccan Compute"
+    },
+    {
+      "id": "act-013",
+      "ts": 1791613800.0,
+      "actor": "Asset agent",
+      "project_id": "grid-132kv",
+      "text": "evaluated Deccan campus · 132 kV intake; recommended ACSR-ZEBRA"
+    },
+    {
+      "id": "act-014",
+      "ts": 1791356575.0,
+      "actor": "Kavya Iyer",
+      "project_id": "solar-5mwp",
+      "text": "started a draft string layout for the 5 MWp solar field"
+    },
+    {
+      "id": "act-015",
+      "ts": 1791354600.0,
+      "actor": "Asset agent",
+      "project_id": "solar-5mwp",
+      "text": "evaluated Deccan campus · 5 MWp solar; recommended STR-28"
+    },
+    {
+      "id": "act-016",
+      "ts": 1791098575.0,
+      "actor": "Rohan Das",
+      "project_id": null,
+      "text": "refreshed ERP lead times for transformers and busways (sandbox)"
+    },
+    {
+      "id": "act-017",
+      "ts": 1790922426.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0127 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-018",
+      "ts": 1790922425.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0126 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-019",
+      "ts": 1790922424.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0125 to the ERP sandbox (2 lines)"
+    },
+    {
+      "id": "act-020",
+      "ts": 1790922423.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0124 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-021",
+      "ts": 1790922422.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0123 to the ERP sandbox (6 lines)"
+    },
+    {
+      "id": "act-022",
+      "ts": 1790922421.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0122 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-023",
+      "ts": 1790922420.0,
+      "actor": "Procurement agent",
+      "project_id": "pune-edge-1",
+      "text": "submitted PR-2026-0121 to the ERP sandbox (1 lines)"
+    },
+    {
+      "id": "act-024",
+      "ts": 1790922300.0,
+      "actor": "Priya Raman",
+      "project_id": "pune-edge-1",
+      "text": "approved and signed r2 of Konkan Cloud · Pune Edge Phase 1"
+    },
+    {
+      "id": "act-025",
+      "ts": 1790915100.0,
+      "actor": "Checker",
+      "project_id": "pune-edge-1",
+      "text": "flagged R05 FA-01, R05 FB-01, R11 H-Z2 on r1"
+    },
+    {
+      "id": "act-026",
+      "ts": 1790318728.0,
+      "actor": "Kavya Iyer",
+      "project_id": "pune-edge-1",
+      "text": "reviewed the CDU gallery layout for Pune Edge"
+    },
+    {
+      "id": "act-027",
+      "ts": 1789284521.0,
+      "actor": "Neha Kapoor",
+      "project_id": null,
+      "text": "added Konkan Cloud · Pune Edge Phase 2 to the pipeline"
+    },
+    {
+      "id": "act-028",
+      "ts": 1788765595.0,
+      "actor": "Priya Raman",
+      "project_id": "vindhya-lv",
+      "text": "archived Vindhya Steel · Mill LV upgrade after handover"
+    },
+    {
+      "id": "act-029",
+      "ts": 1788589800.0,
+      "actor": "Rohan Das",
+      "project_id": "vindhya-lv",
+      "text": "submitted PR-2026-0103 to the ERP sandbox (2 lines)"
+    },
+    {
+      "id": "act-030",
+      "ts": 1788417000.0,
+      "actor": "Rohan Das",
+      "project_id": "vindhya-lv",
+      "text": "submitted PR-2026-0102 to the ERP sandbox (3 lines)"
+    },
+    {
+      "id": "act-031",
+      "ts": 1788330600.0,
+      "actor": "Rohan Das",
+      "project_id": "vindhya-lv",
+      "text": "submitted PR-2026-0101 to the ERP sandbox (3 lines)"
+    }
+  ]
+}
