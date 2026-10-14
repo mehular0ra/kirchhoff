@@ -1195,6 +1195,38 @@
   },
   "documents": [
     {
+      "id": "doc-hall-a-tender-hall-a",
+      "project_id": "hall-a",
+      "name": "tender-hall-a.pdf",
+      "kind": "tender",
+      "url": "/demo/docs/tender-hall-a.pdf",
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "doc-hall-a-hall-a-plan",
+      "project_id": "hall-a",
+      "name": "hall-a-plan.pdf",
+      "kind": "drawing",
+      "url": "/demo/docs/hall-a-plan.pdf",
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "doc-hall-b-tender-hall-a",
+      "project_id": "hall-b",
+      "name": "tender-hall-a.pdf",
+      "kind": "tender",
+      "url": "/demo/docs/tender-hall-a.pdf",
+      "updated_at": 1792045800.0
+    },
+    {
+      "id": "doc-hall-b-hall-a-plan",
+      "project_id": "hall-b",
+      "name": "hall-a-plan.pdf",
+      "kind": "drawing",
+      "url": "/demo/docs/hall-a-plan.pdf",
+      "updated_at": 1792045800.0
+    },
+    {
       "id": "doc-grid-132kv-summary",
       "project_id": "grid-132kv",
       "name": "summary.pdf",
