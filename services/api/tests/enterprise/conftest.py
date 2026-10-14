@@ -7,6 +7,7 @@ from kirchhoff.enterprise.model import EnterpriseSeed
 from kirchhoff.enterprise.sandbox import Sandbox
 from kirchhoff.enterprise.world.config import WorldConfig, load_world_config
 from kirchhoff.store.memory import MemoryStore
+from .ws4_fakes import StubEngine
 
 REPO = Path(__file__).resolve().parents[4]
 SCENARIOS = REPO / "scenarios"
@@ -60,3 +61,8 @@ def scenarios_root() -> Path:
 @pytest.fixture(scope="session")
 def world_cfg() -> WorldConfig:
     return load_world_config(SCENARIOS / "demo_world" / "world.yaml")
+
+
+@pytest.fixture
+def stub_engine() -> StubEngine:
+    return StubEngine()
