@@ -148,6 +148,39 @@ def test_sc_cache_is_bounded_to_32_entries():
     assert len(_CACHE) <= 32
 
 
+
+
+# ---------------------------------------------------------------- I-4 ----
+
+def test_r09_does_not_fail_on_rounding_at_design_point():
+    """Every integer rack rating from 100 to 160 kW, routed by the normal default path, must pass R09: the
+    engine's own flow_lps rounding (4 dp) must never be enough to flip the verdict."""
+    from kirchhoff.engine.checker import run_rules
+    from kirchhoff.engine.layout import place_racks
+    from kirchhoff.engine.scenario import with_limit
+    from kirchhoff.engine.topology import build_model
+
+    scn0 = api.load_scenario()
+    erp = api.default_erp()
+    bad = []
+    for kw in range(100, 161):
+        scn = with_limit(scn0, "rack_kw", float(kw))
+        racks = place_racks(scn)
+        m = api.route(scn, build_model(scn, racks, "2N", "TX-3150"))
+        r09 = [f for f in run_rules(scn, m, erp, only=["R09"]) if f.status == "fail"]
+        if r09:
+            bad.append((kw, r09[0].id, r09[0].value, r09[0].limit))
+    assert bad == []
+
+
+def test_r09_still_fails_90pct_liquid_fraction(scn, erp):
+    from kirchhoff.engine.benchmark import golden_fixed
+
+    fixed = golden_fixed(scn, erp)
+    wi = api.what_if(scn, fixed, "liquid_fraction", 0.9, "x", erp)
+    assert {f.rule_id for f in wi.findings} == {"R09"}
+
+
 def test_m5_warnings_regions_are_lock_guarded():
     import threading
 
