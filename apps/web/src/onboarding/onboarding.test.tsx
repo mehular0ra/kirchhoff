@@ -82,6 +82,7 @@ test('tour step 3 opens the first failing finding; step 4 counts agents from the
   expect(firstFailure(b)).toEqual({ rev: 'r1', id: 'R05:FA-01' })
   expect(TOUR_STEPS[2].route({ hallA: b })).toBe('/app/p/hall-a?tab=matrix&rev=r1&finding=R05%3AFA-01')
   expect(TOUR_STEPS[3].title({ hallA: b })).toBe("8 agents designed this; here's what each did")
+  expect(TOUR_STEPS[4].target).toBe('[data-tour="whatif-chip"]')
   expect(TOUR_STEPS).toHaveLength(7)
 })
 

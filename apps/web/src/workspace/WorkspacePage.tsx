@@ -8,6 +8,7 @@ import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
+import { WhatIfPanel } from './copilot/WhatIfPanel'
 import { DocsTab } from './docs/DocsTab'
 import { FindingDrawer } from './finding/FindingDrawer'
 import { GateBanner } from './gates/GateBanner'
@@ -98,6 +99,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
             </div>
           </section>
           <aside aria-label="Co-pilot" className="min-h-0 overflow-y-auto border-l">
+            <WhatIfPanel />
             <RequirementsPanel />
           </aside>
         </div>
