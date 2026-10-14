@@ -8,7 +8,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from kirchhoff.contracts import PRLine
+from kirchhoff.contracts import Opportunity, PRLine
 
 from .model import SANDBOX_LABEL
 from .sandbox import NotFound, Sandbox
@@ -30,6 +30,11 @@ class SetStatus(BaseModel):
 class SetStage(BaseModel):
     uid: str
     stage: str
+
+
+class CreateOpportunity(BaseModel):
+    uid: str
+    opportunity: Opportunity
 
 
 def _guard(fn: Callable[[], object]):
@@ -82,6 +87,10 @@ def create_enterprise_app(sandbox: Sandbox | None = None) -> FastAPI:
     def set_stage(opportunity_id: str, body: SetStage):
         return _guard(lambda: sandbox.set_opportunity_stage(body.uid, opportunity_id, body.stage)
                       .model_dump(mode="json"))
+
+    @app.post("/crm/opportunities")
+    def create_opportunity(body: CreateOpportunity):
+        return _guard(lambda: sandbox.create_opportunity(body.uid, body.opportunity).model_dump(mode="json"))
 
     @app.delete("/visitors/{uid}")
     def reset(uid: str):

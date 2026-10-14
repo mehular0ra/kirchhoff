@@ -1,0 +1,198 @@
+{
+  "mailbox": "bids@meridian-power.example",
+  "label": "sandbox (simulated)",
+  "notice": "Demo workspace — all companies, people and data are fictional",
+  "as_of": 1792132200.0,
+  "appetite": {
+    "asset_types": [
+      "datahall",
+      "grid",
+      "solar"
+    ],
+    "mw": [
+      2.0,
+      120.0
+    ],
+    "regions": [
+      {
+        "name": "Telangana",
+        "places": [
+          "Telangana",
+          "Hyderabad"
+        ]
+      },
+      {
+        "name": "Andhra Pradesh",
+        "places": [
+          "Andhra Pradesh",
+          "Anantapur",
+          "Visakhapatnam"
+        ]
+      },
+      {
+        "name": "Karnataka",
+        "places": [
+          "Karnataka",
+          "Bengaluru"
+        ]
+      },
+      {
+        "name": "Maharashtra",
+        "places": [
+          "Maharashtra",
+          "Pune",
+          "Mumbai"
+        ]
+      },
+      {
+        "name": "Madhya Pradesh",
+        "places": [
+          "Madhya Pradesh",
+          "Satna"
+        ]
+      }
+    ],
+    "min_days_to_bid_due": 10,
+    "lead_time_check": true
+  },
+  "emails": [
+    {
+      "id": "em-hall-b",
+      "from_name": "Ananya Reddy",
+      "from_addr": "ananya.reddy@deccan-compute.example",
+      "from_org": "Deccan Compute",
+      "to": "bids@meridian-power.example",
+      "subject": "Tender: Deccan AI Campus Hall B, electrical and liquid-cooling design-build",
+      "received_at": 1792121400.0,
+      "body": "Dear Meridian bids team,\n\nDeccan Compute invites your bid for the electrical and liquid-cooling design-build of Data Hall B at our AI campus near Hyderabad, Telangana.\n\nHall B is a twin of Hall A: the attached technical requirements DC-HA-TS-001 Rev 0 apply to Hall B without change, as Addendum 1 confirms. Hall B carries 6.336 MW of IT load in 48 racks.\n\nBids are due by 13 November 2026. Please note the programme clause: all major equipment must be on site no later than 26 weeks from contract award.\n\nRegards,\nAnanya Reddy\nProcurement, Deccan Compute",
+      "attachments": [
+        {
+          "id": "att-hall-b-tender",
+          "name": "DC-HA-TS-001 Rev 0 technical requirements.pdf",
+          "url": "/demo/docs/tender-hall-a.pdf",
+          "source": "hall_a/out/tender-hall-a.pdf",
+          "content_type": "application/pdf"
+        },
+        {
+          "id": "att-hall-b-drawing",
+          "name": "Data hall general arrangement.pdf",
+          "url": "/demo/docs/hall-a-plan.pdf",
+          "source": "hall_a/out/hall-a-plan.pdf",
+          "content_type": "application/pdf"
+        },
+        {
+          "id": "att-hall-b-addendum",
+          "name": "Addendum 1, Hall B.pdf",
+          "url": "/demo/inbox/hall-b-addendum-1.pdf",
+          "source": "demo_world/out/inbox/hall-b-addendum-1.pdf",
+          "content_type": "application/pdf"
+        }
+      ],
+      "project_id": "hall-b",
+      "live_triage": true,
+      "triage": null
+    },
+    {
+      "id": "em-tapti-brochure",
+      "from_name": "Tapti Transformers",
+      "from_addr": "sales@tapti-transformers.example",
+      "from_org": "Tapti Transformers",
+      "to": "bids@meridian-power.example",
+      "subject": "New: cast-resin transformers ex-stock",
+      "received_at": 1792040400.0,
+      "body": "Dear partner,\n\nOur cast-resin transformer range is now available ex-stock from our Vadodara works. The brochure is attached.\n\nTapti Transformers sales team",
+      "attachments": [
+        {
+          "id": "att-tapti-brochure",
+          "name": "Tapti cast-resin range.pdf",
+          "url": "/demo/inbox/tapti-brochure.pdf",
+          "source": "demo_world/out/inbox/tapti-brochure.pdf",
+          "content_type": "application/pdf"
+        }
+      ],
+      "project_id": null,
+      "live_triage": false,
+      "triage": null
+    },
+    {
+      "id": "em-konkan-rfi",
+      "from_name": "Vikram Joshi",
+      "from_addr": "vikram.joshi@konkan-cloud.example",
+      "from_org": "Konkan Cloud",
+      "to": "bids@meridian-power.example",
+      "subject": "RE: Pune Edge Phase 1, RFI on CDU gallery access",
+      "received_at": 1791883800.0,
+      "body": "Hi Kavya,\n\nThanks for the RFI on the CDU gallery access door. Confirmed: the door stays on the north wall as drawn, so there is no change to the signed Pune Edge Phase 1 design. Our signed response is attached.\n\nRegards,\nVikram Joshi\nKonkan Cloud",
+      "attachments": [
+        {
+          "id": "att-konkan-rfi",
+          "name": "RFI response, CDU gallery access.pdf",
+          "url": "/demo/inbox/konkan-rfi-response.pdf",
+          "source": "demo_world/out/inbox/konkan-rfi-response.pdf",
+          "content_type": "application/pdf"
+        }
+      ],
+      "project_id": null,
+      "live_triage": false,
+      "triage": null
+    },
+    {
+      "id": "em-vindhya-boq",
+      "from_name": "Neha Kapoor",
+      "from_addr": "neha.kapoor@meridian-power.example",
+      "from_org": "Vindhya Steel",
+      "to": "bids@meridian-power.example",
+      "subject": "FW: Captive power switchyard, BOQ for pricing",
+      "received_at": 1791786600.0,
+      "body": "Forwarding from Vindhya Steel. Their BOQ only exists as a scan; can we bid?\nNeha\n\n---------- Forwarded message ----------\nFrom: Sanjay Verma <sanjay.verma@vindhya-steel.example>\nSubject: Captive power switchyard, BOQ for pricing\n\nPlease price the attached BOQ for the 33 kV captive power switchyard at our Satna mill, Madhya Pradesh. Bids are due by 30 October 2026.\n\nSanjay Verma\nVindhya Steel",
+      "attachments": [
+        {
+          "id": "att-vindhya-boq",
+          "name": "Switchyard BOQ (scan).pdf",
+          "url": "/demo/inbox/vindhya-boq-scan.pdf",
+          "source": "demo_world/out/inbox/vindhya-boq-scan.pdf",
+          "content_type": "application/pdf"
+        }
+      ],
+      "project_id": null,
+      "live_triage": false,
+      "triage": null
+    },
+    {
+      "id": "em-suryodaya-solar",
+      "from_name": "Meera Iyer",
+      "from_addr": "meera.iyer@suryodaya-renewables.example",
+      "from_org": "Suryodaya Renewables",
+      "to": "bids@meridian-power.example",
+      "subject": "Enquiry: solar EPC near Anantapur",
+      "received_at": 1791608400.0,
+      "body": "Hello,\n\nSuryodaya Renewables is planning a 20 MWp ground-mount solar plant near Anantapur, Andhra Pradesh, and would like Meridian to bid for the EPC. We will share the tender documents soon. Could you confirm your interest?\n\nBest regards,\nMeera Iyer\nSuryodaya Renewables",
+      "attachments": [],
+      "project_id": null,
+      "live_triage": false,
+      "triage": null
+    },
+    {
+      "id": "em-narmada-400kv",
+      "from_name": "Rakesh Patel",
+      "from_addr": "rakesh.patel@narmada-transmission.example",
+      "from_org": "Narmada Transmission",
+      "to": "bids@meridian-power.example",
+      "subject": "RFQ: 400 kV GIS substation at Bharuch, EPC",
+      "received_at": 1791360000.0,
+      "body": "Dear Sir or Madam,\n\nNarmada Transmission requests EPC quotations for a new 400 kV GIS substation at Bharuch, Gujarat. The specification is attached. Quotations are due by 20 November 2026.\n\nRakesh Patel\nNarmada Transmission",
+      "attachments": [
+        {
+          "id": "att-narmada-spec",
+          "name": "NT-400-BH specification.pdf",
+          "url": "/demo/inbox/narmada-400kv-spec.pdf",
+          "source": "demo_world/out/inbox/narmada-400kv-spec.pdf",
+          "content_type": "application/pdf"
+        }
+      ],
+      "project_id": null,
+      "live_triage": false,
+      "triage": null
+    }
+  ]
+}

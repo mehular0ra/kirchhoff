@@ -37,3 +37,10 @@ def test_upload_docs_sets_content_type_and_cache(tmp_path):
     assert upload_docs(tmp_path, bucket) == ["seed/files/hall-a/boq.csv", "seed/files/hall-a/calc-report.pdf"]
     assert [(b.uploaded[1], b.cache_control) for b in bucket.blobs] == [
         ("text/csv", "public, max-age=300"), ("application/pdf", "public, max-age=300")]
+
+
+def test_dry_run_reports_the_inbox(tmp_path, small_seed, capsys):
+    seed = tmp_path / "seed.json"
+    seed.write_text(small_seed.model_dump_json(), encoding="utf-8")
+    assert main(["--seed", str(seed), "--inbox", str(tmp_path / "none.json"), "--dry-run"]) == 0
+    assert json.loads(capsys.readouterr().out)["inbox_emails"] == 0
