@@ -67,3 +67,33 @@ def seeded(deps):
         findings={"r1": f1, "r2": eng.check(scn, r2, erp)})
     (deps.seed_dir / "hall-a.json").write_text(bundle.model_dump_json(), encoding="utf-8")
     return deps
+
+
+# --- Task 15 fix round 1 (Important #1): a client wired to the real engine and the production ERP
+# catalogue, serving the real WS4 hall-a seed bundle, so the co-pilot's measured 200 kW what-if beat is
+# verified end to end rather than against FakeEngine/FakeEnterprise fixtures.
+from kirchhoff.engine import api as real_engine
+from kirchhoff.engine.scenario import scenarios_root
+from kirchhoff.enterprise.model import load_enterprise_seed
+from kirchhoff.enterprise.paths import enterprise_seed_path, repo_root
+from kirchhoff.runs.fakes import FakeEnterprise
+
+
+@pytest.fixture
+def real_client(tmp_path):
+    """A TestClient wired to the real engine (not FakeEngine) and the production ERP catalogue
+    (scenarios/demo_world/out/enterprise_seed.json), serving the real WS4 hall-a seed bundle checked into
+    the repo. Fails loudly, not a skip, if either is missing."""
+    root = repo_root()
+    assert root is not None, "kirchhoff.enterprise.paths.repo_root() could not locate the repo checkout"
+    bundle_path = root / "apps" / "web" / "public" / "demo" / "projects" / "hall-a.json"
+    assert bundle_path.exists(), f"WS4 seed bundle is missing: {bundle_path}"
+    raw = bundle_path.read_text(encoding="utf-8")
+    seed_dir = tmp_path / "seed"
+    seed_dir.mkdir()
+    (seed_dir / "hall-a.json").write_text(raw, encoding="utf-8")
+    catalogue = load_enterprise_seed(enterprise_seed_path()).materials
+    deps = build_fake_deps(CheckedStore(), scenarios_root(), seed_dir=seed_dir, engine=real_engine,
+                           enterprise=FakeEnterprise(catalogue), spawn=lambda fn: fn(), heartbeat_s=3600.0)
+    client = TestClient(create_app(deps=deps, verify_token=lambda token: "u1"))
+    return client, ProjectBundle.model_validate_json(raw)

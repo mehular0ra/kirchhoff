@@ -4,10 +4,16 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from kirchhoff.agents.copilot import RevisionNotFound, call_with_timeout, explain_text, load_revision
+from kirchhoff.agents.copilot import BadRevisionRef, RevisionNotFound, call_with_timeout, explain_text, load_revision
 from kirchhoff.runs.deps import Deps
 
 from .errors import err
+
+try:
+    from kirchhoff.enterprise.client import EnterpriseUnavailable  # WS4-owned module
+except ImportError:
+    class EnterpriseUnavailable(Exception):
+        """Placeholder when kirchhoff.enterprise.client is unavailable (never actually raised)."""
 
 WHAT_IF_TIMEOUT_S = 8.0
 
@@ -31,7 +37,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
             return load_revision(deps, uid, ref), None
         except RevisionNotFound:
             return None, err(404, "revision_not_found")
-        except ValueError:
+        except BadRevisionRef:
             return None, err(422, "bad_revision_ref")
 
     @router.post("/api/what-if")
@@ -45,6 +51,10 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
                                                                 body.revision_ref, deps.erp()), WHAT_IF_TIMEOUT_S)
         except FuturesTimeout:
             return err(504, "timeout")
+        except ValueError:
+            return err(422, "invalid_value")  # ruling P2-R17: an out-of-range what-if param, not a server error
+        except EnterpriseUnavailable:
+            return err(503, "enterprise_unavailable")
         return res.model_dump(mode="json")
 
     @router.post("/api/explain")
