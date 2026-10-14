@@ -3,13 +3,13 @@ UPS output (critical) boards, STS outputs and busway origins (spec §8.2). UPS s
 closed (worst case), so a critical board sees its LV board's fault level."""
 import hashlib
 import json
-import threading
 import warnings
 from collections import OrderedDict
 from dataclasses import dataclass
 
 from kirchhoff.contracts import DesignModel
 
+from ._locks import WARNINGS_LOCK as _LOCK
 from .scenario import Scenario, cat_item, limit
 
 
@@ -21,7 +21,6 @@ class ScResult:
 
 _CACHE: "OrderedDict[str, ScResult]" = OrderedDict()
 _CACHE_MAX = 32
-_LOCK = threading.Lock()
 
 
 def _catalogue_fingerprint(scn: Scenario, model: DesignModel) -> list[dict]:
@@ -58,9 +57,10 @@ def run_impedance_ohm_km(scn: Scenario, catalogue_id: str) -> tuple[float, float
 
 def short_circuit(scn: Scenario, model: DesignModel) -> ScResult:
     key = _key(scn, model)
-    if key in _CACHE:
-        _CACHE.move_to_end(key)
-        return _CACHE[key]
+    with _LOCK:
+        if key in _CACHE:
+            _CACHE.move_to_end(key)
+            return _CACHE[key]
     with _LOCK, warnings.catch_warnings():
         warnings.simplefilter("ignore")
         import pandapower as pp
@@ -111,7 +111,8 @@ def short_circuit(scn: Scenario, model: DesignModel) -> ScResult:
         ikss = {names[i]: round(float(res.at[i, "ikss_ka"]), 3) for i in res.index if i in names}
         ip = {names[i]: round(float(res.at[i, "ip_ka"]), 3) for i in res.index if i in names}
     result = ScResult(ikss, ip)
-    _CACHE[key] = result
-    if len(_CACHE) > _CACHE_MAX:
-        _CACHE.popitem(last=False)
+    with _LOCK:
+        _CACHE[key] = result
+        if len(_CACHE) > _CACHE_MAX:
+            _CACHE.popitem(last=False)
     return result

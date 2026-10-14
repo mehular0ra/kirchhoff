@@ -32,11 +32,25 @@ def apply_fix(model: DesignModel, candidate: FixCandidate) -> DesignModel:
         feeder = next((c for c in model.connections if c.id == fid), None)
         if feeder is None:
             raise ValueError(f"fix patch names an unknown feeder {fid!r}")
-        conns = [c.model_copy(update={"kind": patch["kind"], "catalogue_id": patch["catalogue_id"]})
+        if feeder.kind not in {"busway", "cable"}:
+            raise ValueError(f"fix patch targets {fid!r}, which is not a busway or cable feeder "
+                             f"(kind {feeder.kind!r})")
+        dst = next((e for e in model.equipment if e.id == feeder.dst), None)
+        if dst is None or dst.kind != "busway":
+            raise ValueError(f"fix patch targets {fid!r}, whose destination is not a busway")
+        kind = patch.get("kind")
+        if kind not in {"busway", "cable"}:
+            raise ValueError(f"fix patch sets feeder {fid!r} to invalid kind {kind!r}")
+        catalogue_id = patch.get("catalogue_id")
+        if catalogue_id is None:
+            raise ValueError(f"fix patch for feeder {fid!r} has no catalogue_id")
+        conns = [c.model_copy(update={"kind": kind, "catalogue_id": catalogue_id})
                  if c.id == fid else c for c in model.connections]
         out = model.model_copy(update={"connections": conns})
     elif op == "set_pipe_routes":
         routes = patch.get("routes", {})
+        if not isinstance(routes, dict):
+            raise ValueError("set_pipe_routes patch 'routes' must be a dict of pipe id -> points")
         pipes_by_id = {p.id: p for p in model.pipes}
         old_ends: dict[str, tuple[tuple, tuple]] = {}
         new_ends: dict[str, tuple[tuple, tuple]] = {}
