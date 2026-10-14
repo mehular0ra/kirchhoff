@@ -25,9 +25,11 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 To claim a task, comment on its GitHub issue, branch `jd/<topic>` from `build`, and open a PR into `build`. The rules are in `AGENTS.md`.
 
 1. **Bids inbox (spec §20, a Should item)**
-   - The plan addendum `docs/superpowers/plans/2026-10-14-bids-inbox.md` lands after review.
-   - **I-1** (seeded mailbox and fit rules) and **I-3** (the static inbox page) can start as soon as the plan is in.
-   - **I-2** (the live triage agent and endpoints) waits for P2 Task 9 (Intake) and P2 Task 12 (API wiring).
+   - The plan addendum `docs/superpowers/plans/2026-10-14-bids-inbox.md` is reviewed and ready.
+   - Issues #1 (I-1), #2 (I-2) and #3 (I-3) are assigned to Jayadratha.
+   - **I-1** can start now.
+   - **I-2** Steps 1–9 can start now; its endpoints wait for P2 Task 12 (API wiring).
+   - **I-3**'s static page can start once I-1's `inbox.json` exists.
    - Cut line: Thu 16 Oct 12:00 IST.
 2. **Team assets for the deck and video**
    - Photos.
