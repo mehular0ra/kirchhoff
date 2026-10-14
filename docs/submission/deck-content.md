@@ -348,7 +348,7 @@ These come from the live product at kirchhoff.web.app. Every company and person 
 2. Agent lanes during a live Hall B run. The footage is time-compressed and carries an elapsed-time clock.
 3. The finding drawer for R11. Header H-Z2 runs above feeder FB-03 at y ≈ 24 m, breaking tender §6.3.4. The engine offers two verified fixes: a local drop (+$420, 1 pipe changed) or a reroute (−$910, 2 pipes changed).
 4. Option cards after the R15 swap. The 2.5 MVA unit has 0 in stock and a 98-week lead time, so the engine picks the 3.15 MVA unit, with 6 in stock, which runs at 38.07% normal and 76.15% in N-1. The fault level moves from 60.45 to 65.42 kA and is re-checked.
-5. The what-if at 200 kW per rack. R01 fails at 113.6%, R02 at 2,343 A, and R08 at 2,560 kW against 2,400 kW; R03, R05, R07 and R09 also fail. That is 62 findings in 18 impact chains.
+5. The what-if at 200 kW per rack. R01 fails at 113.6%, R02 at 2,343 A, and R08 at 2,560 kW against 2,400 kW; R03, R05, R07 and R09 also fail. That is 60 findings in 18 impact chains.
 6. The review page with the diff, the assumptions ledger and the approval stamp.
 
 **Visual**
@@ -358,7 +358,7 @@ A 3 × 2 grid, one caption under each:
 2. [SHOT: Workspace during the Hall B live run. Power and Cooling lanes both active; elapsed-time clock; SLD staging in.]
 3. [SHOT: 3D hall, R11 finding drawer open. H-Z2 red where it crosses FB-03; §6.3.4 clause chip; both fix options with cost deltas.]
 4. [SHOT: Options tab, 2N card. "2.5 MVA · stock 0 · 98 wk > 26 wk (§2.3)" struck through; "3.15 MVA · stock 6 · 38.07% / 76.15%"; fault level 65.42 kA.]
-5. [SHOT: What-if at 200 kW per rack. Impact chain lit rack → busway → board → transformer (power colour) and rack → zone → CDU (cooling colour); counters "62 findings · 18 impact chains".]
+5. [SHOT: What-if at 200 kW per rack. Impact chain lit rack → busway → board → transformer (power colour) and rack → zone → CDU (cooling colour); counters "60 findings · 18 impact chains".]
 6. [SHOT: Review page after approval. Diff, ledger with its "not checked" list, stamp "You (Demo Reviewer) · time · revision hash".]
 
 Footer (small print): "All companies, people and data shown are fictional. IEC-based, illustrative values, not for construction."
@@ -380,7 +380,7 @@ Footer (small print): "All companies, people and data shown are fictional. IEC-b
 **What we measured on 14 Oct.**
 - **Checker benchmark.** We seeded 35 mutations into the design, covering the rule pack. The checker caught all 35, with zero false positives.
 - **First pass on the golden 2N design.** It produced 149 findings: 147 pass and 2 fail. Feeder FA-01 (82 m) drops 2.16% against the 2.0% limit (R05). The fixes are a 2,000 A busway (1.66%, +$11,480) or a parallel cable (0.84%, +$15,580). Header H-Z2 runs above FB-03 (R11). The fixes are a local drop (+$420) or a reroute (−$910).
-- **What-if at 200 kW per rack.** Seven rules fail, producing 62 findings in 18 impact chains, in about 8 ms after warm-up.
+- **What-if at 200 kW per rack.** Seven rules fail, producing 60 findings in 18 impact chains, in about 8 ms after warm-up.
 - **Determinism.** Output is byte-identical across Python hash seeds, so the same design always gives the same verdict.
 - **Business result in the sandbox.** A 98-week transformer becomes a 3.15 MVA unit shipped from stock, at 38.07% / 76.15% loading.
 
@@ -509,3 +509,5 @@ Everything below is a `[TBD]` (or team-photo) slot only the team can fill. Nothi
 - **Slide 12 (Prototype Performance report):** source citation for the 4–8 week first-coordinated-electrical-package baseline; measured time from upload to a checker-clean revision, median of 5 live runs, excluding time at human gates (spec §4, metric 1); intake accuracy against our ground truth (spec §4, metric 2).
 - **Slide 14 (Provide links to your):** GitHub public repository URL; demo video URL.
 - **Slide 15 (Team):** Mehul Arora's role and one-line background; Jayadratha's role and one-line background; two sentences per person on what each built and the credibility background (speaker notes); team photo (headshots of Mehul Arora and Jayadratha).
+
+- Re-check every quoted number against the DEPLOYED Hall A bundle after the golden capture (P4 Task 14). The 200 kW what-if count changed from 62 to 60 once the signed revision used the R23 fix choice (parallel cable on FA-01).
