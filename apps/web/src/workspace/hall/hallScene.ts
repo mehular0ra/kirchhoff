@@ -20,7 +20,8 @@ export interface HallScene {
   hall: { w: number; d: number }
   columns: SceneBox[]
   keepouts: SceneBox[]
-  rooms: (SceneBox & { label: string })[]
+  /** Rooms (LV rooms, the CDU gallery); `labelAt` is where their name is pinned. CDU bays are in `bays`. */
+  rooms: (SceneBox & { label: string; labelAt: V3 })[]
   racks: (SceneBox & { row: string })[]
   cdus: SceneBox[]
   manifolds: SceneBox[]
@@ -85,16 +86,36 @@ export function buildHallScene(m: DesignModel): HallScene {
   const manifolds = m.cooling_nodes
     .filter((n) => n.kind === 'manifold')
     .map((n) => ({ id: n.id, center: [n.x, n.y, 2.35] as V3, size: [0.3, 0.3, 0.3] as V3 }))
-  const zones = new Map<string, typeof cdus>()
-  for (const n of m.cooling_nodes.filter((c) => c.kind === 'cdu')) {
-    zones.set(n.zone, [...(zones.get(n.zone) ?? []), cdus.find((c) => c.id === n.id)!])
-  }
-  const bays = [...zones].map(([zone, list]) => {
-    const xs = list.flatMap((c) => [c.center[0] - 1.4, c.center[0] + 1.4])
-    const ys = list.flatMap((c) => [c.center[1] - 1.2, c.center[1] + 1.2])
-    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
-    return { id: `bay-${zone}`, zone, center: [(x0 + x1) / 2, (y0 + y1) / 2, 0.01] as V3, size: [x1 - x0, y1 - y0, 0.02] as V3 }
+  const rect = (id: string, [x0, y0, x1, y1]: number[], z: number, h: number): SceneBox => ({
+    id,
+    center: [(x0 + x1) / 2, (y0 + y1) / 2, z],
+    size: [x1 - x0, y1 - y0, h],
   })
+  const roomEntries = Object.entries(g.rooms)
+  // CDU bays: the model's own `bay-<zone>` rooms when present, else synthesised around each zone's CDUs.
+  const modelBays = roomEntries.filter(([k]) => k.startsWith('bay-'))
+  let bays: (SceneBox & { zone: string })[]
+  if (modelBays.length) {
+    bays = modelBays.map(([k, r]) => ({ ...rect(k, r, 0.01, 0.02), zone: k.slice(4) }))
+  } else {
+    const zones = new Map<string, typeof cdus>()
+    for (const n of m.cooling_nodes.filter((c) => c.kind === 'cdu')) {
+      zones.set(n.zone, [...(zones.get(n.zone) ?? []), cdus.find((c) => c.id === n.id)!])
+    }
+    bays = [...zones].map(([zone, list]) => {
+      const xs = list.flatMap((c) => [c.center[0] - 1.4, c.center[0] + 1.4])
+      const ys = list.flatMap((c) => [c.center[1] - 1.2, c.center[1] + 1.2])
+      return { ...rect(`bay-${zone}`, [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], 0.01, 0.02), zone }
+    })
+  }
+  const rooms = roomEntries
+    .filter(([k]) => !k.startsWith('bay-'))
+    .map(([k, r]) => {
+      const box = rect(`room-${k}`, r, 0.02, 0.04)
+      // The gallery spans the hall and holds the bays: pin its name at the west end, clear of the bay labels.
+      const labelAt: V3 = k === 'gallery' ? [r[0] + 2.5, box.center[1], 0.05] : [box.center[0], box.center[1], 0.05]
+      return { ...box, label: roomLabel(k), labelAt }
+    })
 
   return {
     hall: { w, d },
@@ -104,18 +125,21 @@ export function buildHallScene(m: DesignModel): HallScene {
       center: [(x0 + x1) / 2, (y0 + y1) / 2, 1.5],
       size: [x1 - x0, y1 - y0, 3.0],
     })),
-    rooms: Object.entries(g.rooms).map(([k, [x0, y0, x1, y1]]) => ({
-      id: `room-${k}`,
-      label: `LV room ${k}`,
-      center: [(x0 + x1) / 2, (y0 + y1) / 2, 0.02],
-      size: [x1 - x0, y1 - y0, 0.04],
-    })),
+    rooms,
     racks,
     cdus,
     manifolds,
     bays,
     tubes,
   }
+}
+
+/** "A" → "LV room A" (single-letter keys are the LV rooms), "gallery" → "CDU gallery", else humanised. */
+function roomLabel(key: string): string {
+  if (key === 'gallery') return 'CDU gallery'
+  if (/^[A-Z0-9]{1,2}$/.test(key)) return `LV room ${key}`
+  const words = key.replace(/[_-]/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 /** Plan-view crossing of two polylines (first hit), at polyline `a`'s height. Used to anchor R11 labels. */

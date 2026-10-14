@@ -137,3 +137,22 @@ test('unmount disposes the live geometry exactly once, and nothing is ever dispo
   act(() => unmount())
   expect(live.dispose).toHaveBeenCalledTimes(1)
 })
+
+test('M16: a revision switch that leaves a route unchanged (equal points, new array) neither animates nor rebuilds', () => {
+  let h: Handle | null = null
+  const { rerender } = render(
+    <StrictMode>
+      <Owner target={T1} reduce={false} onHandle={(x) => (h = x)} />
+    </StrictMode>,
+  )
+  const live = h!.mesh.geometry
+  rerender(
+    <StrictMode>
+      <Owner target={T1.map((p) => [...p] as V3)} reduce={false} onHandle={(x) => (h = x)} />
+    </StrictMode>,
+  )
+  expect(h!.t0.current).toBe(0)
+  h!.tick()
+  expect(h!.mesh.geometry).toBe(live)
+  expect(live!.dispose).not.toHaveBeenCalled()
+})
