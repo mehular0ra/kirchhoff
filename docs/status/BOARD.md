@@ -17,6 +17,17 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 
 **Live:** https://kirchhoff.web.app still shows the P0 shell until the first deploy from `build` (issue #6).
 
+## UI/UX track (P3)
+
+| # | Task | When |
+|---|---|---|
+| UX-0 | Final fix wave: tour step 3, 3D hall readability, lane text, fix costs, App Check hang, contrast, bundle size | running |
+| UX-1 | Design review of the fixed UI at desktop and phone size: ranked defects plus ranked improvements | after UX-0 |
+| UX-2 | One improvement round on the top UX-1 items | Thu 16 |
+| UX-3 | Human pass: #7 exploratory QA on the deployed site, plus Mehul's click-through | Thu 16 evening |
+
+**UI freeze: Fri 17 Oct 12:00 IST** (the video records this UI).
+
 ## Jayadratha's work (GitHub issues)
 
 1. **#6 Cloud ops runbook.** Seed the sandbox, apply the bucket CORS, and deploy when the controller comments "deploy `<sha>`". GCP access is being granted.
