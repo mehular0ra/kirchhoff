@@ -76,8 +76,13 @@ export function revisionRef(b: Bundle, revId: string, source: DataSource): strin
   return source === 'live' ? `ws:${revId}` : `seed:${b.project.id}@${revId}`
 }
 
+/** Input values (not results) compared with a relative tolerance, so 0.9 matches a serialised 0.9000000000000001. */
+export function sameInput(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b))
+}
+
 export function findWhatIf(b: Bundle, ref: string, param: WhatIfParam, value: number): WhatIfResult | null {
-  return b.what_ifs.find((w) => w.revision_ref === ref && w.param === param && w.value === value) ?? null
+  return b.what_ifs.find((w) => w.revision_ref === ref && w.param === param && sameInput(w.value, value)) ?? null
 }
 
 export function exportsOf(b: Bundle): { title: string; ref: string }[] {

@@ -91,7 +91,7 @@ function EventLine({ ev }: { ev: RunEvent }) {
   )
 }
 
-function LaneView({ lane }: { lane: Lane }) {
+function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean }) {
   const [open, setOpen] = useState(lane.status === 'running' || lane.status === 'waiting')
   const [all, setAll] = useState(false)
   const meta = AGENTS[lane.agent]
@@ -108,11 +108,14 @@ function LaneView({ lane }: { lane: Lane }) {
       >
         <AgentDot agent={lane.agent} />
         <span className="font-medium text-zinc-100">{meta.label}</span>
-        <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
-          <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
-          {st.label}
-        </span>
-        <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-500 transition-transform', open && 'rotate-180')} />
+        {/* A recorded design without agent events has no lane activity to report (M3): no status chip. */}
+        {!(recordedOnly && lane.status === 'idle') && (
+          <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
+            <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
+            {st.label}
+          </span>
+        )}
+        <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-400 transition-transform', recordedOnly && lane.status === 'idle' && 'ml-auto', open && 'rotate-180')} />
       </button>
       {lane.counters.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-1" aria-label={`${meta.label} summary`}>
@@ -153,6 +156,7 @@ function LaneView({ lane }: { lane: Lane }) {
 export function AgentLanes() {
   const { bundle } = useWorkspace()
   const lanes = buildLanes(bundle)
+  const recordedOnly = bundle.events.length === 0
   return (
     <nav aria-label="Agent lanes" data-tour="lanes" className="h-full overflow-y-auto">
       <Hint id="lanes" text="One lane per agent: its tool calls, results, findings and logged assumptions. Click a finding to open it.">
@@ -160,9 +164,15 @@ export function AgentLanes() {
           Agents
         </h2>
       </Hint>
+      {recordedOnly && (
+        <p className="px-3 pb-2 text-xs text-zinc-400">
+          This sample shows the recorded result. Each agent&rsquo;s tool calls and findings appear here during a live run or a
+          replay of one.
+        </p>
+      )}
       <ul>
         {lanes.map((l) => (
-          <LaneView key={l.agent} lane={l} />
+          <LaneView key={l.agent} lane={l} recordedOnly={recordedOnly} />
         ))}
       </ul>
     </nav>

@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { ClauseChip, TenderChip } from '@/components/TenderChip'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { fillPlaceholders, fmtKeyValue, fmtNum } from '@/lib/format'
+import { fillPlaceholders, fmtInput, fmtKeyValue } from '@/lib/format'
 import { ruleName } from '@/lib/status'
 import type { Finding } from '@/lib/types'
 import { useServices } from '@/services/services'
@@ -19,10 +19,16 @@ export interface FixView {
   deltas: [string, unknown][]
 }
 
-/** Reads the engine's fix dict: {candidate|label, reason, deltas: {dv_pct, cost_delta, ...}}. */
+/**
+ * Reads the engine's fix dict: {candidate|label, reason, cost_delta?, deltas: {dv_pct, ...}}. The
+ * shipped bundles carry `cost_delta` beside `deltas` (not inside it); it leads the card because the
+ * cost is what explains the choice ("voltage-drop margin per dollar", final review I3).
+ */
 export function readFix(fix: Finding['fix']): FixView | null {
   if (!fix) return null
-  const deltas = fix.deltas && typeof fix.deltas === 'object' ? Object.entries(fix.deltas as Record<string, unknown>) : []
+  const inner = fix.deltas && typeof fix.deltas === 'object' ? Object.entries(fix.deltas as Record<string, unknown>) : []
+  const cost = typeof fix.cost_delta === 'number' && !inner.some(([k]) => k === 'cost_delta') ? [['cost_delta', fix.cost_delta] as [string, unknown]] : []
+  const deltas = [...cost, ...inner]
   return {
     label: String(fix.label ?? fix.candidate ?? 'Fix'),
     reason: typeof fix.reason === 'string' ? fix.reason : '',
@@ -109,15 +115,20 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
                 <section aria-label="Formula" className="flex flex-col gap-1">
                   <pre className="overflow-x-auto rounded bg-zinc-900 p-2 font-mono text-xs text-zinc-100">{f.formula}</pre>
                   {f.inputs && Object.keys(f.inputs).length > 0 && (
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-xs">
-                      {Object.entries(f.inputs).map(([k, v]) => (
-                        <div key={k} className="contents">
-                          <dt className="text-zinc-400">{k}</dt>
-                          <dd className="text-zinc-100">
-                            <Num>{typeof v === 'number' ? fmtNum(v) : v}</Num>
-                          </dd>
-                        </div>
-                      ))}
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                      {Object.entries(f.inputs).map(([k, v]) => {
+                        const input = fmtInput(k, v)
+                        return (
+                          <div key={k} className="contents">
+                            <dt className="text-zinc-400" title={k}>
+                              {input.label}
+                            </dt>
+                            <dd className="font-mono text-zinc-100">
+                              <Num>{input.value}</Num>
+                            </dd>
+                          </div>
+                        )
+                      })}
                     </dl>
                   )}
                 </section>

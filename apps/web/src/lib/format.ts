@@ -81,13 +81,30 @@ export function fillPlaceholders(text: string, f: Pick<Finding, 'value' | 'limit
 
 const KEY_LABELS: Record<string, { label: string; unit?: string; usd?: boolean }> = {
   dv_pct: { label: 'ΔV', unit: '%' },
+  dv_limit_pct: { label: 'ΔV limit', unit: '%' },
+  index_dp_kpa: { label: 'Index-circuit Δp', unit: 'kPa' },
+  added_pipe_m: { label: 'Added pipe', unit: 'm' },
+  changed_pipes: { label: 'Changed pipes' },
+  rating_a: { label: 'Rating', unit: 'A' },
   cost_delta: { label: 'Cost Δ', usd: true },
   cost_usd: { label: 'Cost', usd: true },
   cost: { label: 'Cost', usd: true },
+  capex_usd: { label: 'Capex', usd: true },
+  lifecycle_usd: { label: 'Lifecycle cost', usd: true },
   margin_pct: { label: 'Margin', unit: '%' },
   loading_pct: { label: 'Loading', unit: '%' },
   losses_kw: { label: 'Losses', unit: 'kW' },
   lead_time_weeks: { label: 'Lead time', unit: 'weeks' },
+  finding_id: { label: 'Finding' },
+  ok: { label: 'OK' },
+  i_a: { label: 'Current I', unit: 'A' },
+  n1_current_a: { label: 'N-1 current', unit: 'A' },
+  dc_kwp: { label: 'DC capacity', unit: 'kWp' },
+  dc_ac: { label: 'DC/AC ratio' },
+  voc_max_v: { label: 'Voc max', unit: 'V' },
+  vmp_min_v: { label: 'Vmp min', unit: 'V' },
+  annual_mwh: { label: 'Annual energy', unit: 'MWh' },
+  annual_loss_mwh: { label: 'Annual loss', unit: 'MWh' },
 }
 
 const SUFFIX_UNITS: [string, string][] = [
@@ -128,12 +145,50 @@ function humanize(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** Formats one engine key/value pair for display, e.g. ("dv_pct", 0.84) → "ΔV 0.84%". */
+const isScalar = (v: unknown): v is string | number | boolean => ['string', 'number', 'boolean'].includes(typeof v)
+
+/** "clashes" → "clash", "options" → "option" (for a count of one). */
+function singular(word: string): string {
+  if (/(ches|shes|sses|xes)$/.test(word)) return word.slice(0, -2)
+  return word.endsWith('s') ? word.slice(0, -1) : word
+}
+
+/** A list of ids reads as a short list; anything else as a count of its entries (counting is allowed). */
+function fmtCollection(label: string, value: unknown[] | Record<string, unknown>): string {
+  if (Array.isArray(value) && value.length && value.every((x) => typeof x === 'string' || typeof x === 'number')) {
+    const shown = value.slice(0, 4).map((x) => (typeof x === 'number' ? fmtNum(x) : x))
+    return `${label} ${shown.join(', ')}${value.length > 4 ? ` +${value.length - 4} more` : ''}`
+  }
+  const n = Array.isArray(value) ? value.length : Object.keys(value).length
+  const noun = label.toLowerCase()
+  return `${n} ${n === 1 ? singular(noun) : noun}`
+}
+
+/**
+ * Formats one engine key/value pair for display, e.g. ("dv_pct", 0.84) → "ΔV 0.84%". WS2's tool
+ * summaries also carry lists and dicts (options, pipes, clashes, candidates): those read as a
+ * count or a short id list, never "[object Object]" (final review I2).
+ */
 export function fmtKeyValue(key: string, value: unknown): string {
   const d = describeKey(key)
   if (typeof value === 'number') {
     if (d.usd) return `${d.label} ${fmtUsd(value, key.endsWith('delta'))}`
     return `${d.label} ${fmtQty(value, d.unit === 'USD' ? null : d.unit)}${d.unit === 'USD' ? ' USD' : ''}`
   }
+  if (typeof value === 'boolean') return `${d.label} ${value ? '✓' : '✗'}`
+  if (value === null || value === undefined) return `${d.label} ${DASH}`
+  if (typeof value === 'object') return fmtCollection(d.label, value as unknown[] | Record<string, unknown>)
   return `${d.label} ${String(value)}`
+}
+
+/** A finding's formula input as label and value with its unit ("i_a", 1546.43 → "Current I", "1,546.43 A"). */
+export function fmtInput(key: string, value: unknown): { label: string; value: string } {
+  const d = describeKey(key)
+  if (typeof value === 'number') return { label: d.label, value: d.usd ? fmtUsd(value) : fmtQty(value, d.unit === 'USD' ? null : d.unit) }
+  if (Array.isArray(value) && value.every(isScalar)) return { label: d.label, value: value.map((x) => (typeof x === 'number' ? fmtNum(x) : String(x))).join(', ') }
+  if (value !== null && typeof value === 'object') {
+    const n = Array.isArray(value) ? value.length : Object.keys(value).length
+    return { label: d.label, value: `${n} ${n === 1 ? 'entry' : 'entries'}` }
+  }
+  return { label: d.label, value: value === null || value === undefined ? DASH : String(value) }
 }

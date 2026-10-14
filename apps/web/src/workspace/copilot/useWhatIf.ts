@@ -2,7 +2,7 @@
 // down), then POST /api/what-if. Results are shown, never saved.
 import { useState } from 'react'
 import { fmtQty } from '@/lib/format'
-import { findWhatIf } from '@/lib/select'
+import { findWhatIf, sameInput } from '@/lib/select'
 import type { WhatIfParam, WhatIfResult } from '@/lib/types'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { ApiError, describeApiError } from '@/services/apiClient'
@@ -56,7 +56,7 @@ export function paramLabel(p: WhatIfParam): string {
 
 export function chipsFor(precomputed: WhatIfResult[]): WhatIfChip[] {
   const all = [...WHAT_IF_PRESETS, ...precomputed.map((w) => ({ param: w.param, value: w.value }))]
-  return all.filter((c, i) => all.findIndex((d) => d.param === c.param && d.value === c.value) === i)
+  return all.filter((c, i) => all.findIndex((d) => d.param === c.param && sameInput(d.value, c.value)) === i)
 }
 
 const UNREACHABLE_TEXT = 'The engine is unreachable right now; the sample hall’s precomputed chips still work.'

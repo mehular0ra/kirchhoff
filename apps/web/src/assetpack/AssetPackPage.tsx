@@ -82,7 +82,9 @@ export function AssetPackView({
   rerunning: boolean
   narration: string | null
 }) {
-  const cols = optionColumns(result.options)
+  // Boolean verdict columns (*_ok, passes) duplicate the Checker section below (backlog [7]);
+  // an option the engine marks as not passing gets a Fail tag beside its name instead.
+  const cols = optionColumns(result.options).filter((c) => !result.options.every((o) => typeof o[c] === 'boolean' || o[c] == null))
   const sld = miniSld(result)
   const chosen = chosenOption(result)
   return (
@@ -115,6 +117,7 @@ export function AssetPackView({
                   <td className="border-b border-zinc-800 px-2 py-1 text-zinc-100">
                     {optionName(o)}
                     {rec && <span className="ml-2 rounded border border-teal-400/60 px-1 text-[10px] text-teal-200">Recommended</span>}
+                    {o.passes === false && <StatusBadge status="fail" compact className="ml-2" />}
                   </td>
                   {cols.map((c) => (
                     <td key={c} className="border-b border-zinc-800 px-2 py-1 font-mono tabular-nums">

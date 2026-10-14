@@ -8,6 +8,7 @@ import { fixtureBundle } from '@/test/fixtures'
 import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { WorkspaceProvider } from '../WorkspaceContext'
 import { bboxToCss } from './bbox'
+import { fmtKeyValue } from '@/lib/format'
 import { FindingDrawer, readFix } from './FindingDrawer'
 import PdfViewer from './PdfViewer'
 
@@ -55,6 +56,20 @@ test('fix dicts are read into label, reason and deltas', () => {
   })
 })
 
+test('I3: a real WS4 fix with a top-level cost_delta shows the cost first, then the labelled deltas', () => {
+  // r1 R05:FA-01 in public/demo/projects/hall-a.json (cost_delta sits beside `deltas`, not inside it).
+  const fix = readFix({
+    candidate: 'FA-01:cable-CBL-240-8P',
+    label: 'Replace FA-01 with a parallel cable feeder',
+    reason: 'Power chose this fix: largest voltage-drop margin per dollar.',
+    cost_delta: 15580.0,
+    deltas: { dv_pct: 0.8362, dv_limit_pct: 2.0, rating_a: 2500.0 },
+  })!
+  expect(fix.deltas.map(([k, v]) => fmtKeyValue(k, v))).toEqual(['Cost Δ +$15,580', 'ΔV 0.84%', 'ΔV limit 2%', 'Rating 2,500 A'])
+  const rejected = readFix({ candidate: 'H-Z2:reroute', label: 'Reroute H-Z2 clear of FB-03', cost_delta: -910.0, deltas: { crossings: 0.0, added_pipe_m: -4.0, changed_pipes: 2.0, index_dp_kpa: 65.51 } })!
+  expect(rejected.deltas.map(([k, v]) => fmtKeyValue(k, v))).toEqual(['Cost Δ -$910', 'Crossings 0', 'Added pipe -4 m', 'Changed pipes 2', 'Index-circuit Δp 65.51 kPa'])
+})
+
 test('drawer fills placeholders and shows formula, value vs limit and both fixes', () => {
   renderDrawer()
   act(() => {
@@ -64,7 +79,7 @@ test('drawer fills placeholders and shows formula, value vs limit and both fixes
   const dlg = screen.getByRole('dialog')
   expect(within(dlg).getByText('FA-01 drops 2.16% at failover current, above the 2% limit of §4.6.')).toBeInTheDocument()
   expect(within(dlg).getByText('ΔU% = 100·√3·I·L·(R cosφ + X sinφ)/U')).toBeInTheDocument()
-  expect(within(dlg).getByText('1,546')).toBeInTheDocument()
+  expect(within(dlg).getByText('1,546 A')).toBeInTheDocument() // M15: inputs carry their unit
   expect(within(dlg).getByRole('img', { name: 'Value 2.16% against limit 2%: Fail' })).toBeInTheDocument()
   expect(within(dlg).getByText('Chosen fix')).toBeInTheDocument()
   expect(within(dlg).getByText('Rejected alternative')).toBeInTheDocument()

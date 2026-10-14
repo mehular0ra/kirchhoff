@@ -1,3 +1,4 @@
+import { chipsFor } from '@/workspace/copilot/useWhatIf'
 import { fixtureBundle } from '@/test/fixtures'
 import { visibleEvents } from './events'
 import {
@@ -71,4 +72,12 @@ test('related elements include string inputs that name model elements', () => {
   const b = fixtureBundle()
   const f = findingsFor(b, 'r1').find((x) => x.id === 'R11:H-Z2')!
   expect(relatedElementIds(f, new Set(['H-Z2', 'FB-03']))).toEqual(['H-Z2', 'FB-03'])
+})
+
+test('backlog [6]: precomputed what-ifs match a float value within tolerance (0.9 vs 0.9000000000000001)', () => {
+  const b = fixtureBundle()
+  const w = b.what_ifs[0]
+  expect(findWhatIf(b, w.revision_ref, w.param, w.value + 1e-12)).toBe(w)
+  expect(findWhatIf(b, w.revision_ref, w.param, w.value + 0.5)).toBeNull()
+  expect(chipsFor([{ ...w, param: 'liquid_fraction', value: 0.9000000000000001 }]).filter((c) => c.param === 'liquid_fraction')).toHaveLength(1)
 })
