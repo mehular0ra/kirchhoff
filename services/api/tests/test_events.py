@@ -1,8 +1,9 @@
+import threading
 import time
 
 import pytest
 
-from kirchhoff.store.events import EventWriter
+from kirchhoff.store.events import MAX_FLUSH_RETRIES, EventWriter
 from kirchhoff.store.memory import MemoryStore
 
 
@@ -129,3 +130,83 @@ def test_fence_drops_pending_and_blocks_further_emits():
     assert store.list_docs("workspaces/u1/runs/r1/events") == []
     with pytest.raises(RuntimeError, match="fenced"):
         w.emit("system", "status", "second")
+
+
+RP = "workspaces/u1/runs/r1"
+
+
+class FlakyStore(MemoryStore):
+    """Fails the first `fails` batch writes (Firestore unavailable), then behaves."""
+
+    def __init__(self, fails: int) -> None:
+        super().__init__()
+        self.fails, self.calls = fails, 0
+
+    def batch_set(self, items):
+        self.calls += 1
+        if self.fails:
+            self.fails -= 1
+            raise RuntimeError("firestore unavailable")
+        super().batch_set(items)
+
+
+def _wait_for(pred, timeout_s=2.0):
+    deadline = time.monotonic() + timeout_s
+    while not pred() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    return pred()
+
+
+def test_set_step_flush_and_assignment_are_one_critical_section():
+    store = MemoryStore()
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=999)
+    w.emit("system", "status", "before")
+    racing, real = [], store.batch_set
+
+    def batch_set(items):  # runs inside set_step's flush; a concurrent default-step emit must wait for it
+        t = threading.Thread(target=lambda: racing.append(w.emit("system", "status", "racing")))
+        racing.append(t)
+        t.start()
+        t.join(0.1)
+        real(items)
+
+    store.batch_set = batch_set
+    w.set_step("p1.b")
+    store.batch_set = real
+    racing[0].join(2.0)
+    assert racing[1].step == "p1.b"
+    w.close()
+    assert [d["step"] for d in store.list_docs(f"{RP}/events")] == ["p1.a", "p1.b"]
+
+
+def test_failed_trailing_flush_rearms_with_backoff():
+    store = FlakyStore(fails=2)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.02)
+    w.emit("system", "status", "only event")
+    assert _wait_for(lambda: store.list_docs(f"{RP}/events"))
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1] and store.calls == 3
+    w.close()
+
+
+def test_trailing_flush_gives_up_after_the_retry_budget_and_close_still_flushes():
+    store = FlakyStore(fails=100)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.001)
+    w.emit("system", "status", "only event")
+    assert _wait_for(lambda: store.calls == 1 + MAX_FLUSH_RETRIES)
+    time.sleep(0.2)
+    assert store.calls == 1 + MAX_FLUSH_RETRIES  # no further timer is armed
+    store.fails = 0
+    w.close()
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1]
+
+
+def test_emit_after_close_raises_and_arms_no_timer():
+    store = MemoryStore()
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=0.01)
+    w.emit("system", "status", "one")
+    w.close()
+    with pytest.raises(RuntimeError, match="closed"):
+        w.emit("system", "status", "two")
+    time.sleep(0.05)
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1]
+    w.close()  # idempotent
