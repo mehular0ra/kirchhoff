@@ -22,7 +22,13 @@ class AdkRunner:
         from google.adk.agents import LlmAgent
         from google.genai import types
 
-        agent = LlmAgent(name=spec.name, model=self.model, instruction=spec.instruction, tools=list(tools),
+        # instruction=<callable> (an InstructionProvider), not a bare str: ADK's canonical_instruction()
+        # only sets bypass_state_injection=True for the callable form. Every NUMBERS_RULE-bearing spec
+        # (specs.py) has a literal "{value}"/"{limit}" in its instruction text -- those are placeholder
+        # tokens for the *app's* sanitizer, not ADK session-state refs, but the plain-str path runs them
+        # through inject_session_state() regardless and raises KeyError("value" not in session.state).
+        agent = LlmAgent(name=spec.name, model=self.model, instruction=lambda _ctx: spec.instruction,
+                         tools=list(tools),
                          generate_content_config=types.GenerateContentConfig(
                              thinking_config=types.ThinkingConfig(thinking_level=THINKING_LEVELS[spec.thinking])))
         if self.mode == "agent":
