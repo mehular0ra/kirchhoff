@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { useProjectData } from '@/data/useProjectData'
@@ -11,6 +11,8 @@ import { RevisionTimeline } from './RevisionTimeline'
 import { SldView } from './sld/SldView'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceProvider } from './WorkspaceContext'
+
+const HallView = lazy(() => import('./hall/HallView'))
 
 /** Resets UI state per project, then applies ?tab=, ?rev= and ?finding= whenever they change (tour, deep links). */
 function useUrlState(pid: string) {
@@ -48,7 +50,11 @@ export function WorkspacePage() {
   if (!data.bundle) return <EmptyState title="Loading workspace…" />
 
   const panes: Record<CanvasTab, ReactNode> = {
-    hall: <EmptyState title="3D hall">The 3D view of the selected revision appears here.</EmptyState>,
+    hall: (
+      <Suspense fallback={<EmptyState title="Loading 3D hall…" />}>
+        <HallView />
+      </Suspense>
+    ),
     sld: <SldView />,
     matrix: <EmptyState title="Compliance matrix">Checker results for the selected revision appear here.</EmptyState>,
     options: <EmptyState title="Topology options">Costed options appear here after Power and Procurement.</EmptyState>,
