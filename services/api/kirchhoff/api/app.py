@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI
 from kirchhoff.runs.deps import Deps
 from kirchhoff.store import Store
 
-from . import runs_routes, workspace_routes
+from . import copilot_routes, runs_routes, workspace_routes
 from .auth import firebase_verify, make_current_uid
 from .hello import make_router as hello_router
 
@@ -53,6 +53,7 @@ def create_app(store: Store | None = None, verify_token: Callable[[str], str] | 
     app.include_router(hello_router(store, current_uid))  # removed in Task 18
     app.include_router(workspace_routes.make_router(deps, current_uid))
     app.include_router(runs_routes.make_router(deps, current_uid))
+    app.include_router(copilot_routes.make_router(deps, current_uid))
     try:
         from .enterprise_proxy import make_router as enterprise_router  # WS4-owned module
     except ImportError:
