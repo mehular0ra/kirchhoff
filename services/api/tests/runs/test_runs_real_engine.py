@@ -9,7 +9,7 @@ import pytest
 
 from kirchhoff.agents.ports import load_erp_seed
 from kirchhoff.agents.runner import ReplayRunner
-from kirchhoff.contracts import RunRecord
+from kirchhoff.contracts import DesignModel, RunRecord
 from kirchhoff.engine import api as real_engine
 from kirchhoff.runs.blobs import MemoryBlobStore
 from kirchhoff.runs.deps import Deps
@@ -19,6 +19,8 @@ from kirchhoff.runs.orchestrator import start_phase
 from kirchhoff.runs.outputs import load_outputs
 from kirchhoff.runs.phase1 import run_p1
 from kirchhoff.runs.phase2 import run_p2
+from kirchhoff.runs.phase3 import run_p3
+from kirchhoff.runs.revisions import run_revisions
 from kirchhoff.runs.steps import PhaseContext, PhaseOutcome
 from kirchhoff.store.memory import MemoryStore
 
@@ -39,6 +41,19 @@ def real_deps():
                enterprise=FakeEnterprise(materials=materials), blobs=MemoryBlobStore(),
                scenarios_dir=SCENARIOS_DIR, seed_dir=SCENARIOS_DIR, spawn=lambda fn: fn(), heartbeat_s=3600.0,
                phases={"p1": run_p1, "p2": run_p2, "p3": _review_stub})
+
+
+@pytest.fixture
+def real_deps_p3():
+    """Same as `real_deps`, but with the real `run_p3` wired in instead of the review stub -- Task 13's
+    controller ruling: P1 -> P2 -> P3 against the REAL engine, checker and fix loop included."""
+    if not (SCENARIOS_DIR / "hall_a" / "tender.yaml").exists():
+        pytest.skip("real scenarios/hall_a fixtures not found")
+    materials = load_erp_seed(SCENARIOS_DIR / "hall_a" / "erp_seed.yaml")
+    return Deps(store=MemoryStore(), engine=real_engine, runner=ReplayRunner(dict(FAKE_REPLIES)),
+               enterprise=FakeEnterprise(materials=materials), blobs=MemoryBlobStore(),
+               scenarios_dir=SCENARIOS_DIR, seed_dir=SCENARIOS_DIR, spawn=lambda fn: fn(), heartbeat_s=3600.0,
+               phases={"p1": run_p1, "p2": run_p2, "p3": run_p3})
 
 
 def _make_run(deps, uid="u1", autonomy="auto") -> str:
@@ -94,3 +109,43 @@ def test_p1_p2_against_the_real_engine_auto_mode(real_deps):
     events = real_deps.store.list_docs(f"{rp}/events")
     ledger_titles = [e["title"] for e in events if e["kind"] == "ledger"]
     assert any("TX-2500 replaced by TX-3150 (R15)" in t for t in ledger_titles)
+
+
+def test_p1_p2_p3_against_the_real_engine_checker_beat(real_deps_p3):
+    """Task 13 controller ruling: run P1 -> P2 -> P3 against the REAL engine with `ReplayRunner(FAKE_REPLIES)`
+    standing in for the agent calls. This is the demo's checker beat -- the first revision fails exactly
+    R05:FA-01 and R11:H-Z2, the fix loop applies the R23 choices (FA-01 -> cable-CBL-240-8P, H-Z2 ->
+    local-drop), the second revision is all pass, each revision's `hash` is the engine's own `model_hash`,
+    and the run parks at the review gate with Approve enabled (no open findings)."""
+    uid = "u1"
+    rid = _make_run(real_deps_p3, uid, autonomy="auto")
+    start_phase(real_deps_p3, uid, rid, "p1")
+    rp = run_path(uid, rid)
+    run = real_deps_p3.store.get_doc(rp)
+    assert run is not None and run["status"] != "failed", run
+    assert (run["status"], run["gate"]) == ("at_gate", "review"), run
+
+    revs = run_revisions(real_deps_p3.store, uid, rid)
+    assert len(revs) == 2
+    r1, r2 = revs
+
+    fail_ids = {f["id"] for f in real_deps_p3.store.list_docs(f"workspaces/{uid}/revisions/{r1['id']}/findings")
+               if f["status"] == "fail"}
+    assert fail_ids == {"R05:FA-01", "R11:H-Z2"}
+    assert r1["check_summary"]["fail"] == 2
+
+    f1 = {f["id"]: f for f in real_deps_p3.store.list_docs(f"workspaces/{uid}/revisions/{r1['id']}/findings")}
+    assert f1["R05:FA-01"]["fix"]["candidate"] == "FA-01:cable-CBL-240-8P"
+    assert f1["R11:H-Z2"]["fix"]["candidate"] == "H-Z2:local-drop"
+
+    assert r2["check_summary"]["fail"] == 0 and r2["parent"] == r1["id"]
+
+    # R22: each revision's `hash` is always `engine.model_hash(model)`, recomputed from the blob-stored model.
+    for rev in (r1, r2):
+        assert rev["model"] is None
+        model = DesignModel.model_validate_json(real_deps_p3.blobs.get(f"workspaces/{uid}/{rev['model_url']}"))
+        assert rev["hash"] == real_engine.model_hash(model)
+    assert r1["hash"] != r2["hash"]
+
+    # No open findings on the latest revision: Approve must not be disabled (WS3 rule).
+    assert r2["check_summary"]["fail"] == 0
