@@ -6,10 +6,10 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 
 | Workstream | Branch | Done | In flight |
 |---|---|---|---|
-| WS1 Engine (P1) | `ws1-engine` | 15 / 15, final review clean, merged | small hardening follow-up (forged-fix guards) |
-| WS2 Agents + API (P2) | `ws2-agents` | 7 / 18 | Task 8: step machinery |
-| WS3 Web UI (P3) | `ws3-web` | 7 / 19 | Task 8: 3D hall (fix round 3: tube animation) |
-| WS4 Infra + enterprise + demo world (P4) | `ws4-infra` | 7 / 16 (8 in fix) | Task 8: monitoring, small fix queued |
+| WS1 Engine (P1) | `ws1-engine` | 15 / 15 + hardening, merged | done |
+| WS2 Agents + API (P2) | `ws2-agents` | 11 / 18 | Task 12: HTTP API wiring; live P1/P2 smokes running |
+| WS3 Web UI (P3) | `ws3-web` | 19 / 19, merged to build | final whole-branch review |
+| WS4 Infra + enterprise + demo world (P4) | `ws4-infra` | 12 / 16 | Tasks 13–16 wait for the live API + golden capture |
 | Submission | `docs/submission/` | drafts reviewed | team bios/photos, GitHub/video URLs, measured run metrics |
 
 `build` now contains every workstream at its last clean task boundary. Its suites pass: 277 pytest, 73 vitest, `tsc -b` and `make check-types`.
