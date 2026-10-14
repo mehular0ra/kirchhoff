@@ -32,28 +32,27 @@ def _review_stub(ctx: PhaseContext) -> PhaseOutcome:
     return PhaseOutcome(gate="review")
 
 
-@pytest.fixture
-def real_deps():
+def _real_deps(phases: dict) -> Deps:
+    """Fix round 1, Minor: shared by `real_deps` and `real_deps_p3`, which differed only in `phases['p3']`."""
     if not (SCENARIOS_DIR / "hall_a" / "tender.yaml").exists():
         pytest.skip("real scenarios/hall_a fixtures not found")
     materials = load_erp_seed(SCENARIOS_DIR / "hall_a" / "erp_seed.yaml")
     return Deps(store=MemoryStore(), engine=real_engine, runner=ReplayRunner(dict(FAKE_REPLIES)),
                enterprise=FakeEnterprise(materials=materials), blobs=MemoryBlobStore(),
                scenarios_dir=SCENARIOS_DIR, seed_dir=SCENARIOS_DIR, spawn=lambda fn: fn(), heartbeat_s=3600.0,
-               phases={"p1": run_p1, "p2": run_p2, "p3": _review_stub})
+               phases=phases)
+
+
+@pytest.fixture
+def real_deps():
+    return _real_deps({"p1": run_p1, "p2": run_p2, "p3": _review_stub})
 
 
 @pytest.fixture
 def real_deps_p3():
     """Same as `real_deps`, but with the real `run_p3` wired in instead of the review stub -- Task 13's
     controller ruling: P1 -> P2 -> P3 against the REAL engine, checker and fix loop included."""
-    if not (SCENARIOS_DIR / "hall_a" / "tender.yaml").exists():
-        pytest.skip("real scenarios/hall_a fixtures not found")
-    materials = load_erp_seed(SCENARIOS_DIR / "hall_a" / "erp_seed.yaml")
-    return Deps(store=MemoryStore(), engine=real_engine, runner=ReplayRunner(dict(FAKE_REPLIES)),
-               enterprise=FakeEnterprise(materials=materials), blobs=MemoryBlobStore(),
-               scenarios_dir=SCENARIOS_DIR, seed_dir=SCENARIOS_DIR, spawn=lambda fn: fn(), heartbeat_s=3600.0,
-               phases={"p1": run_p1, "p2": run_p2, "p3": run_p3})
+    return _real_deps({"p1": run_p1, "p2": run_p2, "p3": run_p3})
 
 
 def _make_run(deps, uid="u1", autonomy="auto") -> str:
@@ -141,11 +140,17 @@ def test_p1_p2_p3_against_the_real_engine_checker_beat(real_deps_p3):
     assert r2["check_summary"]["fail"] == 0 and r2["parent"] == r1["id"]
 
     # R22: each revision's `hash` is always `engine.model_hash(model)`, recomputed from the blob-stored model.
+    r2_model = None
     for rev in (r1, r2):
         assert rev["model"] is None
         model = DesignModel.model_validate_json(real_deps_p3.blobs.get(f"workspaces/{uid}/{rev['model_url']}"))
         assert rev["hash"] == real_engine.model_hash(model)
+        r2_model = model
     assert r1["hash"] != r2["hash"]
 
-    # No open findings on the latest revision: Approve must not be disabled (WS3 rule).
-    assert r2["check_summary"]["fail"] == 0
+    # Fix round 1, Minor: also assert `warn == 0` (no open findings of any severity on the latest
+    # revision -- Approve must not be disabled, WS3 rule), and that the applied FA-01 fix's own real
+    # candidate patch (not a forged one) landed on r2's model, reloaded from the blob store.
+    assert r2["check_summary"]["fail"] == 0 and r2["check_summary"]["warn"] == 0
+    fa = next(c for c in r2_model.connections if c.id == "FA-01")
+    assert fa.catalogue_id == "CBL-240-8P"

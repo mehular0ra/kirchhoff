@@ -122,10 +122,39 @@ def test_forged_candidate_id_and_patch_from_the_agent_are_never_trusted(p123, ma
     r1 = run_revisions(p123.store, "u1", rid)[0]
     fix = _findings(p123, r1["id"])["R05:FA-01"]["fix"]
     assert fix["candidate"] == "FA-01:cable-CBL-240-8P"  # the engine's own `preferred_candidate` fallback
+    # Fix round 1, Important 1(a): assert the EXACT fallback-template reason too, which only ever fires
+    # when the forged reply was actually delivered to `_fix` and then rejected by the id lookup -- a test
+    # where the reply never arrived (or was swallowed by `agent_json`'s `except Exception -> None`) would
+    # produce this exact same candidate (it's also the deterministic R23 fallback) but a DIFFERENT reason
+    # (the plain template fires only when `reply is not None` but its id didn't match).
+    assert fix["reason"] == ("Power chose FA-01:cable-CBL-240-8P for R05:FA-01: largest voltage-drop margin "
+                             "per dollar, that is the limit minus the resulting drop, divided by the cost "
+                             "delta.")
     r2 = latest_revision(p123.store, "u1", rid)
     model = DesignModel.model_validate_json(p123.blobs.get(f"workspaces/u1/{r2['model_url']}"))
     fa = next(c for c in model.connections if c.id == "FA-01")
     assert fa.catalogue_id == "CBL-240-8P"  # the real engine candidate's own patch, not the forged one
+
+
+def test_matched_real_candidate_id_ignores_a_forged_patch_in_the_same_reply(p123, make_run):
+    """Fix round 1, Important 1(b): the matched-id path (where a patch-merge regression would actually
+    live) was never exercised by the forged-UNKNOWN-id test above. Here the agent legitimately picks a
+    REAL, non-preferred candidate id (`FA-01:upsize-BW-2000`, not the R23-preferred cable) alongside a
+    forged `patch` in the very same reply. The id match must be honoured (it's a real engine candidate),
+    but the forged patch must never be read: applying a fix always means
+    `engine.apply_fix(model, <the matched engine FixCandidate>)`, so the model ends up with that
+    candidate's own catalogue id (BW-2000), never the forged one (MADE-UP-WIRE)."""
+    p123.runner.replies["power:p3.fix.1:R05:FA-01"] = {
+        "text": {"candidate_id": "FA-01:upsize-BW-2000", "reason": "x",
+                 "patch": {"connection": "FA-01", "catalogue_id": "MADE-UP-WIRE", "dv_pct": 0.0}}}
+    rid = _to_review(p123, make_run)
+    r1 = run_revisions(p123.store, "u1", rid)[0]
+    fix = _findings(p123, r1["id"])["R05:FA-01"]["fix"]
+    assert fix["candidate"] == "FA-01:upsize-BW-2000"  # the agent's matched (real) id, honoured
+    r2 = latest_revision(p123.store, "u1", rid)
+    model = DesignModel.model_validate_json(p123.blobs.get(f"workspaces/u1/{r2['model_url']}"))
+    fa = next(c for c in model.connections if c.id == "FA-01")
+    assert fa.catalogue_id == "BW-2000"  # the matched candidate's own patch, not the forged one
 
 
 class NoFixEngine(FakeEngine):
@@ -139,9 +168,47 @@ def test_fix_loop_exhaustion_stops_at_review_with_open_findings(p123, make_run):
     rid = _to_review(p123, make_run)
     revs = run_revisions(p123.store, "u1", rid)
     assert len(revs) == 3 and revs[-1]["check_summary"]["fail"] == 2
+    stop_text = "Fix loop stopped after 2 iterations; open findings: R05:FA-01, R11:H-Z2. Approval is disabled."
     ledger = [e["title"] for e in _events(p123, rid) if e["kind"] == "ledger"]
-    assert any(t.startswith("Fix loop stopped after 2 iterations") for t in ledger)
+    assert stop_text in ledger
+    # spec §6.1: the open findings are listed, both as the ledger's run-level event and as findings
+    # actually re-emitted on the last check step, naming the final revision.
+    fails = [e for e in _events(p123, rid) if e["kind"] == "finding" and e["step"] == "p3.check.3"]
+    assert {e["payload"]["finding_id"] for e in fails} == {"R05:FA-01", "R11:H-Z2"}
+    assert all(e["payload"]["rev"] == revs[-1]["id"] for e in fails)
     assert _run(p123, rid)["gate"] == "review"
+    # Fix round 1, Minor: the stop ledger entry must also land in the sign-off ledger of the final
+    # revision itself (not just as a run-level event), since the ledger IS the audit trail (R16).
+    assert stop_text in [e["text"] for e in revs[-1]["ledger"]]
+
+
+class NoCandidateEngine(FakeEngine):
+    """Every rule returns no fix candidate at all, even for a currently-failing finding -- distinct from
+    `fix_candidates`'s normal `[]` once a finding has already passed (P2-R3b)."""
+    def fix_candidates(self, scn, model, finding, erp):
+        self._log("fix_candidates")
+        return []
+
+
+def test_fix_loop_stops_immediately_when_no_engine_candidate_clears_a_finding(p123, make_run):
+    """Fix round 1, Important 3: when no failing finding has ANY engine candidate, the loop must break
+    after the first fix attempt (never claiming an iteration count it didn't run), write accurate "no
+    candidate" ledger text (not the exhaustion message, which would be false here), and still park the run
+    at the review gate with the open findings intact."""
+    p123.engine = NoCandidateEngine()
+    rid = _to_review(p123, make_run)
+    revs = run_revisions(p123.store, "u1", rid)
+    assert len(revs) == 1 and revs[0]["check_summary"]["fail"] == 2  # one fix-free revision, nothing applied
+    assert _run(p123, rid)["gate"] == "review"
+    evs = _events(p123, rid)
+    status_titles = {e["title"] for e in evs if e["kind"] == "status" and e["step"] == "p3.fix.1"}
+    assert status_titles == {"No engine candidate clears R05:FA-01", "No engine candidate clears R11:H-Z2"}
+    stop_text = ("No engine candidate clears the remaining open findings; fix loop stopped after 1 "
+                "iteration(s); open findings: R05:FA-01, R11:H-Z2. Approval is disabled.")
+    ledger = [e["title"] for e in evs if e["kind"] == "ledger"]
+    assert stop_text in ledger
+    assert not any(t.startswith("Fix loop stopped after 2 iterations") for t in ledger)  # would be false here
+    assert stop_text in [e["text"] for e in revs[-1]["ledger"]]
 
 
 class NoSwapEngine(FakeEngine):
