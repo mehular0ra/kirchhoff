@@ -2,6 +2,7 @@
 // keep-out volume, CDU bays; coloured by finding status with icon+text labels; click → finding.
 import { Edges, Grid, Html, Instance, Instances, OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import type { LucideIcon } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -15,6 +16,7 @@ import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
 import { useWorkspace, type WorkspaceView } from '../WorkspaceContext'
 import { buildHallScene, crossingPoint, midpoint, resample, type HallScene, type SceneTube, type V3 } from './hallScene'
+import { useDisposableState } from './useDisposableState'
 
 const BASE = {
   rack: '#3f4650',
@@ -76,11 +78,16 @@ function AnimatedTube({ tube, view, pos, onPick }: { tube: SceneTube; view: Work
   const from = useRef<V3[] | null>(null)
   const target = useMemo(() => resample(tube.points, 32), [tube.points])
   const t0 = useRef(0)
-  const [geom, setGeom] = useState(() => tubeGeometry(tube.points, tube.radius, pos))
+  // useDisposableState (not useState) so the geometry this effect replaces is disposed, not
+  // orphaned — the initial value from the lazy initializer is left alone on mount.
+  const [geom, setGeom] = useDisposableState(() => tubeGeometry(tube.points, tube.radius, pos))
 
   useEffect(() => {
     if (reduce || !from.current) {
-      setGeom(tubeGeometry(tube.points, tube.radius, pos))
+      // Skip on the very first run (from.current is still null): the initial geometry built by
+      // useDisposableState's lazy initializer already matches `target`, so building again here
+      // would just discard it unused.
+      if (from.current) setGeom(tubeGeometry(tube.points, tube.radius, pos))
       from.current = target
       return
     }
@@ -134,6 +141,7 @@ interface Label {
   text: string
   clause: string | null
   tone: string
+  icon: LucideIcon
   findingId: string | null
 }
 
@@ -148,7 +156,7 @@ function buildLabels(scene: HallScene, v: WorkspaceView): Label[] {
   const known = new Set([...tubes.keys(), ...scene.racks.map((r) => r.id), ...scene.cdus.map((c) => c.id)])
   const out: Label[] = []
   const seenRows = new Set<string>()
-  const add = (f: Finding, text: string, tone: string) => {
+  const add = (f: Finding, text: string, tone: string, icon: LucideIcon) => {
     const rack = scene.racks.find((r) => r.id === f.element_id)
     if (rack) {
       if (seenRows.has(rack.row)) return
@@ -158,14 +166,17 @@ function buildLabels(scene: HallScene, v: WorkspaceView): Label[] {
     const a = tubes.get(related[0])
     const b = related[1] ? tubes.get(related[1]) : undefined
     const at = (a && b && crossingPoint(a.points, b.points)) || anchor(f.element_id)
-    if (at) out.push({ id: `${f.id}:${text}`, at, text, clause: f.tender_refs?.[0]?.clause ?? null, tone, findingId: f.id })
+    if (at) out.push({ id: `${f.id}:${text}`, at, text, clause: f.tender_refs?.[0]?.clause ?? null, tone, icon, findingId: f.id })
   }
   if (v.highlights.size) {
-    for (const f of (v.whatIf?.findings ?? []).filter((x) => x.status === 'fail')) add(f, `what-if: Fail · ${f.rule_id} · ${f.element_id}`, STATUS_META.fail.text)
+    for (const f of (v.whatIf?.findings ?? []).filter((x) => x.status === 'fail'))
+      add(f, `what-if: Fail · ${f.rule_id} · ${f.element_id}`, STATUS_META.fail.text, STATUS_META.fail.icon)
   } else {
     for (const f of [...v.findings].sort((x, y) => statusRank(y.status) - statusRank(x.status))) {
-      if (f.status === 'fail' || f.status === 'warn') add(f, `${STATUS_META[f.status].label} · ${f.rule_id} · ${f.element_id}`, STATUS_META[f.status].text)
-      else if (v.diff && v.resolved.has(f.element_id)) add(f, `✓ resolved · ${f.rule_id} · ${f.element_id}`, 'text-emerald-300')
+      if (f.status === 'fail' || f.status === 'warn')
+        add(f, `${STATUS_META[f.status].label} · ${f.rule_id} · ${f.element_id}`, STATUS_META[f.status].text, STATUS_META[f.status].icon)
+      else if (v.diff && v.resolved.has(f.element_id))
+        add(f, `✓ resolved · ${f.rule_id} · ${f.element_id}`, 'text-emerald-300', STATUS_META.pass.icon)
     }
   }
   return out.slice(0, 12)
@@ -340,18 +351,22 @@ function HallScene3D({ scene }: { scene: HallScene }) {
       {scene.tubes.map((t) => (
         <AnimatedTube key={t.id} tube={t} view={v} pos={pos} onPick={() => pick([t.id])} />
       ))}
-      {labels.map((l) => (
-        <Html key={l.id} position={pos([l.at[0], l.at[1], l.at[2] + 0.6])} center zIndexRange={[20, 0]}>
-          <button
-            type="button"
-            onClick={() => l.findingId && openFinding(l.findingId)}
-            className={`flex items-center gap-1 whitespace-nowrap rounded border border-zinc-600 bg-zinc-950/90 px-1.5 py-0.5 font-mono text-[10px] ${l.tone}`}
-          >
-            {l.text}
-            {l.clause && <span className="rounded bg-sky-500/15 px-1 text-sky-200">Tender {l.clause}</span>}
-          </button>
-        </Html>
-      ))}
+      {labels.map((l) => {
+        const Icon = l.icon
+        return (
+          <Html key={l.id} position={pos([l.at[0], l.at[1], l.at[2] + 0.6])} center zIndexRange={[20, 0]}>
+            <button
+              type="button"
+              onClick={() => l.findingId && openFinding(l.findingId)}
+              className={`flex items-center gap-1 whitespace-nowrap rounded border border-zinc-600 bg-zinc-950/90 px-1.5 py-0.5 font-mono text-[10px] ${l.tone}`}
+            >
+              <Icon aria-hidden className="size-3 shrink-0" />
+              {l.text}
+              {l.clause && <span className="rounded bg-sky-500/15 px-1 text-sky-200">Tender {l.clause}</span>}
+            </button>
+          </Html>
+        )
+      })}
       <OrbitControls makeDefault target={[0, 1.5, 0]} maxPolarAngle={Math.PI / 2.1} />
       <CameraRig scene={scene} focusAt={focusAt} coldOpenAt={coldOpenAt} />
     </>
