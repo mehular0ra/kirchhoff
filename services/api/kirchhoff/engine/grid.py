@@ -2,6 +2,7 @@
 conductors compared on N-1 ampacity, voltage regulation and I²R losses; pandapower fault level at the
 connection point; mini SLD. IEC-based, illustrative, not for construction."""
 import math
+import threading
 import warnings
 from pathlib import Path
 
@@ -10,6 +11,8 @@ import yaml
 from kirchhoff.contracts import ClauseRef, Finding
 
 from .scenario import scenarios_root
+
+_LOCK = threading.Lock()
 
 RULES = {
     "G01": ("Conductor ampacity (N-1)", [("IEC TR 61597", None)], "I = S/(√3·U) on one circuit ≤ ampacity"),
@@ -53,7 +56,7 @@ def evaluate_conductor(cfg: dict, cond: dict, length_km: float) -> dict:
 
 
 def fault_levels(cfg: dict, cond: dict, length_km: float) -> dict:
-    with warnings.catch_warnings():
+    with _LOCK, warnings.catch_warnings():
         warnings.simplefilter("ignore")
         import pandapower as pp
         import pandapower.shortcircuit as sc

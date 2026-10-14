@@ -3,7 +3,9 @@ UPS output (critical) boards, STS outputs and busway origins (spec §8.2). UPS s
 closed (worst case), so a critical board sees its LV board's fault level."""
 import hashlib
 import json
+import threading
 import warnings
+from collections import OrderedDict
 from dataclasses import dataclass
 
 from kirchhoff.contracts import DesignModel
@@ -17,13 +19,35 @@ class ScResult:
     ip_ka: dict[str, float]  # node id -> peak ip (kA)
 
 
-_CACHE: dict[str, ScResult] = {}
+_CACHE: "OrderedDict[str, ScResult]" = OrderedDict()
+_CACHE_MAX = 32
+_LOCK = threading.Lock()
 
 
-def _key(model: DesignModel) -> str:
+def _catalogue_fingerprint(scn: Scenario, model: DesignModel) -> list[dict]:
+    """Every catalogue entry the calculation actually reads (R/X, conductor count, transformer and MV source
+    parameters), keyed by the catalogue id so that two scenarios sharing an id but differing in its underlying
+    R/X (or similar) never collide in the cache (I-3)."""
+    cat_ids = sorted({e.catalogue_id for e in model.equipment if e.catalogue_id} |
+                     {c.catalogue_id for c in model.connections if c.catalogue_id})
+    out = []
+    for cid in cat_ids:
+        try:
+            item = cat_item(scn, cid)
+        except KeyError:
+            continue
+        out.append({"id": cid, "r_mohm_m": item.get("r_mohm_m"), "x_mohm_m": item.get("x_mohm_m"),
+                    "conductors_per_phase": item.get("conductors_per_phase"), "uk_pct": item.get("uk_pct"),
+                    "pk_kw": item.get("pk_kw"), "p0_kw": item.get("p0_kw")})
+    return out
+
+
+def _key(scn: Scenario, model: DesignModel) -> str:
     payload = [e.model_dump(mode="json") for e in model.equipment if e.kind != "busway"]
     payload += [c.model_dump(mode="json", exclude={"route"}) for c in model.connections]
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    payload.append({"lv_v": limit(scn, "lv_v"), "mv_kv": limit(scn, "mv_kv"),
+                    "catalogue": _catalogue_fingerprint(scn, model)})
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def run_impedance_ohm_km(scn: Scenario, catalogue_id: str) -> tuple[float, float]:
@@ -33,10 +57,11 @@ def run_impedance_ohm_km(scn: Scenario, catalogue_id: str) -> tuple[float, float
 
 
 def short_circuit(scn: Scenario, model: DesignModel) -> ScResult:
-    key = _key(model)
+    key = _key(scn, model)
     if key in _CACHE:
+        _CACHE.move_to_end(key)
         return _CACHE[key]
-    with warnings.catch_warnings():
+    with _LOCK, warnings.catch_warnings():
         warnings.simplefilter("ignore")
         import pandapower as pp
         import pandapower.shortcircuit as sc
@@ -87,4 +112,6 @@ def short_circuit(scn: Scenario, model: DesignModel) -> ScResult:
         ip = {names[i]: round(float(res.at[i, "ip_ka"]), 3) for i in res.index if i in names}
     result = ScResult(ikss, ip)
     _CACHE[key] = result
+    if len(_CACHE) > _CACHE_MAX:
+        _CACHE.popitem(last=False)
     return result

@@ -101,6 +101,62 @@ def test_r05_route_and_length_m_agree_on_golden_model(scn, erp, routed):
     assert fa01.length_m == pytest.approx(82.0)
 
 
+
+
+# ---------------------------------------------------------------- I-3 ----
+
+def test_sc_cache_key_includes_scenario_inputs(scn, racks):
+    import copy
+    from dataclasses import replace
+
+    from kirchhoff.engine.scenario import with_limit
+    from kirchhoff.engine.shortcircuit import _CACHE, short_circuit
+    from kirchhoff.engine.topology import build_model
+
+    _CACHE.clear()
+    m = build_model(scn, racks, "2N", "TX-3150")
+    a = short_circuit(scn, m).ikss_ka["end:A-01"]
+
+    cat = copy.deepcopy(scn.catalogue)
+    for b in cat["busways"]:
+        b["r_mohm_m"] *= 10
+        b["x_mohm_m"] *= 10
+    scn2 = replace(with_limit(scn, "lv_v", 400.0), name="hall_c", catalogue=cat)
+    b = short_circuit(scn2, m).ikss_ka["end:A-01"]
+    assert b != a, "hall_c (400 V, 10x busway impedance) must not reuse hall_a's cached result"
+    assert b == pytest.approx(short_circuit(scn2, m.model_copy()).ikss_ka["end:A-01"])
+
+
+def test_sc_cache_is_bounded_to_32_entries():
+    import copy
+    from dataclasses import replace
+
+    from kirchhoff.engine.scenario import load_scenario
+    from kirchhoff.engine.shortcircuit import _CACHE, short_circuit
+    from kirchhoff.engine.topology import build_model
+    from kirchhoff.engine.layout import place_racks
+
+    _CACHE.clear()
+    base = load_scenario("hall_a")
+    racks = place_racks(base)
+    m = build_model(base, racks, "2N", "TX-3150")
+    for i in range(40):
+        cat = copy.deepcopy(base.catalogue)
+        cat["transformers"][0]["p0_kw"] = float(i) + 0.1
+        scn_i = replace(base, name=f"v{i}", catalogue=cat)
+        short_circuit(scn_i, m)
+    assert len(_CACHE) <= 32
+
+
+def test_m5_warnings_regions_are_lock_guarded():
+    import threading
+
+    from kirchhoff.engine import grid, shortcircuit
+
+    assert isinstance(shortcircuit._LOCK, type(threading.Lock()))
+    assert isinstance(grid._LOCK, type(threading.Lock()))
+
+
 def test_apply_fix_bad_catalogue_id_caught_by_next_check(scn, erp, routed):
     """apply_fix's signature is frozen, so it cannot take a Scenario; a forged catalogue id that slips through
     apply_fix is still caught the moment the model next passes check() (via validate_model, I-5)."""
