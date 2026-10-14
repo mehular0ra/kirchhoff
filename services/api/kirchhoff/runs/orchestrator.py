@@ -219,7 +219,14 @@ def _worker(deps: Deps, uid: str, rid: str, phase: str, attempt: int) -> None:
     except Exception as exc:
         log.exception("run %s/%s failed in %s", uid, rid, current)
         _record_failure(deps, uid, rid, current or phase, attempt, exc)
-        release_lease(deps.store, uid, rid, deps.owner, attempt, {"status": "failed", "phase": current or phase})
+        try:
+            # Minor 3 (fix round 1): a store error here (e.g. a transient Firestore outage) must not
+            # escape as an uncaught exception on the worker thread -- that would just silently strand
+            # the run "running" forever with nobody left to notice, instead of (best-effort) leaving it
+            # for resume_run's stale-lease path to pick up later.
+            release_lease(deps.store, uid, rid, deps.owner, attempt, {"status": "failed", "phase": current or phase})
+        except Exception:
+            log.exception("could not release the lease after a failure for %s/%s", uid, rid)
     finally:
         stop.set()
 

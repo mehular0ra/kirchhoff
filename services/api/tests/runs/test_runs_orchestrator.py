@@ -294,3 +294,31 @@ def test_record_failure_does_not_emit_after_a_stale_takeover(deps, make_run):
     orch._record_failure(deps, "u1", rid, "p1", attempt, RuntimeError("boom"))
     assert _events(deps, rid) == []
     assert deps.store.get_doc(f"{run_path('u1', rid)}/steps/p1.failed") is None
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1 (reviewer)
+# ---------------------------------------------------------------------------
+
+
+def test_failure_path_release_lease_error_does_not_crash_the_worker_thread(deps, make_run, monkeypatch):
+    """Minor 3: a store error (e.g. a transient Firestore outage) in the failure-path release_lease call
+    must not escape _worker as an uncaught exception -- it must be logged and swallowed, same as every
+    other best-effort cleanup step the worker takes after a real step failure."""
+    def boom(ctx):
+        raise RuntimeError("engine exploded")
+
+    deps.phases = {"p1": boom}
+    rid = make_run()
+    real_release = orch.release_lease
+
+    def flaky_release(store, uid_, rid_, owner, attempt, patch):
+        if patch.get("status") == "failed":
+            raise RuntimeError("firestore unavailable")
+        return real_release(store, uid_, rid_, owner, attempt, patch)
+
+    monkeypatch.setattr(orch, "release_lease", flaky_release)
+    start_phase(deps, "u1", rid, "p1")  # must not raise, even though the failure-path release blew up
+    run = _run(deps, rid)
+    assert run["status"] == "running"  # the release failed, so status could not flip to "failed"
+    assert run["lease"]["owner"] == deps.owner  # the lease was never actually released either
