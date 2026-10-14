@@ -66,6 +66,16 @@ function SldCanvas() {
   const whatIfActive = view.highlights.size > 0
   const levelOf = useMemo(() => new Map(graph?.nodes.map((n) => [n.id, n.level]) ?? []), [graph])
 
+  // Opens a node's (or clicked flow-node's) worst non-pass finding, falling back to focus.
+  // Shared by onNodeClick (mouse) and each node's onKeyDown (Enter/Space) so the two paths can't drift apart.
+  const activateNode = (id: string, members: string[]) => {
+    const worst = view.findings
+      .filter((f) => members.includes(f.element_id) && f.status !== 'pass')
+      .sort((a, b) => statusRank(b.status) - statusRank(a.status))[0]
+    if (worst) openFinding(worst.id)
+    else focus(id)
+  }
+
   const nodes: SldFlowNode[] = useMemo(() => {
     if (!graph || !pos) return []
     return graph.nodes.map((n) => {
@@ -93,9 +103,11 @@ function SldCanvas() {
           whatIfStatus: worstStatus(wis),
           dim: whatIfActive && chain.length === 0,
           focused: focusId === n.id || n.members.includes(focusId ?? ''),
+          activate: () => activateNode(n.id, n.members),
         },
       }
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activateNode closes over view, already a dep
   }, [graph, pos, view, reveal, whatIfActive, focusId])
 
   const edges: Edge[] = useMemo(() => {
@@ -143,16 +155,12 @@ function SldCanvas() {
       nodeTypes={nodeTypes}
       nodesDraggable={false}
       nodesConnectable={false}
+      nodesFocusable={false}
       minZoom={0.15}
       proOptions={{ hideAttribution: true }}
       onNodeClick={(_, node) => {
         const spec = graph?.nodes.find((n) => n.id === node.id)
-        const members = spec?.members ?? [node.id]
-        const worst = view.findings
-          .filter((f) => members.includes(f.element_id) && f.status !== 'pass')
-          .sort((a, b) => statusRank(b.status) - statusRank(a.status))[0]
-        if (worst) openFinding(worst.id)
-        else focus(node.id)
+        activateNode(node.id, spec?.members ?? [node.id])
       }}
       onEdgeClick={(_, edge) => {
         const f = view.findings.find((x) => x.element_id === edge.id && x.status !== 'pass')

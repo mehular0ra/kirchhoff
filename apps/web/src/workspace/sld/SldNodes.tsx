@@ -20,6 +20,8 @@ export interface SldNodeData extends Record<string, unknown> {
   whatIfStatus: FindingStatus | null
   dim: boolean
   focused: boolean
+  /** Opens the node's worst non-pass finding (falling back to focus) — shared by click and keyboard. */
+  activate: () => void
 }
 export type SldFlowNode = Node<SldNodeData, 'sld'>
 
@@ -103,8 +105,16 @@ function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
   const ring = data.chain.length ? CHAIN_COLORS[data.chain[0]] : undefined
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={data.label}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault() // Space must not scroll the canvas (global constraint: keyboard-reachable controls).
+        data.activate()
+      }}
       className={cn(
-        'flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md border bg-zinc-950/90 px-2 text-center transition-[opacity,border-color,box-shadow] duration-500',
+        'flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md border bg-zinc-950/90 px-2 text-center transition-[opacity,border-color,box-shadow] duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400',
         st ? st.border : 'border-zinc-700',
         data.status === 'fail' && 'shadow-[0_0_14px_rgba(251,113,133,0.45)]',
         data.change === 'changed' && 'border-dashed border-amber-400',
