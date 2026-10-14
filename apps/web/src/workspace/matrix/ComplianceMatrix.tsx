@@ -68,7 +68,7 @@ export function ComplianceMatrix() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rulesKey, focus],
   )
-  const table = useTable({ features, columns, data: rows })
+  const table = useTable({ features, columns, data: rows, getRowId: (r) => r.element })
 
   if (!findings.length) {
     return <EmptyState title="No checks yet">The Checker fills this matrix as it runs the rule pack on a revision.</EmptyState>
