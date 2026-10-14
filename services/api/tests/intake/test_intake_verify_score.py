@@ -25,6 +25,20 @@ def test_wrong_page_wrong_value_and_out_of_range(tender_pdf):
         assert verify_quote(pdf, 4, "2.0%", 2.0).reason == "quote_too_short"
 
 
+def test_wrong_unit_is_unverified_and_correct_unit_verifies(tender_pdf):
+    q = "shall not exceed 2.0% at the worst-case design current"
+    with PdfText(tender_pdf) as pdf:
+        assert verify_quote(pdf, 4, q, 2.0, "A").reason == "unit_not_in_quote"
+        assert verify_quote(pdf, 4, q, 2.0, "%").ok
+        assert verify_quote(pdf, 4, q, 2.0).ok  # unit optional, defaults to no check
+
+
+def test_quote_with_unicode_hyphen_verifies(tender_pdf):
+    # §4.5 renders "single-failure"; an extracted quote with U+2010 should still normalize and match.
+    with PdfText(tender_pdf) as pdf:
+        assert verify_quote(pdf, 4, "worst single‐failure load", None).ok
+
+
 def test_value_in_quote_handles_words_strings_and_separators():
     assert value_in_quote(2, "supplied from two independent UPS-backed power systems")
     assert value_in_quote("2N", "The critical power system shall be 2N from the transformers")

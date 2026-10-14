@@ -9,8 +9,8 @@ AGREES = {"agrees": True, "differences": []}
 
 def _brief(tender_pdf, extraction):
     with PdfText(tender_pdf) as pdf:
-        return build_brief("hall-b", "tender-hall-a", extraction, lambda p, q, v: verify_quote(pdf, p, q, v),
-                           AGREES, set())
+        return build_brief("hall-b", "tender-hall-a", extraction,
+                           lambda p, q, v, u=None: verify_quote(pdf, p, q, v, u), AGREES, set())
 
 
 def test_extract_and_build_brief(tender_pdf):
@@ -67,3 +67,57 @@ def test_canonical_topology():
     assert canonical_topology("distributed redundant") == "DR"
     assert canonical_topology("Block redundant") == "BLOCK"
     assert canonical_topology("N+1") is None
+
+
+def test_unverified_digit_free_quote_still_gets_the_template(tender_pdf):
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "x", "clause": "§9.9", "page": 4, "value": None, "unit": None,
+         "verbatim_quote": "This sentence is not present on this page at all."}]})
+    (r,) = _brief(tender_pdf, ex).requirements
+    assert not r.verified and r.value is None and r.text == UNVERIFIED_TEMPLATE
+
+
+def test_unverified_quote_with_only_allowlisted_tokens_still_gets_the_template(tender_pdf):
+    # §4.2's real text on the wrong page: no digits outside allowed tokens (2N, §4.2), so a naive
+    # sanitize() pass-through would leave the raw LLM text in place. It must still be the template.
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "redundancy", "clause": "§4.2", "page": 7, "value": "2N", "unit": None,
+         "verbatim_quote": "The critical power distribution shall be 2N, with each rack fed from two "
+                           "independent systems."}]})
+    (r,) = _brief(tender_pdf, ex).requirements
+    assert not r.verified and r.value is None and r.text == UNVERIFIED_TEMPLATE
+
+
+def test_unverified_quote_with_digits_still_gets_the_template(tender_pdf):
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "y", "clause": "§9.9", "page": 4, "value": 99, "unit": None,
+         "verbatim_quote": "This made-up sentence claims 99 units that are not on this page."}]})
+    (r,) = _brief(tender_pdf, ex).requirements
+    assert not r.verified and r.value is None and r.text == UNVERIFIED_TEMPLATE
+
+
+def test_wrong_unit_requirement_is_unverified(tender_pdf):
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "dv_max_pct", "clause": "§4.6", "page": 4, "value": 2.0, "unit": "A",
+         "verbatim_quote": "shall not exceed 2.0% at the worst-case design current"}]})
+    (r,) = _brief(tender_pdf, ex).requirements
+    assert not r.verified and r.value is None and r.text == UNVERIFIED_TEMPLATE
+
+
+def test_correct_unit_requirement_verifies(tender_pdf):
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "dv_max_pct", "clause": "§4.6", "page": 4, "value": 2.0, "unit": "%",
+         "verbatim_quote": "shall not exceed 2.0% at the worst-case design current"}]})
+    (r,) = _brief(tender_pdf, ex).requirements
+    assert r.verified and r.value == 2.0
+
+
+def test_neither_clause_main_body_defaults_to_clause_a(tender_pdf):
+    # Both sides cite an appendix: clause_a wins (no main body present to prefer).
+    c = ExtractedContradiction(topic="redundancy", clause_a="App. A", page_a=7,
+                               quote_a="Block or distributed redundancy acceptable", value_a="BLOCK",
+                               clause_b="App. B", page_b=7,
+                               quote_b="Block or distributed redundancy acceptable", value_b="DR",
+                               summary="Two appendices disagree.")
+    (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
+    assert q.default_resolution == "BLOCK"
