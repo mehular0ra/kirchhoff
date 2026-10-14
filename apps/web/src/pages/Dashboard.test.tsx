@@ -2,12 +2,17 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { useWorldStore } from '@/data/useWorld'
+import { resetInboxStore } from '@/inbox/useInbox'
+import { INBOX_TOUR_STEP } from '@/inbox/inboxTour'
 import { renderWithProviders } from '@/test/render'
 import { AppShell } from '@/shell/AppShell'
 import { Dashboard } from './Dashboard'
 import { Landing } from './Landing'
 
-beforeEach(() => useWorldStore.setState({ world: null, error: null, loading: false }))
+beforeEach(() => {
+  useWorldStore.setState({ world: null, error: null, loading: false })
+  resetInboxStore()
+})
 
 function shellAt(route: string) {
   return renderWithProviders(
@@ -51,4 +56,15 @@ test('landing has one primary CTA into the demo workspace', () => {
   renderWithProviders(<Landing />)
   expect(screen.getByRole('link', { name: /enter the demo workspace \(no login\)/i })).toHaveAttribute('href', '/app')
   expect(screen.getByRole('link', { name: /replay a recorded run/i })).toHaveAttribute('href', '/app/p/hall-a?replay=1')
+})
+
+test('the dashboard links the bids inbox with its count of new emails (tour hook, not a tour step)', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  localStorage.setItem('kirchhoff.inbox.read', JSON.stringify(['em-hall-b']))
+  shellAt('/app')
+  const entry = await screen.findByRole('link', { name: 'Bids inbox · 3 new' })
+  expect(entry).toHaveAttribute('href', '/app/inbox')
+  expect(entry).toHaveAttribute('data-tour', 'inbox')
+  expect(document.querySelector(INBOX_TOUR_STEP.target)).toBe(entry)
+  expect(screen.getByRole('navigation', { name: 'Main' })).toHaveTextContent('Bids inbox')
 })

@@ -80,3 +80,19 @@ test('describeApiError turns WS2 detail codes into sentences', () => {
   expect(describeApiError(new ApiError(500, 'boom'))).toBe('The live backend answered 500: boom.')
   expect(describeApiError(new TypeError('Failed to fetch'))).toMatch(/unreachable/)
 })
+
+test('inbox calls hit the inbox routes; inbox error codes read as sentences', async () => {
+  const { calls, fetcher } = recorder(json({ email_id: 'em-hall-b' }))
+  const api = httpApiClient(fetcher)
+  await api.inbox()
+  await api.triage('em-hall-b')
+  await api.pursue('em-hall-b')
+  expect(calls.map((c) => [c.path, c.init?.method ?? 'GET'])).toEqual([
+    ['/api/inbox', 'GET'],
+    ['/api/inbox/em-hall-b/triage', 'POST'],
+    ['/api/inbox/em-hall-b/pursue', 'POST'],
+  ])
+  expect(describeApiError(new ApiError(409, 'precomputed'))).toBe(
+    'Only the Hall B email can be triaged live; this one shows the recorded triage.',
+  )
+})

@@ -8,6 +8,7 @@ import { ServicesProvider, type Services } from '@/services/services'
 import { useBundleStore } from '@/store/bundles'
 import { useUi } from '@/store/ui'
 import hallMini from './fixtures/hall-mini.json'
+import inbox from './fixtures/inbox.json'
 import integrations from './fixtures/integrations.json'
 import world from './fixtures/world.json'
 
@@ -31,6 +32,9 @@ export function fakeApi(overrides: Partial<ApiClient> = {}): ApiClient {
     erpPrs: vi.fn(offline),
     crmOpportunities: vi.fn(offline),
     fileBlob: vi.fn(offline),
+    inbox: vi.fn(offline),
+    triage: vi.fn(offline),
+    pursue: vi.fn(offline),
   }
   return { ...base, ...overrides }
 }
@@ -39,6 +43,7 @@ export const STATIC_FILES: Record<string, unknown> = {
   '/demo/world.json': world,
   '/demo/projects/hall-a.json': hallMini,
   '/demo/integrations.json': integrations,
+  '/demo/inbox.json': inbox,
 }
 
 export function fakeServices(overrides: Partial<Services> = {}): Services {

@@ -11,6 +11,7 @@ import { useShortcuts } from './useShortcuts'
 
 const nav = [
   { to: '/app', label: 'Projects', end: true },
+  { to: '/app/inbox', label: 'Bids inbox', end: false },
   { to: '/app/integrations', label: 'Integrations', end: false },
 ]
 
