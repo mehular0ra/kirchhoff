@@ -64,3 +64,71 @@ class StubEngine:
     def chip_what_ifs(self, scn, model, erp, revision_ref):
         return [WhatIfResult(revision_ref=revision_ref, param=p, value=v, findings=[], impact_chain=[])
                 for p, v in STUB_CHIPS]
+
+
+import json  # noqa: E402
+
+from kirchhoff.contracts import (Approval, CrmOverlay, DesignBrief, PurchaseRequisition, Revision, RunEvent,  # noqa: E402
+                                 RunRecord, StepRecord)
+from kirchhoff.store.memory import MemoryStore  # noqa: E402
+
+UID, RID, T0 = "Zq8vAnonUid00000000000000ab", "a1b2c3d4e5f6", 1792000000.0
+
+
+class Blobs:
+    def __init__(self):
+        self.data: dict[str, bytes] = {}
+
+    def get(self, path: str) -> bytes:
+        return self.data[path]
+
+
+def make_hall_b_workspace(stub_engine) -> tuple:
+    """A finished Ask-mode Hall B run laid out exactly as WS2 writes it (P2 R3, R4, R7, R8; Task 14)."""
+    store, blobs = MemoryStore(), Blobs()
+    ws, rp = f"workspaces/{UID}", f"workspaces/{UID}/runs/{RID}"
+    run = RunRecord(id=RID, project_id="hall-b", status="done", autonomy="ask", phase="p4", started_at=T0,
+                    finished_at=T0 + 1000, lease={"owner": None, "attempt": 3, "heartbeat_at": 0.0})
+    store.set_doc(rp, {**run.model_dump(mode="json"), "message": "extra key the capture ignores"})
+    for sid, ph, att, s, f in (("p1.intake", "p1", 1, T0, T0 + 20), ("p2.place_racks", "p2", 2, T0 + 700, T0 + 710),
+                               ("p3.check.1", "p3", 2, T0 + 720, T0 + 730), ("p4.create_prs", "p4", 3, T0 + 900, T0 + 905)):
+        store.set_doc(f"{rp}/steps/{sid}", StepRecord(id=sid, phase=ph, status="done", attempt=att, started_at=s,
+                                                      finished_at=f).model_dump(mode="json"))
+    events = [
+        (1, "p1", "p1.intake", 1, "intake", "status", "Reading the Hall B tender", {}, T0 + 1),
+        (2, "p1", "p1.intake", 1, "intake", "artifact", "Brief ready", {"type": "brief", "ref": f"{rp}/outputs/p1.intake"}, T0 + 19),
+        (3, "p2", "p2.place_racks", 1, "layout", "status", "stale attempt (dropped)", {}, T0 + 650),
+        (4, "p2", "p2.place_racks", 2, "layout", "status", "Placing racks", {}, T0 + 701),
+        (5, "p3", "p3.check.1", 2, "checker", "artifact", "Revision ready", {"type": "revision", "ref": f"{ws}/revisions/{RID}-r1"}, T0 + 725),
+        (6, "p3", "p3.check.1", 2, "docs", "artifact", "calc-report.pdf ready", {"type": "export", "ref": f"exports/{RID}-r2/calc-report.pdf"}, T0 + 729),
+        (7, "p4", "p4.create_prs", 3, "procurement", "message", "You (Demo Reviewer) approved; PRs to ERP for Hall B", {}, T0 + 901),
+    ]
+    for seq, ph, step, att, agent, kind, title, payload, ts in events:
+        store.set_doc(f"{rp}/events/{seq:06d}", RunEvent(seq=seq, phase=ph, step=step, attempt=att, agent=agent, kind=kind,
+                                                         title=title, payload=payload, ts=ts).model_dump(mode="json"))
+    brief = DesignBrief(project_id="hall-b", requirements=[])
+    store.set_doc(f"{rp}/outputs/p1.intake", {"step": "p1.intake", "json": json.dumps({"brief": brief.model_dump(mode="json")})})
+    store.set_doc(f"{rp}/outputs/p3.docs", {"step": "p3.docs", "json": json.dumps(
+        {"rev": f"{RID}-r2", "order": ["summary", "findings", "boq"], "summary": "Hall B passes every check after the FA-01 fix."})})
+    for n, fixed, status in ((1, False, "checked"), (2, True, "signed")):
+        m = stub_model(fixed=fixed)
+        fs = stub_engine.check(None, m, None)
+        rev = Revision(id=f"{RID}-r{n}", project_id="hall-b", parent=f"{RID}-r{n - 1}" if n > 1 else None,
+                       author="Kirchhoff agents", hash=stub_engine.model_hash(m), model=None,
+                       model_url=f"revisions/{RID}-r{n}/model.json", summary=f"revision {n}",
+                       check_summary={s: sum(f.status == s for f in fs) for s in ("pass", "fail", "warn", "n/a")},
+                       status=status, created_at=T0 + 715 + 10 * n)
+        store.set_doc(f"{ws}/revisions/{rev.id}", rev.model_dump(mode="json"))
+        blobs.data[f"{ws}/{rev.model_url}"] = m.model_dump_json().encode("utf-8")
+        for f in fs:
+            store.set_doc(f"{ws}/revisions/{rev.id}/findings/{f.id}", f.model_dump(mode="json"))
+    store.set_doc(f"{ws}/approvals/ap1", Approval(id="ap1", revision=f"{RID}-r2", approver_name="You (Demo Reviewer)",
+                                                  role="Reviewer", decision="approved", ts=T0 + 890).model_dump(mode="json"))
+    for i, vendor in enumerate(["Tapti", "Indus"]):
+        pr = PurchaseRequisition(id=f"PR-2026-{310 - i:04d}", project_id="hall-b", revision=f"{RID}-r2",
+                                 lines=[PRLine(material_id="TX-3150", description=vendor, qty=1, unit_price=1.0,
+                                               lead_time_weeks=12)], status="submitted", created_at=T0 + 902 + i)
+        store.set_doc(f"{ws}/prs/{pr.id}", pr.model_dump(mode="json"))
+    store.set_doc(f"{ws}/crm/opp-hall-b", CrmOverlay(opportunity_id="opp-hall-b", stage="Design approved",
+                                                     updated_at=T0 + 906).model_dump(mode="json"))
+    return store, blobs
