@@ -112,6 +112,55 @@ def test_correct_unit_requirement_verifies(tender_pdf):
     assert r.verified and r.value == 2.0
 
 
+def _redundancy_reqs():
+    return TenderExtraction.model_validate({"requirements": [
+        {"key": "redundancy", "clause": "§4.2", "page": 4, "value": "2N", "unit": None,
+         "verbatim_quote": "The critical power distribution shall be 2N, with each rack fed from two "
+                           "independent systems."},
+        {"key": "redundancy_alt", "clause": "App. B", "page": 7, "value": "BLOCK", "unit": None,
+         "verbatim_quote": "Block or distributed redundancy acceptable, subject to the loading limits of "
+                           "§4.3."}]})
+
+
+def test_backstop_derives_the_redundancy_question_when_the_model_found_no_contradiction(tender_pdf):
+    # Ruling P2-R13: the model's contradictions list is EMPTY, but the verified §4.2 and App. B
+    # requirements disagree on topology, so the deterministic backstop must derive Q-redundancy.
+    brief = _brief(tender_pdf, _redundancy_reqs())
+    assert sum(r.verified for r in brief.requirements) == 2
+    (q,) = brief.open_questions
+    assert q.id == "Q-redundancy" and q.default_resolution == "2N"
+    assert [c.clause for c in q.citations] == ["§4.2", "App. B"]
+    assert all(c.bbox for c in q.citations)
+
+
+def test_backstop_does_not_duplicate_the_models_own_verified_contradiction(tender_pdf):
+    ex = _redundancy_reqs()
+    ex.contradictions.append(ExtractedContradiction(
+        topic="redundancy", clause_a="§4.2", page_a=4, quote_a="The critical power distribution shall be 2N",
+        value_a="2N", clause_b="App. B", page_b=7,
+        quote_b="Block or distributed redundancy acceptable", value_b="BLOCK",
+        summary="§4.2 requires 2N but App. B accepts block or distributed redundancy."))
+    brief = _brief(tender_pdf, ex)
+    assert len(brief.open_questions) == 1
+    assert brief.open_questions[0].id == "Q-redundancy"
+
+
+def test_backstop_ignores_fabricated_contradictions_and_requirements(tender_pdf):
+    # The live diagnostics' fabricated examples: quotes that are not on the cited page at all.
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "lead_time_alt", "clause": "§1.3", "page": 1, "value": 20, "unit": "weeks",
+         "verbatim_quote": "Alternative equipment may be delivered within 20 weeks."},
+        {"key": "redundancy_alt", "clause": "§5.4", "page": 5, "value": "N+1", "unit": None,
+         "verbatim_quote": "An N+1 arrangement is also acceptable."}],
+        "contradictions": [{"topic": "clearance", "clause_a": "§5.1", "page_a": 5,
+                            "quote_a": "clear height shall be 3.5 m", "value_a": "3.5",
+                            "clause_b": "App. B", "page_b": 7, "quote_b": "clear height shall be 3.0 m",
+                            "value_b": "3.0", "summary": "x"}]})
+    brief = _brief(tender_pdf, ex)
+    assert all(not r.verified for r in brief.requirements)
+    assert brief.open_questions == []
+
+
 def test_neither_clause_main_body_defaults_to_clause_a(tender_pdf):
     # Both sides cite an appendix: clause_a wins (no main body present to prefer).
     c = ExtractedContradiction(topic="redundancy", clause_a="App. A", page_a=7,

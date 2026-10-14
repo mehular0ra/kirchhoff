@@ -51,7 +51,13 @@ def _intake(ctx: PhaseContext) -> StepOutput:
                      payload={"tool": "verify_quote", "summary": {"page": page, "ok": chk.ok, "reason": chk.reason}})
             return chk
 
-        brief = build_brief(ctx.run().get("project_id", "hall-b"), DOC_ID, extraction, verify, {}, allowed)
+        def on_backstop(q):
+            ctx.ledger(S_INTAKE, "intake", "assumed",
+                       f"{q.id} added by the deterministic topology backstop (ruling P2-R13): the model "
+                       "did not report this verified clause conflict itself.")
+
+        brief = build_brief(ctx.run().get("project_id", "hall-b"), DOC_ID, extraction, verify, {}, allowed,
+                            on_backstop)
     def parse_dxf_geometry_tool() -> dict:
         """Parse the hall DXF: grid labels and overall size."""
         return parse_dxf_geometry(files.dxf).model_dump(mode="json")
