@@ -16,6 +16,8 @@ from .options import annotate_options, power_options, power_recheck  # noqa: F40
 from .routing import route  # noqa: F401
 from .scenario import Scenario, load_scenario  # noqa: F401
 from .spatial import detect_clashes  # noqa: F401
+from .validate import validate_model  # noqa: F401
+from .whatif import CHIP_WHAT_IFS, chip_what_ifs, what_if  # noqa: F401
 
 NOT_CHECKED = [
     "Earth-fault loop impedance (IEC 60364-4-41 §411)",
@@ -32,6 +34,7 @@ NOT_CHECKED = [
 
 def check(scn: Scenario, model: DesignModel, erp: ErpView, pr_lines: list[PRLine] | None = None) -> list[Finding]:
     """Full rule pack R01–R15 incl. R04b; one Finding per (rule, element) incl. passes."""
+    validate_model(scn, model)
     return run_rules(scn, model, erp, pr_lines)
 
 
@@ -44,3 +47,24 @@ def model_hash(model: DesignModel) -> str:
 def ledger_not_checked() -> list[str]:
     """Spec §8.4 items shown in the assumptions ledger as "not checked"."""
     return list(NOT_CHECKED)
+
+
+_WARMED_UP = False
+
+
+def warm_up() -> None:
+    """I-6: pay pandapower's lazy import and first-call JIT/setup cost once, up front, instead of on the first
+    real request. Idempotent and cheap after the first call."""
+    global _WARMED_UP
+    if _WARMED_UP:
+        return
+    from .scenario import cat_section
+    from .shortcircuit import short_circuit
+    from .topology import build_model
+
+    scn = load_scenario("hall_a")
+    racks = place_racks(scn)
+    tx_id = sorted(cat_section(scn, "transformers"), key=lambda t: (t["rating_kva"], t["unit_price"], t["id"]))[0]["id"]
+    model = build_model(scn, racks, "2N", tx_id)
+    short_circuit(scn, model)
+    _WARMED_UP = True

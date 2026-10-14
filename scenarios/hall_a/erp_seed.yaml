@@ -1,3 +1,4 @@
+# IEC-based, illustrative, not for construction.
 # Hall A ERP materials (spec §9.5). Fictional vendors; sandbox data. WS4's demo-world generator includes these
 # verbatim in the ~60-material ERP. Generator constraint (asserted by tests): only the 2.5 MVA transformer
 # fails R15 for any Hall A design; every other line is in stock in sufficient quantity or <= 26 weeks.
