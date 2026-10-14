@@ -366,3 +366,147 @@ def test_more_than_400_docs_raises_before_any_write(ctx):
     assert step["status"] == "failed"
     assert ctx.deps.store.get_doc("workspaces/u1/x/d0") is None
     assert load_outputs(ctx.deps.store, ctx.deps.blobs, ctx.run_path, "p2.toomany") is None
+
+
+# ---------------------------------------------------------------------------
+# Fix round 2 (re-review)
+# ---------------------------------------------------------------------------
+
+
+def test_next_seq_proportional_gap_prevents_same_start_for_two_never_flushed_attempts(ctx):
+    """P2-R5: a *fixed* gap isn't enough -- two different attempts (e.g. N and N+1) that both compute
+    next_seq from the SAME last-flushed event (because neither of them has flushed anything yet) must
+    still get different, non-overlapping start seqs. race_attempt3.py's exact repro."""
+    ctx.deps.store.set_doc(f"{ctx.run_path}/events/000003", {"seq": 3, "attempt": ctx.attempt})
+    run = ctx.deps.store.get_doc(ctx.run_path)
+    att_mid = ctx.attempt + 1
+    ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": att_mid}})
+    start_mid = next_seq(ctx.deps.store, ctx.run_path)  # attempt N: never flushed yet
+    att_next = ctx.attempt + 2
+    ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": att_next}})
+    start_next = next_seq(ctx.deps.store, ctx.run_path)  # attempt N+1: also never flushed; same last event
+    assert start_mid == 3 + 1 + 10_000 * (att_mid - ctx.attempt)
+    assert start_next == 3 + 1 + 10_000 * (att_next - ctx.attempt)
+    assert start_next > start_mid  # N10 (no-prior-write) scenario: no event has `att_mid`'s own attempt
+
+
+def test_next_seq_gaps_proportionally_when_no_events_exist_yet(ctx):
+    """N10: the no-events branch of next_seq must also scale the gap by how many attempts have passed,
+    not apply the same fixed offset regardless of how far the current attempt has drifted from 1."""
+    run = ctx.deps.store.get_doc(ctx.run_path)
+    far_attempt = ctx.attempt + 3
+    ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {**run["lease"], "attempt": far_attempt}})
+    assert next_seq(ctx.deps.store, ctx.run_path) == 1 + 10_000 * (far_attempt - 1)
+
+
+def test_next_seq_accepts_an_explicit_attempt_instead_of_inferring_from_the_run_doc(ctx):
+    """P2-R5: callers that already know which attempt they're creating a writer for pass it explicitly,
+    rather than next_seq re-reading (and trusting) the run doc's current lease attempt."""
+    ctx.deps.store.set_doc(f"{ctx.run_path}/events/000003", {"seq": 3, "attempt": ctx.attempt})
+    explicit = next_seq(ctx.deps.store, ctx.run_path, ctx.attempt + 2)
+    assert explicit == 3 + 1 + 10_000 * 2
+    # the run doc's own lease attempt is unchanged (still ctx.attempt): the explicit value, not an
+    # inferred one, drove the result above.
+    assert ctx.deps.store.get_doc(ctx.run_path)["lease"]["attempt"] == ctx.attempt
+
+
+def test_early_guard_fences_the_writer(ctx):
+    """N1: the early lease_lost guard at the top of run_step, exercised directly (lease_lost set before
+    run_step is even called, with no begin/commit transaction involved at all)."""
+    ctx.lease_lost.set()  # e.g. a concurrent heartbeat thread already saw another owner
+    with pytest.raises(LeaseLost):
+        run_step(ctx, "p2.early", lambda: StepOutput(data={}))
+    assert ctx.deps.store.get_doc(f"{ctx.run_path}/steps/p2.early") is None  # never even reached begin
+    with pytest.raises(RuntimeError, match="fenced"):
+        ctx.events.emit("layout", "status", "x")
+
+
+def test_pre_flush_lease_lost_check_skips_the_flush_and_commit(ctx):
+    """N2: the lease is still held in the store (holds_lease would pass); only the in-process
+    `lease_lost` flag has been set by a concurrent heartbeat. This isolates the pre-flush check from the
+    begin/commit holds_lease checks, which would not catch this on their own until the next transaction."""
+    def fn():
+        ctx.lease_lost.set()  # a concurrent heartbeat thread noticed a takeover mid-fn
+        return StepOutput(data={})
+
+    with pytest.raises(LeaseLost):
+        run_step(ctx, "p2.preflush", fn)
+    step = ctx.deps.store.get_doc(f"{ctx.run_path}/steps/p2.preflush")
+    assert step["status"] == "running"  # flush/commit were both skipped, not attempted and rolled back
+    with pytest.raises(RuntimeError, match="fenced"):
+        ctx.events.emit("layout", "status", "x")
+
+
+def test_commit_transaction_error_marks_the_step_failed(ctx):
+    """N6: the commit transaction itself raising (e.g. a transient Firestore error, not an ambiguous
+    one -- no write landed) must be caught by the widened M-3 try and mark the step failed."""
+    orig_transact = ctx.deps.store.transact
+
+    def flaky_transact(read_paths, fn):
+        if read_paths == [ctx.run_path]:  # the commit transaction's signature
+            raise RuntimeError("firestore unavailable")
+        return orig_transact(read_paths, fn)
+
+    ctx.deps.store.transact = flaky_transact
+    try:
+        with pytest.raises(RuntimeError):
+            run_step(ctx, "p2.commitraise", lambda: StepOutput(data={}))
+    finally:
+        ctx.deps.store.transact = orig_transact
+    step = ctx.deps.store.get_doc(f"{ctx.run_path}/steps/p2.commitraise")
+    assert step["status"] == "failed"
+
+
+def test_ambiguous_commit_error_does_not_overwrite_an_already_done_step(scen_dir, tmp_path):
+    """Minor: a store whose commit transaction applies the writes and then raises (e.g. the write
+    landed but the ack was lost to a TimeoutError) must not have the failed-path transaction clobber the
+    step from 'done' back to 'failed' -- the failed-path write checks the step doc first."""
+    rid = uuid.uuid4().hex[:12]
+    rp = run_path("u1", rid)
+
+    class AmbiguousCommitStore(CheckedStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self._raised = False
+
+        def transact(self, read_paths, fn):
+            result = super().transact(read_paths, fn)
+            if read_paths == [rp] and not self._raised:  # the commit transaction's signature, once
+                self._raised = True
+                raise TimeoutError("ambiguous commit: write landed, ack lost")
+            return result
+
+    store = AmbiguousCommitStore()
+    deps = build_fake_deps(store, scen_dir, seed_dir=tmp_path, spawn=lambda f: f(), heartbeat_s=3600.0)
+    rec = RunRecord(id=rid, project_id="hall-b", status="running", autonomy="ask", phase="p2",
+                    started_at=deps.clock())
+    store.set_doc(f"workspaces/u1/runs/{rid}", rec.model_dump(mode="json"))
+    attempt = acquire_lease(store, "u1", rid, deps.owner, deps.clock())
+    events = EventWriter(store, rp, phase="p2", step="p2.amb", attempt=attempt,
+                         start_seq=next_seq(store, rp, attempt), flush_interval_s=999)
+    ctx = PhaseContext(deps, "u1", rid, "p2", attempt, events)
+
+    with pytest.raises(TimeoutError):
+        run_step(ctx, "p2.amb", lambda: StepOutput(data={"ok": 1}))
+
+    step = store.get_doc(f"{rp}/steps/p2.amb")
+    assert step["status"] == "done" and step["attempt"] == attempt  # left alone, not overwritten
+
+
+def test_truncated_payload_fallback_fits_the_event_budget(ctx):
+    """Minor: the {'truncated', 'keys'} fallback itself must respect the whole-event budget -- 50 keys
+    of about 300 characters each would, left unshrunk, still blow well past the 10 KB cap."""
+    long_keys_payload = {("k" * 300) + str(i): 1 for i in range(50)}
+    ev = ctx.emit("p2.shrink", "layout", "tool_result", "t", payload=long_keys_payload)
+    assert ev.payload.get("truncated") is True
+    size = len(json.dumps(ev.model_dump(mode="json"), separators=(",", ":"), ensure_ascii=False).encode())
+    assert size < 10_000
+
+
+def test_title_max_raised_to_1000_the_dynamic_budget_still_protects_the_cap(ctx):
+    """Minor: TITLE_MAX is raised to 1000 since the dynamic whole-event budget (which shrinks the
+    payload's allowance as title/detail grow) already protects the 10 KB cap on its own."""
+    ev = ctx.emit("p2.title", "layout", "status", "t" * 999)
+    assert len(ev.title) == 999
+    ev2 = ctx.emit("p2.title", "layout", "status", "t" * 1500)
+    assert len(ev2.title) == 1000  # clipped only once past 1000 chars
