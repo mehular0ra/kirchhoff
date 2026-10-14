@@ -6,7 +6,17 @@ set -euo pipefail
 P=ordinal-mep
 HOST=kirchhoff.web.app
 
-IFS=',' read -ra EMAILS <<< "${ALERT_EMAILS:-${ALERT_EMAIL:?set ALERT_EMAILS (comma-separated) or ALERT_EMAIL to the team alert address(es)}}"
+IFS=',' read -ra RAW_EMAILS <<< "${ALERT_EMAILS:-${ALERT_EMAIL:?set ALERT_EMAILS (comma-separated) or ALERT_EMAIL to the team alert address(es)}}"
+EMAILS=()
+for addr in "${RAW_EMAILS[@]}"; do
+  addr="${addr#"${addr%%[![:space:]]*}"}"  # trim leading whitespace
+  addr="${addr%"${addr##*[![:space:]]}"}"  # trim trailing whitespace
+  [ -n "$addr" ] && EMAILS+=("$addr")  # drop empty entries, e.g. from a trailing comma
+done
+if [ "${KIRCHHOFF_PARSE_ONLY:-0}" = "1" ]; then  # test hook: print the parsed addresses, never touch GCP
+  printf '%s\n' "${EMAILS[@]}"
+  exit 0
+fi
 
 ensure_channel() {  # email address, display index -> channel resource name, idempotent on the email_address label
   local addr="$1" idx="$2" existing

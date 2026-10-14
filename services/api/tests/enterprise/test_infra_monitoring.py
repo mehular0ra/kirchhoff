@@ -1,4 +1,5 @@
 import re
+import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[4]
@@ -63,3 +64,35 @@ def test_scripts_never_hardcode_a_real_recipient():
     for name in ("monitoring_setup.sh", "budget_setup.sh"):
         text = _read(name)
         assert "aws2.mehularora" not in text and "mehularora2399" not in text and "gmail.com" not in text
+
+
+# Fix round 1 (accepted finding): a comma-separated ALERT_EMAILS with spaces, e.g.
+# "a@x.com, b@y.com", left the leading space on every address after the first, which breaks
+# label-based channel matching (idempotency) and may break channel creation outright. Both scripts
+# now trim each address and drop empty entries (e.g. from a trailing comma). This test drives the
+# real parsing logic in a KIRCHHOFF_PARSE_ONLY=1 mode that both scripts exit from before making any
+# gcloud call, using example.com addresses that are never real recipients.
+def _parsed_addresses(script_name: str, alert_emails: str) -> list[str]:
+    result = subprocess.run(
+        [str(REPO / "infra" / script_name)],
+        env={"ALERT_EMAILS": alert_emails, "KIRCHHOFF_PARSE_ONLY": "1", "PATH": "/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def test_monitoring_setup_trims_whitespace_and_drops_empty_entries():
+    assert _parsed_addresses("monitoring_setup.sh", "a@example.com, b@example.com ,") == [
+        "a@example.com",
+        "b@example.com",
+    ]
+
+
+def test_budget_setup_trims_whitespace_and_drops_empty_entries():
+    assert _parsed_addresses("budget_setup.sh", "a@example.com, b@example.com ,") == [
+        "a@example.com",
+        "b@example.com",
+    ]

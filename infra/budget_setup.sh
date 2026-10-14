@@ -8,6 +8,18 @@ P=ordinal-mep
 BA=012711-F23839-B5DB84
 AMOUNT="${BUDGET_AMOUNT:-17600INR}"
 
+IFS=',' read -ra RAW_EMAILS <<< "${ALERT_EMAILS:-${ALERT_EMAIL:?set ALERT_EMAILS (comma-separated) or ALERT_EMAIL to the team alert address(es)}}"
+EMAILS=()
+for addr in "${RAW_EMAILS[@]}"; do
+  addr="${addr#"${addr%%[![:space:]]*}"}"  # trim leading whitespace
+  addr="${addr%"${addr##*[![:space:]]}"}"  # trim trailing whitespace
+  [ -n "$addr" ] && EMAILS+=("$addr")  # drop empty entries, e.g. from a trailing comma
+done
+if [ "${KIRCHHOFF_PARSE_ONLY:-0}" = "1" ]; then  # test hook: print the parsed addresses, never touch GCP
+  printf '%s\n' "${EMAILS[@]}"
+  exit 0
+fi
+
 gcloud services enable billingbudgets.googleapis.com --project=$P
 EXISTING="$(gcloud billing budgets list --billing-account=$BA --billing-project=$P \
   --filter='displayName="kirchhoff-usd200"' --format='value(name)' | head -1)"
@@ -16,7 +28,6 @@ if [ -n "$EXISTING" ]; then
   exit 0
 fi
 
-IFS=',' read -ra EMAILS <<< "${ALERT_EMAILS:-${ALERT_EMAIL:?set ALERT_EMAILS (comma-separated) or ALERT_EMAIL to the team alert address(es)}}"
 CHANNELS=()
 for addr in "${EMAILS[@]}"; do
   ch="$(gcloud beta monitoring channels list --project=$P \
