@@ -240,6 +240,16 @@ def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> d
         if ctx.lease_lost.is_set():  # I-1(b): a concurrent heartbeat already saw another owner take over
             raise LeaseLost(step_id)
         ctx.events.flush()
+        if ctx.lease_lost.is_set():
+            # Minor 2 (fix round 1, S9): the heartbeat thread's self-fence can land *while* flush() is
+            # blocked behind an in-flight batch (e.g. a slow trailing-timer flush). fence() makes that
+            # flush() call return silently instead of raising -- it just drops whatever was still
+            # pending -- so the only way to notice the loss here is to re-check lease_lost right after
+            # flush() returns, before packing outputs and committing. Without this, the commit
+            # transaction below only checks holds_lease (owner/attempt), which can still pass even
+            # though some of this step's own events were just silently dropped by fence(): the step
+            # would then commit "done" with events permanently missing.
+            raise LeaseLost(step_id)
         out_path, out_doc = pack_outputs(deps.blobs, ctx.run_path, step_id, out.data)
         done = StepRecord(id=step_id, phase=ctx.phase, status="done", attempt=ctx.attempt, outputs_ref=out_path,
                           started_at=started, finished_at=deps.clock())

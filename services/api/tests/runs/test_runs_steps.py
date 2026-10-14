@@ -20,7 +20,13 @@ def ctx(deps, make_run):
     rp = run_path("u1", rid)
     events = EventWriter(deps.store, rp, phase="p2", step="p2.start", attempt=attempt,
                          start_seq=next_seq(deps.store, rp, attempt), flush_interval_s=999)  # run_step flushes
-    return PhaseContext(deps, "u1", rid, "p2", attempt, events)
+    c = PhaseContext(deps, "u1", rid, "p2", attempt, events)
+    yield c
+    # Test hygiene (fix round 1): a test that calls ctx.emit() directly (not through run_step, which
+    # flushes -- and so cancels the pending timer -- itself) leaves a real threading.Timer armed for
+    # flush_interval_s=999, a thread that outlives the test. fence() is idempotent and safe even if the
+    # test already closed/fenced this writer itself.
+    c.events.fence()
 
 
 def _events(ctx):
@@ -532,3 +538,32 @@ def test_title_max_raised_to_1000_the_dynamic_budget_still_protects_the_cap(ctx)
     assert len(ev.title) == 999
     ev2 = ctx.emit("p2.title", "layout", "status", "t" * 1500)
     assert len(ev2.title) == 1000  # clipped only once past 1000 chars
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1 (reviewer, mirroring race_s9_fence_drop.py)
+# ---------------------------------------------------------------------------
+
+
+def test_lease_lost_during_flush_prevents_a_silent_commit(ctx):
+    """Minor 2: the heartbeat thread's self-fence (e.g. Firestore heartbeats were merely flaky --
+    nobody actually took the lease) can land while run_step's own pre-commit flush() is in flight.
+    fence() makes that flush() call return silently rather than raise, so the commit transaction's
+    holds_lease check (which only looks at the store's owner/attempt, still legitimately held in this
+    scenario) would otherwise pass and commit the step "done" with some of its own events silently
+    dropped by fence(). run_step must re-check ctx.lease_lost right after flush() and refuse to commit."""
+    def fn():
+        ctx.emit("p2.sf", "layout", "status", "before the self-fence")
+
+        def flush_then_self_fence():
+            ctx.lease_lost.set()  # the heartbeat thread's self-fence lands here, mid-flush
+            ctx.events.fence()  # fence() drops pending events and returns normally, it does not raise
+        ctx.events.flush = flush_then_self_fence
+        return StepOutput(data={"should": "never commit"})
+
+    with pytest.raises(LeaseLost):
+        run_step(ctx, "p2.sf", fn)
+    assert ctx.deps.store.get_doc(f"{ctx.run_path}/steps/p2.sf")["status"] == "running"
+    assert load_outputs(ctx.deps.store, ctx.deps.blobs, ctx.run_path, "p2.sf") is None
+    with pytest.raises(RuntimeError, match="fenced"):
+        ctx.events.emit("layout", "status", "after fence")
