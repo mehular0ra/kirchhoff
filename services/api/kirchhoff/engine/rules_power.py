@@ -96,6 +96,11 @@ def r04b(ctx: Ctx) -> list[Finding]:
                                     explanation=f"{eid} is a cable run; busway withstand does not apply."))
             continue
         item = cat_item(ctx.scn, cat_id)
+        if origin not in ctx.sc.ikss_ka:
+            out.append(make_finding(ctx.scn, "R04b", eid, "fail", inputs={"origin": origin},
+                                    explanation=f"No short-circuit result exists for the origin of {eid}; "
+                                                f"treated as a failure rather than silently passing."))
+            continue
         ik, ip = ctx.sc.ikss_ka.get(origin, 0.0), ctx.sc.ip_ka.get(origin, 0.0)
         icw, ipk = float(item["icw_ka"]), float(item["ipk_ka"])
         ok = icw >= ik - EPS and ipk >= ip - EPS

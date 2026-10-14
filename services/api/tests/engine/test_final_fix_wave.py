@@ -280,6 +280,94 @@ def test_warm_up_idempotent_and_speeds_up_what_if(scn, erp, routed):
     assert took < 0.1
 
 
+
+
+# ---------------------------------------------------------------- Minors ----
+
+def test_m2_r12_does_not_crash_when_erp_is_missing_a_boq_material(scn, erp, routed):
+    """A BOQ material missing from the ERP (KeyError or any LookupError) must not crash check(); R12 must
+    use its own "unknown" branch, and R15's own "not in ERP" fail must still get to run."""
+    class Partial:
+        def __init__(self, inner, drop):
+            self.inner, self.drop = inner, drop
+
+        def get(self, mid):
+            if mid == self.drop:
+                raise KeyError(mid)
+            return self.inner.get(mid)
+
+        def search(self, c):
+            return [m for m in self.inner.search(c) if m.id != self.drop]
+
+    class RaisesLookupError(Partial):
+        def get(self, mid):
+            if mid == self.drop:
+                raise LookupError(mid)
+            return self.inner.get(mid)
+
+    m = routed["2N"]
+    for broken in (Partial(erp, "CDU-1200"), RaisesLookupError(erp, "CDU-1200")):
+        findings = api.check(scn, m, broken)
+        r12 = next(f for f in findings if f.id == "R12:BOQ")
+        assert r12.status == "fail"
+        r15 = next(f for f in findings if f.id == "R15:CDU-1200")
+        assert r15.status == "fail"
+
+
+def test_m3_r04b_fails_when_short_circuit_result_missing(scn, erp, routed):
+    from kirchhoff.engine.findings import Ctx
+    from kirchhoff.engine.rules_power import r04b
+    from kirchhoff.engine.shortcircuit import ScResult
+
+    m = routed["2N"]
+    ctx = Ctx(scn, m, erp)
+    ctx.__dict__["sc"] = ScResult(ikss_ka={}, ip_ka={})  # no origin has a result
+    out = {f.element_id: f for f in r04b(ctx)}
+    for eid, f in out.items():
+        if f.status != "n/a":
+            assert f.status == "fail", eid
+
+
+def test_m4_boards_are_sorted_before_indexing(scn, routed):
+    """redundancy.study() must be deterministic regardless of set iteration order."""
+    from kirchhoff.engine.redundancy import study
+
+    m = routed["2N"]
+    s1 = study(scn, m)
+    for _ in range(5):
+        s2 = study(scn, m)
+        assert s1.busway_system == s2.busway_system
+
+
+def test_m6_reroute_patch_does_not_alias_scenario_geometry(scn, erp, routed):
+    m = routed["2N"]
+    real = _finding(scn, erp, m, "R11:H-Z2")
+    cand = next(c for c in api.fix_candidates(scn, m, real, erp) if c.id == "H-Z2:reroute")
+    cand.patch["routes"]["H-Z2"][0][0] = -999.0
+    assert scn.geometry["reroutes"]["H-Z2"]["H-Z2"][0][0] != -999.0
+
+
+def test_m7_load_scenario_rejects_bad_names():
+    with pytest.raises(ValueError):
+        api.load_scenario("../scenarios/hall_a")
+    with pytest.raises(ValueError):
+        api.load_scenario("hall_a/../../etc")
+    with pytest.raises(ValueError):
+        api.load_scenario("Hall_A")
+    with pytest.raises(ValueError):
+        api.load_scenario("hall a")
+    api.load_scenario("hall_a")  # still works
+
+
+def test_m8_erp_seed_has_illustrative_header():
+    from pathlib import Path
+
+    from kirchhoff.engine.scenario import scenarios_root
+
+    text = (scenarios_root() / "hall_a" / "erp_seed.yaml").read_text(encoding="utf-8")
+    assert "IEC-based, illustrative, not for construction" in text.splitlines()[0]
+
+
 def test_m5_warnings_regions_are_lock_guarded():
     import threading
 

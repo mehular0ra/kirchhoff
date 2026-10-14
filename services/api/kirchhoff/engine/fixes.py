@@ -1,5 +1,7 @@
 """Fix candidates (spec §6.1): the engine offers only candidates that clear the target finding and create no
 new failure (full rule pack re-run per candidate). The owning agent chooses on cost and margin."""
+import copy
+
 from shapely.geometry import LineString, Point
 
 from kirchhoff.contracts import DesignModel, Finding, Point3
@@ -131,7 +133,7 @@ def _pipe_candidates(scn: Scenario, model: DesignModel, finding: Finding) -> lis
     if reroute:
         out.append(FixCandidate(id=f"{pid}:reroute", finding_id=finding.id,
                                 label=f"Reroute {pid} clear of {above or 'the columns'}", cost_delta=0.0, metrics={},
-                                patch={"op": "set_pipe_routes", "routes": {k: v for k, v in reroute.items()}}))
+                                patch={"op": "set_pipe_routes", "routes": copy.deepcopy(reroute)}))
     return out
 
 
