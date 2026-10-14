@@ -21,8 +21,10 @@ from .outputs import load_outputs, pack_outputs
 
 log = logging.getLogger("kirchhoff.runs")
 PAYLOAD_MAX = 9_000  # event docs stay < 10 KB (spec §11)
-TITLE_MAX = 200  # M-1: title/detail are clipped so the *whole* serialized event, not just the payload,
-DETAIL_MAX = 500  # stays comfortably under the EventWriter's MAX_EVENT_BYTES (10,000) hard cap.
+TITLE_MAX = 1_000  # M-1: title/detail are clipped so the *whole* serialized event, not just the payload,
+DETAIL_MAX = 500  # stays comfortably under the EventWriter's MAX_EVENT_BYTES (10,000) hard cap. The
+# dynamic whole-event budget below (which shrinks the payload's own allowance as title/detail grow)
+# already protects the cap on its own, so TITLE_MAX only needs to rule out truly pathological titles.
 EVENT_BUDGET = 9_200  # payload truncation budgets against this, leaving headroom for title/detail/fixed fields
 TXN_DOC_LIMIT = 400  # Firestore transaction write limit is 500
 AGENT_LABEL = {"intake": "Intake", "orchestrator": "Orchestrator", "layout": "Layout", "power": "Power",
@@ -32,6 +34,19 @@ AGENT_LABEL = {"intake": "Intake", "orchestrator": "Orchestrator", "layout": "La
 
 def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
+def _truncated_payload(payload: dict, budget: int) -> dict:
+    """Minor: the {'truncated', 'keys'} fallback itself must fit `budget` -- with many long key names
+    (e.g. 50 keys of about 300 characters), the naive top-50 fallback can itself still blow the cap.
+    Shrink the key list until the fallback fits, halving each time to converge quickly."""
+    keys = sorted(payload)[:50]
+    while keys:
+        candidate = {"truncated": True, "keys": keys}
+        if json_size_bytes(candidate) <= budget:
+            return candidate
+        keys = keys[:len(keys) // 2]
+    return {"truncated": True, "keys": []}
 
 
 class LeaseLost(Exception):
@@ -109,7 +124,7 @@ class PhaseContext:
         overhead = json_size_bytes({"step": step, "agent": agent, "kind": kind, "title": title, "detail": detail})
         budget = max(0, min(PAYLOAD_MAX, EVENT_BUDGET - overhead))
         if json_size_bytes(payload) > budget:
-            payload = {"truncated": True, "keys": sorted(payload)[:50]}
+            payload = _truncated_payload(payload, budget)
         # The P0 writer validates Firestore safety (ValueError) and assigns seq; `step=` tags parallel steps.
         return self.events.emit(agent, kind, title, detail, payload, step=step)
 
@@ -242,9 +257,24 @@ def run_step(ctx: PhaseContext, step_id: str, fn: Callable[[], StepOutput]) -> d
     except Exception:
         failed = StepRecord(id=step_id, phase=ctx.phase, status="failed", attempt=ctx.attempt, started_at=started,
                             finished_at=deps.clock())
-        wrote_failed = store.transact([ctx.run_path], lambda snap: [(step_path, failed.model_dump())]
-                                      if holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt) else [])
-        if not wrote_failed:
+        fail_state: dict[str, bool] = {}
+
+        def mark_failed(snap: dict[str, dict | None]):
+            fail_state.clear()  # the store may retry this transaction function
+            if not holds_lease(snap[ctx.run_path], deps.owner, ctx.attempt):
+                fail_state["lost"] = True
+                return []
+            step = snap[step_path]
+            if step and step.get("status") == "done" and step.get("attempt") == ctx.attempt:
+                # Minor: an ambiguous commit -- the writes landed but the transact call itself then
+                # raised (e.g. a timed-out ack) -- must not have this failed-path write clobber a step
+                # that is already correctly "done" back to "failed".
+                fail_state["already_done"] = True
+                return []
+            return [(step_path, failed.model_dump())]
+
+        store.transact([ctx.run_path, step_path], mark_failed)
+        if fail_state.get("lost"):
             # I-1(c)/M-6: nobody held the lease to mark the step failed either; this is a lease loss,
             # not a step failure, so fence and surface it as LeaseLost instead of the original exception.
             _fence_and_lose(ctx, step_id)
