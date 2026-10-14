@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router'
 import { Dashboard } from './pages/Dashboard'
+import { IntegrationsPage } from './pages/Integrations'
 import { Landing } from './pages/Landing'
 import { NotFound } from './pages/NotFound'
 import { AppShell } from './shell/AppShell'
@@ -12,6 +13,7 @@ export default function App() {
       <Route path="/app" element={<AppShell />}>
         <Route index element={<Dashboard />} />
         <Route path="p/:pid" element={<WorkspacePage />} />
+        <Route path="integrations" element={<IntegrationsPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
