@@ -9,7 +9,9 @@ from .runner import MODEL, THINKING_LEVELS, AgentResult, AgentSpec, Attachment, 
 class AdkRunner:
     def __init__(self, model: str = MODEL, mode: str | None = None, app_name: str = "kirchhoff") -> None:
         self.model = model
-        self.mode = mode or os.environ.get("KIRCHHOFF_ADK_MODE", "workflow")  # "workflow" | "agent"
+        # agent mode measured fastest live (94 s against 130 s for workflow, 14 Oct); workflow still
+        # selectable via KIRCHHOFF_ADK_MODE.
+        self.mode = mode or os.environ.get("KIRCHHOFF_ADK_MODE", "agent")  # "workflow" | "agent"
         self.app_name = app_name
 
     def run(self, spec: AgentSpec, key: str, message: str, tools: Sequence[Callable] = (),

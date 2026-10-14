@@ -34,3 +34,13 @@ def test_workflow_mode_instruction_is_callable_and_verbatim():
     assert isinstance(agent, LlmAgent)
     assert not isinstance(agent.instruction, str) and callable(agent.instruction)
     assert agent.instruction(None) == SPEC.instruction
+
+
+def test_default_mode_is_agent_when_the_env_var_is_unset(monkeypatch):
+    """Ruling P2-R11 (fix round 2): agent mode measured fastest live (94 s against 130 s for workflow,
+    14 Oct), so it is the default; KIRCHHOFF_ADK_MODE still selects "workflow" explicitly."""
+    monkeypatch.delenv("KIRCHHOFF_ADK_MODE", raising=False)
+    assert AdkRunner().mode == "agent"
+    monkeypatch.setenv("KIRCHHOFF_ADK_MODE", "workflow")
+    assert AdkRunner().mode == "workflow"
+    assert AdkRunner(mode="workflow").mode == "workflow"  # explicit mode= still overrides the env var

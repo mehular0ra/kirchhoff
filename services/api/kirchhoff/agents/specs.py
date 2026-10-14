@@ -6,13 +6,13 @@ NUMBERS_RULE = (
     "Describe quantities in words or with the placeholders {value} and {limit}; the app fills numbers from the "
     "engine. Keep narration to one or two sentences.")
 
-INTAKE = AgentSpec("intake", thinking="medium", timeout_s=90.0, instruction=(
+INTAKE = AgentSpec("intake", thinking="medium", timeout_s=240.0, instruction=(
     "You are the Intake agent of Kirchhoff. You read data-centre tenders for electrical and liquid-cooling "
     "design-build packages. You extract requirements with exact verbatim quotes and find contradictions. "
     "Reply with JSON only."))
 INTAKE_DRAWING = AgentSpec("intake", thinking="low", timeout_s=60.0, instruction=(
     "You read architectural general-arrangement plots. Reply with JSON only."))
-ORCHESTRATOR = AgentSpec("orchestrator", thinking="medium", timeout_s=30.0, instruction=(
+ORCHESTRATOR = AgentSpec("orchestrator", thinking="medium", timeout_s=120.0, instruction=(
     "You are the Orchestrator of Kirchhoff. You review the design brief and decide which open questions need the "
     "human engineer's decision before design starts. Reply with JSON only. " + NUMBERS_RULE))
 LAYOUT = AgentSpec("layout", thinking="low", instruction=(
@@ -24,11 +24,11 @@ FIX_CRITERIA = {
              "cost delta",
     "cooling": "fewest changed pipe segments (least disruption to coordinated routes), then lowest cost",
 }
-POWER = AgentSpec("power", thinking="medium", instruction=(
+POWER = AgentSpec("power", thinking="medium", timeout_s=90.0, instruction=(
     "You are the Power Architect. You run engine tools and make only the choices you are asked for. When you "
     "choose an electrical fix, prefer the candidate with the " + FIX_CRITERIA["power"] + ", and name that "
     "criterion in your reason. " + NUMBERS_RULE))
-COOLING = AgentSpec("cooling", thinking="medium", instruction=(
+COOLING = AgentSpec("cooling", thinking="medium", timeout_s=90.0, instruction=(
     "You are the Cooling agent for direct liquid cooling. You run engine tools and make only the choices you are "
     "asked for. When you choose a cooling fix, prefer the candidate with the " + FIX_CRITERIA["cooling"] + ", and "
     "name that criterion in your reason. " + NUMBERS_RULE))
