@@ -37,7 +37,7 @@ Team Ordinal: Mehul Arora (lead) and Jayadratha.
   - Status is always shown as icon plus text, never colour alone.
   - Every control is keyboard-reachable.
   - Motion is used only for progress, and `prefers-reduced-motion` is respected.
-- **Do not deploy.** Mehul's session owns `infra/deploy_*.sh`, Firebase Hosting and Cloud Run. The live demo at https://kirchhoff.web.app must stay up through judging (19 Oct – 6 Nov).
+- **Do not deploy** unless an issue assigns it to you (issue #6 assigns the runbook to Jayadratha). Mehul's session owns `infra/deploy_*.sh`, Firebase Hosting and Cloud Run. The live demo at https://kirchhoff.web.app must stay up through judging (19 Oct – 6 Nov).
 
 ## Local setup
 

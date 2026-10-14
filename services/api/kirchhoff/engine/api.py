@@ -2,6 +2,7 @@
 Pure Python, no LLM calls. IEC-based, illustrative, not for construction."""
 import hashlib
 import json
+import threading
 
 from kirchhoff.contracts import DesignModel, Finding, PRLine
 from kirchhoff.contracts.extra import ClashReport, FixCandidate  # noqa: F401  (re-exported for WS2)
@@ -50,27 +51,41 @@ def ledger_not_checked() -> list[str]:
 
 
 _WARMED_UP = False
+_WARM_LOCK = threading.Lock()
 
 
 def warm_up() -> None:
     """I-6: pay pandapower's lazy import and first-call JIT/setup cost once, up front, instead of on the first
-    real request. Idempotent and cheap after the first call.
+    real request. Idempotent and cheap after the first call. Concurrent callers block on `_WARM_LOCK` (its own
+    lock, separate from the short-circuit module's shared warnings lock) so only the first caller does the
+    work; the rest see `_WARMED_UP` already set once they get the lock and return immediately.
 
     Warms the 2N model AFTER its R15 swap (spec §8.2: the seed revision ships on the swapped 3.15 MVA
     transformer, not the raw 2.5 MVA pre-swap one), since that's the short-circuit cache key the first
-    real what-if / chip_what_ifs call on the seed revision actually looks up (Minor 5, followup brief)."""
+    real what-if / chip_what_ifs call on the seed revision actually looks up (Minor 5, followup brief).
+
+    Also runs `golden_fixed` for 2N and warms ITS short-circuit key: the fix loop can change connections
+    (e.g. an R05 busway upsize), so the signed seed revision's own key can differ from the pre-fix,
+    post-swap model's key above. Without this, the first real what-if on the seed model still paid one
+    full short-circuit calculation (about 90-100 ms); this call costs about 180-210 ms extra at startup."""
     global _WARMED_UP
     if _WARMED_UP:
         return
-    from .erp import default_erp
-    from .options import annotate_options, power_options
-    from .shortcircuit import short_circuit
+    with _WARM_LOCK:
+        if _WARMED_UP:
+            return
+        from .benchmark import golden_fixed
+        from .erp import default_erp
+        from .options import annotate_options, power_options
+        from .shortcircuit import short_circuit
 
-    scn = load_scenario("hall_a")
-    racks = place_racks(scn)
-    erp = default_erp()
-    options = power_options(scn, racks)
-    annotated = annotate_options(scn, options, erp)
-    model = next(m for o, m in annotated if o.id == "2N")
-    short_circuit(scn, model)
-    _WARMED_UP = True
+        scn = load_scenario("hall_a")
+        racks = place_racks(scn)
+        erp = default_erp()
+        options = power_options(scn, racks)
+        annotated = annotate_options(scn, options, erp)
+        model = next(m for o, m in annotated if o.id == "2N")
+        short_circuit(scn, model)
+        seed = golden_fixed(scn, erp, topology="2N")
+        short_circuit(scn, seed)
+        _WARMED_UP = True

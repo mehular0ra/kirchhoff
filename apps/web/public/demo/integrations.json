@@ -1,0 +1,1334 @@
+{
+  "synced_at": 1792132200.0,
+  "erp": {
+    "materials": [
+      {
+        "id": "ACB-1600",
+        "category": "breaker",
+        "description": "ACB 1,600 A frame, Icu 100 kA",
+        "rating": 1600.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 24,
+        "lead_time_weeks": 6,
+        "unit_price": 9800.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "ACB-2000",
+        "category": "breaker",
+        "description": "ACB 2,000 A frame, Icu 100 kA",
+        "rating": 2000.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 6,
+        "lead_time_weeks": 6,
+        "unit_price": 11500.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "ACB-2500",
+        "category": "breaker",
+        "description": "ACB 2,500 A frame, Icu 100 kA",
+        "rating": 2500.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 6,
+        "lead_time_weeks": 6,
+        "unit_price": 13900.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "ACB-4000",
+        "category": "breaker",
+        "description": "ACB 4,000 A frame, Icu 100 kA",
+        "rating": 4000.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 24,
+        "lead_time_weeks": 8,
+        "unit_price": 21000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "ACB-5000",
+        "category": "breaker",
+        "description": "ACB 5,000 A frame, Icu 100 kA",
+        "rating": 5000.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 8,
+        "lead_time_weeks": 8,
+        "unit_price": 26500.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "ACSR-MOOSE",
+        "category": "conductor",
+        "description": "ACSR Moose conductor",
+        "rating": 1000.0,
+        "unit": "km",
+        "voltage": "132 kV",
+        "stock": 1,
+        "lead_time_weeks": 16,
+        "unit_price": 8900.0,
+        "vendor": "Mahanadi Conductors"
+      },
+      {
+        "id": "ACSR-PANTHER",
+        "category": "conductor",
+        "description": "ACSR Panther conductor",
+        "rating": 520.0,
+        "unit": "km",
+        "voltage": "132 kV",
+        "stock": 39,
+        "lead_time_weeks": 12,
+        "unit_price": 4200.0,
+        "vendor": "Mahanadi Conductors"
+      },
+      {
+        "id": "ACSR-ZEBRA",
+        "category": "conductor",
+        "description": "ACSR Zebra conductor",
+        "rating": 900.0,
+        "unit": "km",
+        "voltage": "132 kV",
+        "stock": 26,
+        "lead_time_weeks": 14,
+        "unit_price": 7600.0,
+        "vendor": "Mahanadi Conductors"
+      },
+      {
+        "id": "BATT-LI-500",
+        "category": "battery",
+        "description": "Li-ion battery cabinet, 500 kW for 7 min",
+        "rating": 500.0,
+        "unit": "kW",
+        "voltage": "415 V",
+        "stock": 20,
+        "lead_time_weeks": 12,
+        "unit_price": 41000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "BATT-VRLA-200",
+        "category": "battery",
+        "description": "VRLA battery string 200 kWh",
+        "rating": 200.0,
+        "unit": "kWh",
+        "voltage": "415 V",
+        "stock": 5,
+        "lead_time_weeks": 8,
+        "unit_price": 18000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "BW-1250-433",
+        "category": "busway",
+        "description": "Busway 1,250 A, 433 V",
+        "rating": 1250.0,
+        "unit": "m",
+        "voltage": "433 V",
+        "stock": 193,
+        "lead_time_weeks": 8,
+        "unit_price": 330.0,
+        "vendor": "Indus Busbar Systems"
+      },
+      {
+        "id": "BW-1600",
+        "category": "busway",
+        "description": "Busway 1,600 A, 415 V",
+        "rating": 1600.0,
+        "unit": "m",
+        "voltage": "415 V",
+        "stock": 900,
+        "lead_time_weeks": 8,
+        "unit_price": 420.0,
+        "vendor": "Indus Busbar Systems"
+      },
+      {
+        "id": "BW-2000",
+        "category": "busway",
+        "description": "Busway 2,000 A, 415 V",
+        "rating": 2000.0,
+        "unit": "m",
+        "voltage": "415 V",
+        "stock": 240,
+        "lead_time_weeks": 10,
+        "unit_price": 560.0,
+        "vendor": "Indus Busbar Systems"
+      },
+      {
+        "id": "BW-2500",
+        "category": "busway",
+        "description": "Busway 2,500 A, 415 V",
+        "rating": 2500.0,
+        "unit": "m",
+        "voltage": "415 V",
+        "stock": 0,
+        "lead_time_weeks": 14,
+        "unit_price": 690.0,
+        "vendor": "Indus Busbar Systems"
+      },
+      {
+        "id": "BW-800-433",
+        "category": "busway",
+        "description": "Busway 800 A, 433 V",
+        "rating": 800.0,
+        "unit": "m",
+        "voltage": "433 V",
+        "stock": 405,
+        "lead_time_weeks": 8,
+        "unit_price": 260.0,
+        "vendor": "Indus Busbar Systems"
+      },
+      {
+        "id": "CBL-1C630",
+        "category": "cable",
+        "description": "1.1 kV XLPE cable 1C x 630 mm2 Cu",
+        "rating": 900.0,
+        "unit": "m",
+        "voltage": "1.1 kV",
+        "stock": 2103,
+        "lead_time_weeks": 6,
+        "unit_price": 74.0,
+        "vendor": "Konark Cables"
+      },
+      {
+        "id": "CBL-240-8P",
+        "category": "cable",
+        "description": "Cable feeder 8 x 1C 240 mm2 Cu per phase",
+        "rating": 2500.0,
+        "unit": "m",
+        "voltage": "415 V",
+        "stock": 300,
+        "lead_time_weeks": 6,
+        "unit_price": 610.0,
+        "vendor": "Konark Cables"
+      },
+      {
+        "id": "CBL-33-3C300",
+        "category": "cable",
+        "description": "33 kV XLPE cable 3C x 300 mm2 Al",
+        "rating": 420.0,
+        "unit": "m",
+        "voltage": "33 kV",
+        "stock": 834,
+        "lead_time_weeks": 10,
+        "unit_price": 58.0,
+        "vendor": "Konark Cables"
+      },
+      {
+        "id": "CBL-DC-6",
+        "category": "cable",
+        "description": "PV DC cable 6 mm2, 1.5 kV",
+        "rating": 70.0,
+        "unit": "m",
+        "voltage": "1.5 kV DC",
+        "stock": 36960,
+        "lead_time_weeks": 3,
+        "unit_price": 1.2,
+        "vendor": "Konark Cables"
+      },
+      {
+        "id": "CDU-1200",
+        "category": "cdu",
+        "description": "Coolant distribution unit 1,200 kW",
+        "rating": 1200.0,
+        "unit": "kW",
+        "voltage": "415 V",
+        "stock": 5,
+        "lead_time_weeks": 14,
+        "unit_price": 145000.0,
+        "vendor": "Godavari Thermal"
+      },
+      {
+        "id": "CDU-600-400",
+        "category": "cdu",
+        "description": "Coolant distribution unit 600 kW (400 V export model)",
+        "rating": 600.0,
+        "unit": "kW",
+        "voltage": "400 V",
+        "stock": 3,
+        "lead_time_weeks": 14,
+        "unit_price": 88000.0,
+        "vendor": "Godavari Thermal"
+      },
+      {
+        "id": "CHILLER-1500",
+        "category": "chiller",
+        "description": "Air-cooled chiller 1,500 kW",
+        "rating": 1500.0,
+        "unit": "kW",
+        "voltage": "415 V",
+        "stock": 2,
+        "lead_time_weeks": 24,
+        "unit_price": 410000.0,
+        "vendor": "Krishna Chillers"
+      },
+      {
+        "id": "CRB-415",
+        "category": "switchboard",
+        "description": "Critical (UPS output) board 415 V",
+        "rating": 4000.0,
+        "unit": "A",
+        "voltage": "415 V",
+        "stock": 6,
+        "lead_time_weeks": 12,
+        "unit_price": 64000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "CT-33-1200",
+        "category": "instrument_transformer",
+        "description": "Current transformer 33 kV 1200/1 A",
+        "rating": 1200.0,
+        "unit": "ea",
+        "voltage": "33 kV",
+        "stock": 44,
+        "lead_time_weeks": 10,
+        "unit_price": 1900.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "DG-2000",
+        "category": "generator",
+        "description": "Diesel generator set 2,000 kVA",
+        "rating": 2000.0,
+        "unit": "kVA",
+        "voltage": "415 V",
+        "stock": 0,
+        "lead_time_weeks": 26,
+        "unit_price": 260000.0,
+        "vendor": "Malabar Gensets"
+      },
+      {
+        "id": "DRYCOOLER-1200",
+        "category": "drycooler",
+        "description": "Adiabatic dry cooler 1,200 kW",
+        "rating": 1200.0,
+        "unit": "kW",
+        "voltage": "415 V",
+        "stock": 1,
+        "lead_time_weeks": 18,
+        "unit_price": 165000.0,
+        "vendor": "Krishna Chillers"
+      },
+      {
+        "id": "GIS-132-BAY",
+        "category": "switchgear",
+        "description": "132 kV GIS line bay",
+        "rating": 132.0,
+        "unit": "kV",
+        "voltage": "132 kV",
+        "stock": 0,
+        "lead_time_weeks": 40,
+        "unit_price": 620000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "INV-3125",
+        "category": "inverter",
+        "description": "Central inverter 3,125 kVA",
+        "rating": 3125.0,
+        "unit": "kVA",
+        "voltage": "0.8 kV",
+        "stock": 2,
+        "lead_time_weeks": 18,
+        "unit_price": 98000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "LA-132",
+        "category": "surge_arrester",
+        "description": "Surge arrester 132 kV",
+        "rating": 132.0,
+        "unit": "ea",
+        "voltage": "132 kV",
+        "stock": 24,
+        "lead_time_weeks": 12,
+        "unit_price": 4800.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "LVB-415",
+        "category": "switchboard",
+        "description": "LV main board 415 V",
+        "rating": 5000.0,
+        "unit": "A",
+        "voltage": "415 V",
+        "stock": 4,
+        "lead_time_weeks": 12,
+        "unit_price": 85000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "MCC-433",
+        "category": "switchboard",
+        "description": "Motor control centre 433 V",
+        "rating": 1600.0,
+        "unit": "A",
+        "voltage": "433 V",
+        "stock": 3,
+        "lead_time_weeks": 10,
+        "unit_price": 41000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "MCCB-250",
+        "category": "mccb",
+        "description": "MCCB 250 A, 36 kA",
+        "rating": 250.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 60,
+        "lead_time_weeks": 3,
+        "unit_price": 620.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "MCCB-630",
+        "category": "mccb",
+        "description": "MCCB 630 A, 50 kA",
+        "rating": 630.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 23,
+        "lead_time_weeks": 3,
+        "unit_price": 1450.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "MMS-2P26",
+        "category": "structure",
+        "description": "Module mounting table 2P x 26",
+        "rating": 52.0,
+        "unit": "ea",
+        "voltage": null,
+        "stock": 135,
+        "lead_time_weeks": 6,
+        "unit_price": 1300.0,
+        "vendor": "Tungabhadra Structures"
+      },
+      {
+        "id": "MVS-33",
+        "category": "switchboard",
+        "description": "33 kV switchboard, 2 incomers + bus-coupler",
+        "rating": 33.0,
+        "unit": "kV",
+        "voltage": "33 kV",
+        "stock": 2,
+        "lead_time_weeks": 20,
+        "unit_price": 240000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "OPGW-24F",
+        "category": "earthwire",
+        "description": "OPGW earthwire, 24 fibres",
+        "rating": 24.0,
+        "unit": "km",
+        "voltage": "132 kV",
+        "stock": 30,
+        "lead_time_weeks": 12,
+        "unit_price": 3100.0,
+        "vendor": "Mahanadi Conductors"
+      },
+      {
+        "id": "PCC-433",
+        "category": "switchboard",
+        "description": "Plant power control centre 433 V",
+        "rating": 4000.0,
+        "unit": "A",
+        "voltage": "433 V",
+        "stock": 2,
+        "lead_time_weeks": 12,
+        "unit_price": 76000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "PIPE-DN100",
+        "category": "pipe",
+        "description": "Steel pipe DN100",
+        "rating": 100.0,
+        "unit": "m",
+        "voltage": null,
+        "stock": 200,
+        "lead_time_weeks": 4,
+        "unit_price": 95.0,
+        "vendor": "Narmada Pipe & Fittings"
+      },
+      {
+        "id": "PIPE-DN150",
+        "category": "pipe",
+        "description": "Steel pipe DN150",
+        "rating": 150.0,
+        "unit": "m",
+        "voltage": null,
+        "stock": 400,
+        "lead_time_weeks": 4,
+        "unit_price": 140.0,
+        "vendor": "Narmada Pipe & Fittings"
+      },
+      {
+        "id": "PIPE-DN200",
+        "category": "pipe",
+        "description": "Steel pipe DN200",
+        "rating": 200.0,
+        "unit": "m",
+        "voltage": null,
+        "stock": 400,
+        "lead_time_weeks": 4,
+        "unit_price": 210.0,
+        "vendor": "Narmada Pipe & Fittings"
+      },
+      {
+        "id": "PIPE-HDPE-DN250",
+        "category": "pipe_hdpe",
+        "description": "HDPE pipe DN250",
+        "rating": 250.0,
+        "unit": "m",
+        "voltage": null,
+        "stock": 289,
+        "lead_time_weeks": 5,
+        "unit_price": 120.0,
+        "vendor": "Narmada Pipe & Fittings"
+      },
+      {
+        "id": "PV-MOD-560",
+        "category": "pv_module",
+        "description": "PV module 560 Wp bifacial",
+        "rating": 560.0,
+        "unit": "ea",
+        "voltage": "1.5 kV DC",
+        "stock": 10820,
+        "lead_time_weeks": 6,
+        "unit_price": 118.0,
+        "vendor": "Suryakiran Modules"
+      },
+      {
+        "id": "RDHX-50",
+        "category": "rdhx",
+        "description": "Rear-door heat exchanger 50 kW",
+        "rating": 50.0,
+        "unit": "kW",
+        "voltage": "230 V",
+        "stock": 37,
+        "lead_time_weeks": 8,
+        "unit_price": 9800.0,
+        "vendor": "Godavari Thermal"
+      },
+      {
+        "id": "RELAY-NUM-33",
+        "category": "relay",
+        "description": "Numerical feeder protection relay",
+        "rating": 1.0,
+        "unit": "ea",
+        "voltage": "33 kV",
+        "stock": 25,
+        "lead_time_weeks": 8,
+        "unit_price": 5200.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "RMU-11",
+        "category": "switchgear",
+        "description": "11 kV ring main unit, 3-way",
+        "rating": 630.0,
+        "unit": "A",
+        "voltage": "11 kV",
+        "stock": 3,
+        "lead_time_weeks": 10,
+        "unit_price": 21000.0,
+        "vendor": "Kaveri Switchgear"
+      },
+      {
+        "id": "SMB-24",
+        "category": "combiner",
+        "description": "String monitoring box, 24 inputs",
+        "rating": 24.0,
+        "unit": "ea",
+        "voltage": "1.5 kV DC",
+        "stock": 75,
+        "lead_time_weeks": 4,
+        "unit_price": 900.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "STS-1600",
+        "category": "sts",
+        "description": "Static transfer switch 1,600 A",
+        "rating": 1600.0,
+        "unit": "A",
+        "voltage": "415 V",
+        "stock": 4,
+        "lead_time_weeks": 16,
+        "unit_price": 28000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "STS-800-433",
+        "category": "sts",
+        "description": "Static transfer switch 800 A, 433 V",
+        "rating": 800.0,
+        "unit": "A",
+        "voltage": "433 V",
+        "stock": 3,
+        "lead_time_weeks": 14,
+        "unit_price": 17000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "TAPOFF-125",
+        "category": "busway_tapoff",
+        "description": "Busway tap-off unit 125 A",
+        "rating": 125.0,
+        "unit": "ea",
+        "voltage": "415 V",
+        "stock": 251,
+        "lead_time_weeks": 4,
+        "unit_price": 640.0,
+        "vendor": "Indus Busbar Systems"
+      },
+      {
+        "id": "TX-1600-11",
+        "category": "transformer",
+        "description": "Oil-filled transformer 1.6 MVA 11/0.433 kV",
+        "rating": 1600.0,
+        "unit": "kVA",
+        "voltage": "11/0.433 kV",
+        "stock": 5,
+        "lead_time_weeks": 14,
+        "unit_price": 44500.0,
+        "vendor": "Sabarmati Transformers"
+      },
+      {
+        "id": "TX-2000-11",
+        "category": "transformer",
+        "description": "Oil-filled transformer 2.0 MVA 11/0.433 kV",
+        "rating": 2000.0,
+        "unit": "kVA",
+        "voltage": "11/0.433 kV",
+        "stock": 4,
+        "lead_time_weeks": 16,
+        "unit_price": 52000.0,
+        "vendor": "Sabarmati Transformers"
+      },
+      {
+        "id": "TX-2500",
+        "category": "transformer",
+        "description": "Cast-resin transformer 2.5 MVA 33/0.415 kV Dyn11",
+        "rating": 2500.0,
+        "unit": "kVA",
+        "voltage": "33/0.415 kV",
+        "stock": 0,
+        "lead_time_weeks": 98,
+        "unit_price": 96000.0,
+        "vendor": "Tapti Transformers"
+      },
+      {
+        "id": "TX-3150",
+        "category": "transformer",
+        "description": "Cast-resin transformer 3.15 MVA 33/0.415 kV Dyn11",
+        "rating": 3150.0,
+        "unit": "kVA",
+        "voltage": "33/0.415 kV",
+        "stock": 6,
+        "lead_time_weeks": 12,
+        "unit_price": 118000.0,
+        "vendor": "Tapti Transformers"
+      },
+      {
+        "id": "TX-3150-PV",
+        "category": "transformer",
+        "description": "Inverter-duty transformer 3.15 MVA 33/0.8 kV",
+        "rating": 3150.0,
+        "unit": "kVA",
+        "voltage": "33/0.8 kV",
+        "stock": 2,
+        "lead_time_weeks": 20,
+        "unit_price": 126000.0,
+        "vendor": "Tapti Transformers"
+      },
+      {
+        "id": "TX-50000-132",
+        "category": "transformer",
+        "description": "Power transformer 50 MVA 132/33 kV ONAN",
+        "rating": 50000.0,
+        "unit": "kVA",
+        "voltage": "132/33 kV",
+        "stock": 1,
+        "lead_time_weeks": 52,
+        "unit_price": 1450000.0,
+        "vendor": "Tapti Transformers"
+      },
+      {
+        "id": "TX-6300-33-11",
+        "category": "transformer",
+        "description": "Distribution transformer 6.3 MVA 33/11 kV",
+        "rating": 6300.0,
+        "unit": "kVA",
+        "voltage": "33/11 kV",
+        "stock": 3,
+        "lead_time_weeks": 30,
+        "unit_price": 212000.0,
+        "vendor": "Sabarmati Transformers"
+      },
+      {
+        "id": "UPS-250-433",
+        "category": "ups_module",
+        "description": "UPS module 250 kW, 433 V",
+        "rating": 250.0,
+        "unit": "kW",
+        "voltage": "433 V",
+        "stock": 8,
+        "lead_time_weeks": 10,
+        "unit_price": 34000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "UPS-500",
+        "category": "ups_module",
+        "description": "UPS module 500 kW, 415 V",
+        "rating": 500.0,
+        "unit": "kW",
+        "voltage": "415 V",
+        "stock": 40,
+        "lead_time_weeks": 10,
+        "unit_price": 62000.0,
+        "vendor": "Sahyadri Power Electronics"
+      },
+      {
+        "id": "VALVE-DN200",
+        "category": "valve",
+        "description": "Butterfly valve DN200",
+        "rating": 200.0,
+        "unit": "ea",
+        "voltage": null,
+        "stock": 65,
+        "lead_time_weeks": 4,
+        "unit_price": 640.0,
+        "vendor": "Narmada Pipe & Fittings"
+      },
+      {
+        "id": "VCB-33-PANEL",
+        "category": "switchgear",
+        "description": "33 kV vacuum circuit-breaker panel",
+        "rating": 1250.0,
+        "unit": "A",
+        "voltage": "33 kV",
+        "stock": 6,
+        "lead_time_weeks": 18,
+        "unit_price": 38000.0,
+        "vendor": "Kaveri Switchgear"
+      }
+    ],
+    "prs": [
+      {
+        "id": "PR-2026-0148",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "TX-3150",
+            "description": "Cast-resin transformer 3.15 MVA 33/0.415 kV Dyn11",
+            "qty": 6,
+            "unit_price": 118000.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872826.0
+      },
+      {
+        "id": "PR-2026-0147",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "UPS-500",
+            "description": "UPS module 500 kW, 415 V",
+            "qty": 30,
+            "unit_price": 62000.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872825.0
+      },
+      {
+        "id": "PR-2026-0146",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "PIPE-DN150",
+            "description": "Steel pipe DN150",
+            "qty": 68,
+            "unit_price": 140.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "PIPE-DN200",
+            "description": "Steel pipe DN200",
+            "qty": 56,
+            "unit_price": 210.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872824.0
+      },
+      {
+        "id": "PR-2026-0145",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "CBL-240-8P",
+            "description": "Cable feeder 8 x 1C 240 mm2 Cu per phase",
+            "qty": 82,
+            "unit_price": 610.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872823.0
+      },
+      {
+        "id": "PR-2026-0144",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "ACB-1600",
+            "description": "ACB 1,600 A frame, Icu 100 kA",
+            "qty": 12,
+            "unit_price": 9800.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "ACB-4000",
+            "description": "ACB 4,000 A frame, Icu 100 kA",
+            "qty": 12,
+            "unit_price": 21000.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "ACB-5000",
+            "description": "ACB 5,000 A frame, Icu 100 kA",
+            "qty": 6,
+            "unit_price": 26500.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "CRB-415",
+            "description": "Critical (UPS output) board 415 V",
+            "qty": 6,
+            "unit_price": 64000.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "LVB-415",
+            "description": "LV main board 415 V",
+            "qty": 6,
+            "unit_price": 85000.0,
+            "lead_time_weeks": 12
+          },
+          {
+            "material_id": "MVS-33",
+            "description": "33 kV switchboard, 2 incomers + bus-coupler",
+            "qty": 1,
+            "unit_price": 240000.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872822.0
+      },
+      {
+        "id": "PR-2026-0143",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "BW-1600",
+            "description": "Busway 1,600 A, 415 V",
+            "qty": 536,
+            "unit_price": 420.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872821.0
+      },
+      {
+        "id": "PR-2026-0142",
+        "project_id": "hall-a",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "CDU-1200",
+            "description": "Coolant distribution unit 1,200 kW",
+            "qty": 9,
+            "unit_price": 145000.0,
+            "lead_time_weeks": 14
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1791872820.0
+      },
+      {
+        "id": "PR-2026-0127",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "TX-3150",
+            "description": "Cast-resin transformer 3.15 MVA 33/0.415 kV Dyn11",
+            "qty": 4,
+            "unit_price": 118000.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922426.0
+      },
+      {
+        "id": "PR-2026-0126",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "UPS-500",
+            "description": "UPS module 500 kW, 415 V",
+            "qty": 20,
+            "unit_price": 62000.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922425.0
+      },
+      {
+        "id": "PR-2026-0125",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "PIPE-DN150",
+            "description": "Steel pipe DN150",
+            "qty": 68,
+            "unit_price": 140.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "PIPE-DN200",
+            "description": "Steel pipe DN200",
+            "qty": 56,
+            "unit_price": 210.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922424.0
+      },
+      {
+        "id": "PR-2026-0124",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "CBL-240-8P",
+            "description": "Cable feeder 8 x 1C 240 mm2 Cu per phase",
+            "qty": 164,
+            "unit_price": 610.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922423.0
+      },
+      {
+        "id": "PR-2026-0123",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "ACB-1600",
+            "description": "ACB 1,600 A frame, Icu 100 kA",
+            "qty": 12,
+            "unit_price": 9800.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "ACB-4000",
+            "description": "ACB 4,000 A frame, Icu 100 kA",
+            "qty": 8,
+            "unit_price": 21000.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "ACB-5000",
+            "description": "ACB 5,000 A frame, Icu 100 kA",
+            "qty": 4,
+            "unit_price": 26500.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "CRB-415",
+            "description": "Critical (UPS output) board 415 V",
+            "qty": 4,
+            "unit_price": 64000.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "LVB-415",
+            "description": "LV main board 415 V",
+            "qty": 4,
+            "unit_price": 85000.0,
+            "lead_time_weeks": 0
+          },
+          {
+            "material_id": "MVS-33",
+            "description": "33 kV switchboard, 2 incomers + bus-coupler",
+            "qty": 1,
+            "unit_price": 240000.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922422.0
+      },
+      {
+        "id": "PR-2026-0122",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "BW-1600",
+            "description": "Busway 1,600 A, 415 V",
+            "qty": 487,
+            "unit_price": 420.0,
+            "lead_time_weeks": 0
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922421.0
+      },
+      {
+        "id": "PR-2026-0121",
+        "project_id": "pune-edge-1",
+        "revision": "r2",
+        "lines": [
+          {
+            "material_id": "CDU-1200",
+            "description": "Coolant distribution unit 1,200 kW",
+            "qty": 9,
+            "unit_price": 145000.0,
+            "lead_time_weeks": 14
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1790922420.0
+      },
+      {
+        "id": "PR-2026-0103",
+        "project_id": "vindhya-lv",
+        "revision": "r3",
+        "lines": [
+          {
+            "material_id": "BW-1250-433",
+            "description": "Busway 1,250 A, 433 V",
+            "qty": 123,
+            "unit_price": 330.0,
+            "lead_time_weeks": 8
+          },
+          {
+            "material_id": "TAPOFF-125",
+            "description": "Busway tap-off unit 125 A",
+            "qty": 20,
+            "unit_price": 640.0,
+            "lead_time_weeks": 4
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1788589800.0
+      },
+      {
+        "id": "PR-2026-0102",
+        "project_id": "vindhya-lv",
+        "revision": "r3",
+        "lines": [
+          {
+            "material_id": "MCC-433",
+            "description": "Motor control centre 433 V",
+            "qty": 3,
+            "unit_price": 41000.0,
+            "lead_time_weeks": 10
+          },
+          {
+            "material_id": "MCCB-630",
+            "description": "MCCB 630 A, 50 kA",
+            "qty": 11,
+            "unit_price": 1450.0,
+            "lead_time_weeks": 3
+          },
+          {
+            "material_id": "MCCB-250",
+            "description": "MCCB 250 A, 36 kA",
+            "qty": 18,
+            "unit_price": 620.0,
+            "lead_time_weeks": 3
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1788417000.0
+      },
+      {
+        "id": "PR-2026-0101",
+        "project_id": "vindhya-lv",
+        "revision": "r3",
+        "lines": [
+          {
+            "material_id": "TX-2000-11",
+            "description": "Oil-filled transformer 2.0 MVA 11/0.433 kV",
+            "qty": 2,
+            "unit_price": 52000.0,
+            "lead_time_weeks": 16
+          },
+          {
+            "material_id": "PCC-433",
+            "description": "Plant power control centre 433 V",
+            "qty": 1,
+            "unit_price": 76000.0,
+            "lead_time_weeks": 12
+          },
+          {
+            "material_id": "CBL-1C630",
+            "description": "1.1 kV XLPE cable 1C x 630 mm2 Cu",
+            "qty": 881,
+            "unit_price": 74.0,
+            "lead_time_weeks": 6
+          }
+        ],
+        "status": "submitted",
+        "created_at": 1788330600.0
+      }
+    ]
+  },
+  "crm": {
+    "opportunities": [
+      {
+        "id": "opp-grid-132kv",
+        "account": "Narmada Transmission",
+        "name": "Deccan campus 132 kV intake",
+        "stage": "Negotiation",
+        "value": 4640000.0,
+        "next_step": "Agree the conductor choice"
+      },
+      {
+        "id": "opp-hall-a",
+        "account": "Deccan Compute",
+        "name": "Hall A design-build",
+        "stage": "Design approved",
+        "value": 17950000.0,
+        "next_step": "Issue purchase requisitions"
+      },
+      {
+        "id": "opp-hall-b",
+        "account": "Deccan Compute",
+        "name": "Hall B design-build",
+        "stage": "Design in progress",
+        "value": 19310000.0,
+        "next_step": "Run the Hall B design"
+      },
+      {
+        "id": "opp-hall-c",
+        "account": "Deccan Compute",
+        "name": "Hall C design-build",
+        "stage": "Qualification",
+        "value": 16960000.0,
+        "next_step": "Confirm rack density with the client"
+      },
+      {
+        "id": "opp-pune-edge-1",
+        "account": "Konkan Cloud",
+        "name": "Pune Edge Phase 1",
+        "stage": "Closed won",
+        "value": 7230000.0,
+        "next_step": "Track equipment deliveries"
+      },
+      {
+        "id": "opp-pune-edge-2",
+        "account": "Konkan Cloud",
+        "name": "Pune Edge Phase 2",
+        "stage": "Proposal",
+        "value": 7890000.0,
+        "next_step": "Send the revised proposal"
+      },
+      {
+        "id": "opp-solar-5mwp",
+        "account": "Suryodaya Renewables",
+        "name": "Deccan campus 5 MWp solar",
+        "stage": "Proposal",
+        "value": 2810000.0,
+        "next_step": "Finalise the string layout"
+      },
+      {
+        "id": "opp-vindhya-cpp",
+        "account": "Vindhya Steel",
+        "name": "Captive power switchyard",
+        "stage": "Qualification",
+        "value": 3120000.0,
+        "next_step": "Schedule the site survey"
+      },
+      {
+        "id": "opp-vindhya-lv",
+        "account": "Vindhya Steel",
+        "name": "Mill LV upgrade",
+        "stage": "Closed won",
+        "value": 1390000.0,
+        "next_step": "Archive the project"
+      }
+    ]
+  },
+  "documents": [
+    {
+      "id": "doc-hall-a-tender-hall-a",
+      "project_id": "hall-a",
+      "name": "tender-hall-a.pdf",
+      "kind": "tender",
+      "url": "/demo/docs/tender-hall-a.pdf",
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "doc-hall-a-hall-a-plan",
+      "project_id": "hall-a",
+      "name": "hall-a-plan.pdf",
+      "kind": "drawing",
+      "url": "/demo/docs/hall-a-plan.pdf",
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "doc-hall-b-tender-hall-a",
+      "project_id": "hall-b",
+      "name": "tender-hall-a.pdf",
+      "kind": "tender",
+      "url": "/demo/docs/tender-hall-a.pdf",
+      "updated_at": 1792045800.0
+    },
+    {
+      "id": "doc-hall-b-hall-a-plan",
+      "project_id": "hall-b",
+      "name": "hall-a-plan.pdf",
+      "kind": "drawing",
+      "url": "/demo/docs/hall-a-plan.pdf",
+      "updated_at": 1792045800.0
+    },
+    {
+      "id": "doc-grid-132kv-summary",
+      "project_id": "grid-132kv",
+      "name": "summary.pdf",
+      "kind": "summary",
+      "url": "/demo/files/grid-132kv/summary.pdf",
+      "updated_at": 1791613800.0
+    },
+    {
+      "id": "doc-hall-a-boq",
+      "project_id": "hall-a",
+      "name": "boq.csv",
+      "kind": "boq",
+      "url": "/demo/files/hall-a/boq.csv",
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "doc-hall-a-calc-report",
+      "project_id": "hall-a",
+      "name": "calc-report.pdf",
+      "kind": "calc_report",
+      "url": "/demo/files/hall-a/calc-report.pdf",
+      "updated_at": 1791873000.0
+    },
+    {
+      "id": "doc-pune-edge-1-boq",
+      "project_id": "pune-edge-1",
+      "name": "boq.csv",
+      "kind": "boq",
+      "url": "/demo/files/pune-edge-1/boq.csv",
+      "updated_at": 1790922600.0
+    },
+    {
+      "id": "doc-pune-edge-1-calc-report",
+      "project_id": "pune-edge-1",
+      "name": "calc-report.pdf",
+      "kind": "calc_report",
+      "url": "/demo/files/pune-edge-1/calc-report.pdf",
+      "updated_at": 1790922600.0
+    },
+    {
+      "id": "doc-solar-5mwp-summary",
+      "project_id": "solar-5mwp",
+      "name": "summary.pdf",
+      "kind": "summary",
+      "url": "/demo/files/solar-5mwp/summary.pdf",
+      "updated_at": 1791354600.0
+    },
+    {
+      "id": "doc-vindhya-lv-boq",
+      "project_id": "vindhya-lv",
+      "name": "boq.csv",
+      "kind": "boq",
+      "url": "/demo/files/vindhya-lv/boq.csv",
+      "updated_at": 1788849000.0
+    }
+  ],
+  "notifications": [
+    {
+      "id": "n-01",
+      "ts": 1791872700.0,
+      "kind": "approval",
+      "title": "Deccan AI Campus · Hall A r2 approved by Priya Raman",
+      "body": "7 purchase requisitions submitted to the ERP sandbox",
+      "project_id": "hall-a"
+    },
+    {
+      "id": "n-02",
+      "ts": 1791865500.0,
+      "kind": "finding",
+      "title": "Checker flagged 2 failures on Deccan AI Campus · Hall A r1",
+      "body": "R05 FA-01, R11 H-Z2",
+      "project_id": "hall-a"
+    },
+    {
+      "id": "n-03",
+      "ts": 1791613800.0,
+      "kind": "check",
+      "title": "Deccan campus · 132 kV intake: asset-pack evaluation complete",
+      "project_id": "grid-132kv"
+    },
+    {
+      "id": "n-04",
+      "ts": 1791354600.0,
+      "kind": "check",
+      "title": "Deccan campus · 5 MWp solar: asset-pack evaluation complete",
+      "project_id": "solar-5mwp"
+    },
+    {
+      "id": "n-05",
+      "ts": 1790922300.0,
+      "kind": "approval",
+      "title": "Konkan Cloud · Pune Edge Phase 1 r2 approved by Priya Raman",
+      "body": "7 purchase requisitions submitted to the ERP sandbox",
+      "project_id": "pune-edge-1"
+    },
+    {
+      "id": "n-06",
+      "ts": 1790915100.0,
+      "kind": "finding",
+      "title": "Checker flagged 3 failures on Konkan Cloud · Pune Edge Phase 1 r1",
+      "body": "R05 FA-01, R05 FB-01, R11 H-Z2",
+      "project_id": "pune-edge-1"
+    }
+  ]
+}

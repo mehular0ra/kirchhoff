@@ -134,3 +134,125 @@ export interface AssetResult {
   /** The Asset agent's pick (WS2 ruling R33); `source: 'engine'` when the agent fell back to `recommended`. */
   choice?: { option: string; reason: string; source: 'agent' | 'engine' }
 }
+
+/** Bids inbox (spec §20): `public/demo/inbox.json` (WS4 I-1) and `GET /api/inbox` (WS2 I-2). Hand-typed like `World`. */
+export type AttachmentKind = 'tender' | 'drawing' | 'addendum' | 'boq' | 'brochure' | 'other'
+export type InboxFieldKey = 'client' | 'site' | 'asset_type' | 'mw' | 'redundancy' | 'bid_due' | 'lead_time_weeks'
+export type Verification = 'verified' | 'unverified_scan' | 'unverified'
+export type Verdict = 'pursue' | 'clarify' | 'decline'
+export interface InboxAttachment {
+  id: string
+  name: string
+  url: string // /demo/docs/{file} or /demo/inbox/{file}
+  source: string
+  content_type: string
+}
+export interface AttachmentTriage {
+  attachment_id: string
+  name: string
+  kind: AttachmentKind
+  scanned: boolean
+}
+export interface ExtractedField {
+  key: InboxFieldKey
+  label: string
+  value: string | number | null // null when withheld (unverified)
+  unit: string | null
+  display: string // formatted by WS2 from the verified value
+  source: string
+  source_label: string
+  page: number | null
+  quote: string // the verified verbatim quote; "" when unverified
+  verification: Verification
+  bbox: number[] | null
+}
+export interface CrmLink {
+  account: string | null
+  opportunity_id: string | null
+  opportunity_name: string | null
+  stage: string | null
+  proposed: boolean
+  proposed_name: string | null
+}
+export interface FitReason {
+  rule: 'asset_pack' | 'mw_range' | 'region' | 'deadline' | 'supply' | 'not_a_bid'
+  status: FindingStatus
+  text: string
+}
+export interface SupplyCheck {
+  status: 'ok' | 'swap' | 'risk' | 'not_assessed'
+  text: string
+  topology: string | null
+  mw: number | null
+  lead_limit_weeks: number | null
+  material_id: string | null
+  lead_time_weeks: number | null
+  stock: number | null
+  swap_to: string | null
+  swap_stock: number | null
+}
+export interface FitResult {
+  verdict: Verdict | null // null: not a bid
+  headline: string
+  reasons: FitReason[]
+  supply: SupplyCheck | null
+}
+export interface TriageResult {
+  email_id: string
+  is_bid: boolean
+  summary: string
+  attachments: AttachmentTriage[]
+  fields: ExtractedField[]
+  crm: CrmLink
+  fit: FitResult
+  quotes_verified: number
+  quotes_total: number
+  source: 'live' | 'precomputed'
+  model: string
+  triaged_at: number
+  tokens_in: number
+  tokens_out: number
+}
+export interface PursueResult {
+  email_id: string
+  project_id: string
+  project_name: string | null // null for an existing world project (name it from world.json)
+  project_created: boolean
+  opportunity_id: string
+  opportunity_name: string
+  stage: string
+  previous_stage: string | null
+  opportunity_created: boolean
+  open: string | null // app route to open next (Hall B's intake)
+}
+export interface InboxEmail {
+  id: string
+  from_name: string
+  from_addr: string
+  from_org: string
+  to: string
+  subject: string
+  received_at: number
+  body: string
+  attachments: InboxAttachment[]
+  project_id: string | null
+  live_triage: boolean
+  triage: TriageResult | null
+  status?: 'new' | 'triaged' | 'pursued' // live API only
+  pursue?: PursueResult | null // live API only
+}
+export interface InboxAppetite {
+  asset_types: AssetPack[]
+  mw: [number, number]
+  regions: { name: string; places: string[] }[]
+  min_days_to_bid_due: number
+  lead_time_check: boolean
+}
+export interface InboxSnapshot {
+  mailbox: string
+  label: string
+  notice: string
+  as_of: number
+  appetite: InboxAppetite
+  emails: InboxEmail[] // newest first
+}

@@ -25,4 +25,4 @@ smoke:
 seed-enterprise:
 	cd services/api && $(GCP_ENV) uv run python -m kirchhoff.enterprise.seed_cli --docs ../../apps/web/public/demo/files
 demo-world:
-	cd services/api && uv run python ../../scenarios/demo_world/build.py
+	cd services/api && uv run python ../../scenarios/demo_world/build.py && uv run python ../../scenarios/demo_world/build_inbox.py

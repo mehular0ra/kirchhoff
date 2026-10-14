@@ -1,0 +1,14 @@
+material_id,description,qty,unit_price_usd,line_total_usd,lead_time_weeks
+ACB-1600,"ACB 1,600 A frame, Icu 100 kA",12,9800.00,117600.00,0
+ACB-4000,"ACB 4,000 A frame, Icu 100 kA",12,21000.00,252000.00,0
+ACB-5000,"ACB 5,000 A frame, Icu 100 kA",6,26500.00,159000.00,0
+BW-1600,"Busway 1,600 A, 415 V",536,420.00,225120.00,0
+CBL-240-8P,Cable feeder 8 x 1C 240 mm2 Cu per phase,82,610.00,50020.00,0
+CDU-1200,"Coolant distribution unit 1,200 kW",9,145000.00,1305000.00,14
+CRB-415,Critical (UPS output) board 415 V,6,64000.00,384000.00,0
+LVB-415,LV main board 415 V,6,85000.00,510000.00,12
+MVS-33,"33 kV switchboard, 2 incomers + bus-coupler",1,240000.00,240000.00,0
+PIPE-DN150,Steel pipe DN150,68,140.00,9520.00,0
+PIPE-DN200,Steel pipe DN200,56,210.00,11760.00,0
+TX-3150,Cast-resin transformer 3.15 MVA 33/0.415 kV Dyn11,6,118000.00,708000.00,0
+UPS-500,"UPS module 500 kW, 415 V",30,62000.00,1860000.00,0

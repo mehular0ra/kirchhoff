@@ -1,12 +1,14 @@
-import { CirclePlay, Factory, SunMedium, UtilityPole, Zap, type LucideIcon } from 'lucide-react'
-import { Link, useNavigate } from 'react-router'
+import { CirclePlay, Factory, Inbox, SunMedium, UtilityPole, Zap, type LucideIcon } from 'lucide-react'
+import { Link } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { ProjectStateBadge } from '@/components/ProjectState'
 import { Button } from '@/components/ui/button'
 import { useWorld } from '@/data/useWorld'
+import { unreadCount, useInbox } from '@/inbox/useInbox'
 import { fmtRelative } from '@/lib/format'
 import { readJson } from '@/lib/storage'
 import type { AssetPack, Project } from '@/lib/types'
+import { useTour } from '@/onboarding/tour/tour'
 import { Welcome } from './Welcome'
 
 const PACKS: { id: AssetPack; label: string; icon: LucideIcon }[] = [
@@ -58,15 +60,30 @@ function ProjectCard({ p }: { p: Project }) {
   )
 }
 
+/** Front door (spec §20): "Bids inbox · N new"; N counts emails this browser has not opened (static first). */
+function InboxEntry() {
+  const { data, read } = useInbox()
+  return (
+    <Link
+      to="/app/inbox"
+      data-tour="inbox"
+      className="flex items-center gap-2 self-start rounded-lg border bg-card px-3 py-2 text-sm text-zinc-200 hover:border-zinc-600 focus-visible:outline-2 focus-visible:outline-sky-400"
+    >
+      <Inbox aria-hidden className="size-4 text-sky-300" />
+      {data ? `Bids inbox · ${unreadCount(data, read)} new` : 'Bids inbox'}
+    </Link>
+  )
+}
+
 export function Dashboard() {
   const { world, error } = useWorld()
-  const navigate = useNavigate()
+  const startTour = useTour((s) => s.start)
   if (error) return <EmptyState title="Could not load the demo world">{error}</EmptyState>
   if (!world) return <EmptyState title="Loading projects…" />
   const activity = [...world.activity].sort((a, b) => b.ts - a.ts)
   return (
     <div className="mx-auto grid h-full max-w-7xl grid-cols-1 gap-6 overflow-auto p-6 lg:grid-cols-[1fr_18rem]">
-      <Welcome onStartTour={() => navigate('/app/p/hall-a?tab=matrix')} />
+      <Welcome onStartTour={startTour} />
       <section aria-labelledby="projects-h" data-tour="projects" className="flex flex-col gap-6">
         <div>
           <h1 id="projects-h" className="text-lg font-semibold">
@@ -74,6 +91,7 @@ export function Dashboard() {
           </h1>
           <p className="text-sm text-zinc-400">{world.org.name}</p>
         </div>
+        <InboxEntry />
         {PACKS.map((pack) => {
           const projects = world.projects.filter((p) => p.asset_pack === pack.id)
           if (!projects.length) return null

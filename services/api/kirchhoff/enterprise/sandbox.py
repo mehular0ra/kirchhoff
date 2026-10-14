@@ -123,11 +123,37 @@ class Sandbox:
 
     # ---- CRM ----------------------------------------------------------------------------------------------
     def list_opportunities(self, uid: str | None) -> list[Opportunity]:
-        opps = sorted((Opportunity.model_validate(d) for d in self.store.list_docs(OPPORTUNITIES)), key=lambda o: o.id)
+        opps = [Opportunity.model_validate(d) for d in self.store.list_docs(OPPORTUNITIES)]
         if not uid:
-            return opps
-        stages = {d["opportunity_id"]: d["stage"] for d in self.store.list_docs(f"{visitor_path(uid)}/crm")}
-        return [o.model_copy(update={"stage": stages[o.id]}) if o.id in stages else o for o in opps]
+            return sorted(opps, key=lambda o: o.id)
+        base = visitor_path(uid)
+        opps += [Opportunity.model_validate(d) for d in self.store.list_docs(f"{base}/opportunities")]
+        stages = {d["opportunity_id"]: d["stage"] for d in self.store.list_docs(f"{base}/crm")}
+        return sorted((o.model_copy(update={"stage": stages[o.id]}) if o.id in stages else o for o in opps),
+                      key=lambda o: o.id)
+
+    def create_opportunity(self, uid: str, opportunity: Opportunity) -> Opportunity:
+        """A visitor-created opportunity (bids inbox Pursue, spec §20; addendum ruling B2). Stored under
+        sandbox_visitors/{uid}/opportunities, never in the seed; idempotent by id (the first write wins)."""
+        base = visitor_path(uid)
+        if not opportunity.id or "/" in opportunity.id:
+            raise ValueError("opportunity id must be a non-empty string without '/'")
+        if opportunity.stage not in STAGES:
+            raise ValueError(f"stage must be one of {STAGES}")
+        if self.store.get_doc(f"{OPPORTUNITIES}/{opportunity.id}") is not None:
+            raise ValueError(f"{opportunity.id} is a seed opportunity; set its stage instead")
+        path = f"{base}/opportunities/{opportunity.id}"
+        out: dict = {}
+
+        def fn(snap: dict) -> list:
+            out.clear()  # Firestore may retry the transaction function
+            if snap.get(path) is not None:
+                out["existing"] = snap[path]
+                return []
+            return [(path, opportunity.model_dump(mode="json"))]
+
+        self.store.transact([path], fn)
+        return Opportunity.model_validate(out["existing"]) if "existing" in out else opportunity
 
     def set_opportunity_stage(self, uid: str, opportunity_id: str, stage: str) -> CrmOverlay:
         base = visitor_path(uid)

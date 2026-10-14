@@ -40,7 +40,7 @@ Start with a tender. Finish with a signed design.
 | First-pass check | 149 findings: 147 pass, 2 fail |
 | R05 fail | Feeder FA-01 (82 m): ΔV 2.16% against 2.0%. Fixes: 2,000 A busway (1.66%, +$11,480) or parallel cable (0.84%, +$15,580) |
 | R11 fail | Header H-Z2 crosses above feeder FB-03 at y ≈ 24 m. Fixes: local drop (+$420, 1 pipe) or reroute (−$910, 2 pipes) |
-| What-if at 200 kW per rack | R01 (113.6%), R02 (2,343 A), R03, R05, R07, R08 (2,560 kW > 2,400 kW) and R09 fail: 62 findings, 18 impact chains, about 8 ms after warm-up |
+| What-if at 200 kW per rack | R01 (113.6%), R02 (2,343 A), R03, R05, R07, R08 (2,560 kW > 2,400 kW) and R09 fail: 60 findings, 18 impact chains, about 8 ms after warm-up |
 | Checker benchmark | 35/35 seeded design mutations caught, 0 false positives |
 | Determinism | Byte-identical output across Python hash seeds |
 | Solar pack | STR-28 recommended: 327 tables, about 5,036 kWp, DC/AC 1.26, clear-sky yield about 2,639 kWh/kWp (clear-sky only) |

@@ -49,3 +49,19 @@ def test_smoke_checks_the_three_cache_policies():
 def test_smoke_checks_api_headers_are_not_no_cache():
     text = (REPO / "infra" / "smoke.sh").read_text(encoding="utf-8")
     assert "no-cache" in text and "/api/health" in text
+
+
+def test_storage_cors_allows_plain_gets_from_the_site():
+    cors = json.loads((REPO / "infra" / "storage-cors.json").read_text(encoding="utf-8"))
+    assert cors == [{"origin": ["https://kirchhoff.web.app", "https://kirchhoff.firebaseapp.com", "http://localhost:5173"],
+                     "method": ["GET"], "responseHeader": ["Content-Type", "Content-Disposition"], "maxAgeSeconds": 3600}]
+
+
+def test_web_deploy_gates_on_the_demo_world_and_smoke_checks_it():
+    deploy = (REPO / "infra" / "deploy_web.sh").read_text(encoding="utf-8")
+    assert "build.py --check" in deploy and "ALLOW_NO_DEMO" in deploy and "dist/demo/docs/tender-hall-a.pdf" in deploy
+    assert "cp " not in deploy  # WS4 never writes apps/web/public/demo/docs (WS3's sync script does)
+    smoke = (REPO / "infra" / "smoke.sh").read_text(encoding="utf-8")
+    for path in ("/demo/world.json", "/demo/projects/hall-a.json", "/demo/docs/tender-hall-a.pdf",
+                 "/demo/files/hall-a/calc-report.pdf"):
+        assert path in smoke, path

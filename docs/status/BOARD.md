@@ -2,45 +2,43 @@
 
 Updated by Mehul's controller session on each push. Detailed per-task history, review findings and every ruling are in the exported ledgers next to this file (`2026-10-13-p*.md`). Internal deadline: **Sat 17 Oct 20:00 IST**.
 
-## Progress (14 Oct)
+## Progress (15 Oct)
 
 | Workstream | Branch | Done | In flight |
 |---|---|---|---|
-| WS1 Engine (P1) | `ws1-engine` | 15 / 15, final review clean, merged | small hardening follow-up (forged-fix guards) |
-| WS2 Agents + API (P2) | `ws2-agents` | 7 / 18 | Task 8: step machinery |
-| WS3 Web UI (P3) | `ws3-web` | 7 / 19 | Task 8: 3D hall (fix round 3: tube animation) |
-| WS4 Infra + enterprise + demo world (P4) | `ws4-infra` | 7 / 16 (8 in fix) | Task 8: monitoring, small fix queued |
-| Submission | `docs/submission/` | drafts reviewed | team bios/photos, GitHub/video URLs, measured run metrics |
+| WS1 Engine (P1) | `ws1-engine` | 15 / 15 + hardening, merged | done |
+| WS2 Agents + API (P2) | `ws2-agents` | 12 / 18 merged to build | Task 13 (phase 3: checker + fix loop) in fix round 1; Task 11 contradiction backstop in fix round 4 |
+| WS3 Web UI (P3) | `ws3-web` | 19 / 19, merged | final whole-branch review → one fix wave |
+| WS4 Infra + enterprise + demo world (P4) | `ws4-infra` | 12 / 16, merged | Tasks 13–16 need the deploy + golden capture |
+| Bids inbox (§20) | `jd/inbox-*` | I-1 (#4) and I-3 (#5) merged | I-2 (#2) |
+| Submission | `docs/submission/` | drafts reviewed | team bios/photos, video, measured run metrics |
 
-`build` now contains every workstream at its last clean task boundary. Its suites pass: 277 pytest, 73 vitest, `tsc -b` and `make check-types`.
+`build` (`f8524ae`) has every workstream merged. Its suites pass: 453 pytest, 164 vitest and `tsc -b`.
 
-**Live:** https://kirchhoff.web.app
-- The API runs on Cloud Run as a dedicated least-privilege service account.
-- The ERP/CRM sandbox is seeded.
-- Uptime checks and the budget alert are on.
-- The web UI there is still the P0 shell. The real UI deploys after the API wiring (P2 Task 12) and the demo bundles (P4 Task 11).
+**Live:** https://kirchhoff.web.app still shows the P0 shell until the first deploy from `build` (issue #6).
 
-## Claimable work for Jayadratha (and his agents)
+## UI/UX track (P3)
 
-To claim a task, comment on its GitHub issue, branch `jd/<topic>` from `build`, and open a PR into `build`. The rules are in `AGENTS.md`.
+| # | Task | When |
+|---|---|---|
+| UX-0 | Final fix wave: tour step 3, 3D hall readability, lane text, fix costs, App Check hang, contrast, bundle size | running |
+| UX-1 | Design review of the fixed UI at desktop and phone size: ranked defects plus ranked improvements | after UX-0 |
+| UX-2 | One improvement round on the top UX-1 items | Thu 16 |
+| UX-3 | Human pass: #7 exploratory QA on the deployed site, plus Mehul's click-through | Thu 16 evening |
 
-1. **Bids inbox (spec §20, a Should item)**
-   - The plan addendum `docs/superpowers/plans/2026-10-14-bids-inbox.md` is reviewed and ready.
-   - Issues #1 (I-1), #2 (I-2) and #3 (I-3) are assigned to Jayadratha.
-   - **I-1** can start now.
-   - **I-2** Steps 1–9 can start now; its endpoints wait for P2 Task 12 (API wiring).
-   - **I-3**'s static page can start once I-1's `inbox.json` exists.
-   - Cut line: Thu 16 Oct 12:00 IST.
-2. **Team assets for the deck and video**
-   - Photos.
-   - Two-sentence bios for Mehul and Jayadratha.
-   - Any team clips for the three TEAM SLOTs in `docs/submission/video-script.md`.
-3. **Exploratory QA on the deployed site.** This starts once the real UI is live, Thu 16 Oct. Follow the 7-step tour in spec §13.5 and file issues with screenshots.
+**UI freeze: Fri 17 Oct 12:00 IST** (the video records this UI).
+
+## Jayadratha's work (GitHub issues)
+
+1. **#6 Cloud ops runbook.** Seed the sandbox, apply the bucket CORS, and deploy when the controller comments "deploy `<sha>`". GCP access is being granted.
+2. **#2 Bids inbox I-2.** The inbox agent, the fit check, the endpoints and the precompute script. Branch from `build`. Cut line Thu 16 Oct 12:00 IST.
+3. **#7 E2E tests (P4 Task 13) and exploratory QA.** Run them on the deployed site after #6.
+4. **Team assets** for the deck and video: photos, two-sentence bios, and any clips for the TEAM SLOTs in `docs/submission/video-script.md`.
 
 ## Not claimable (controller-owned, sequential)
 
 - All remaining tasks in P2, P3 and P4.
 - Contracts.
-- Deploys.
+- Deciding when to deploy (Jayadratha runs the deploy, issue #6).
 - The golden-run capture.
 - App Check enforcement.

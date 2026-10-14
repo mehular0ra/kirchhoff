@@ -1,13 +1,24 @@
 import { cn } from 'cn'
+import { CircleQuestionMark } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
 import { DemoBanner } from '@/components/Labels'
+import { Button } from '@/components/ui/button'
+import { Checklist } from '@/onboarding/checklist/Checklist'
+import { TourHost } from '@/onboarding/tour/TourHost'
+import { ShortcutsDialog } from './ShortcutsDialog'
+import { useShortcuts } from './useShortcuts'
 
 const nav = [
   { to: '/app', label: 'Projects', end: true },
+  { to: '/app/inbox', label: 'Bids inbox', end: false },
   { to: '/app/integrations', label: 'Integrations', end: false },
 ]
 
 export function AppShell() {
+  const [help, setHelp] = useState(false)
+  const openHelp = useCallback(() => setHelp(true), [])
+  useShortcuts(openHelp)
   return (
     <div className="flex h-dvh flex-col">
       <DemoBanner />
@@ -32,11 +43,16 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
-        <div id="shell-actions" className="ml-auto flex items-center gap-2" />
+        <Button data-dev variant="ghost" size="icon-sm" className="ml-auto" aria-label="Help and shortcuts" onClick={openHelp}>
+          <CircleQuestionMark aria-hidden />
+        </Button>
       </header>
       <main className="min-h-0 flex-1">
         <Outlet />
       </main>
+      <Checklist />
+      <TourHost />
+      <ShortcutsDialog open={help} onOpenChange={setHelp} />
     </div>
   )
 }

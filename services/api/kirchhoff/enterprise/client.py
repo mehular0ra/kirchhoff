@@ -47,6 +47,9 @@ class LocalEnterpriseClient:
     def set_opportunity_stage(self, uid, opportunity_id, stage) -> CrmOverlay:
         return self.sandbox.set_opportunity_stage(uid, opportunity_id, stage)
 
+    def create_opportunity(self, uid, opportunity) -> Opportunity:
+        return self.sandbox.create_opportunity(uid, Opportunity.model_validate(opportunity))
+
     def reset_visitor(self, uid) -> None:
         self.sandbox.reset_visitor(uid)
 
@@ -139,6 +142,10 @@ class HttpEnterpriseClient:
         data = self._call("POST", f"/crm/opportunities/{quote(opportunity_id, safe='')}/stage",
                           body={"uid": uid, "stage": stage})
         return CrmOverlay.model_validate(data)
+
+    def create_opportunity(self, uid, opportunity) -> Opportunity:
+        body = {"uid": uid, "opportunity": Opportunity.model_validate(opportunity).model_dump(mode="json")}
+        return Opportunity.model_validate(self._call("POST", "/crm/opportunities", body=body))
 
     def reset_visitor(self, uid) -> None:
         self._call("DELETE", f"/visitors/{quote(uid, safe='')}")
