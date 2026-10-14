@@ -6,6 +6,7 @@ import { useWorldProject } from '@/data/useWorld'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
+import { FindingDrawer } from './finding/FindingDrawer'
 import { ComplianceMatrix } from './matrix/ComplianceMatrix'
 import { RequirementsPanel } from './RequirementsPanel'
 import { RevisionTimeline } from './RevisionTimeline'
@@ -14,6 +15,7 @@ import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceProvider } from './WorkspaceContext'
 
 const HallView = lazy(() => import('./hall/HallView'))
+const PdfViewer = lazy(() => import('./finding/PdfViewer'))
 
 /** Resets UI state per project, then applies ?tab=, ?rev= and ?finding= whenever they change (tour, deep links). */
 function useUrlState(pid: string) {
@@ -79,6 +81,10 @@ export function WorkspacePage() {
         </div>
         <RevisionTimeline />
       </div>
+      <FindingDrawer />
+      <Suspense fallback={null}>
+        <PdfViewer />
+      </Suspense>
     </WorkspaceProvider>
   )
 }
