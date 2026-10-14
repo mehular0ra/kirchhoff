@@ -1,6 +1,7 @@
 // Single import point for contract types. Contracts come only from the generated file
 // (never hand-edit src/contracts/generated.ts); this module re-exports them and adds the
 // UI-only shapes of the static demo files.
+import { visibleEvents } from './events'
 import type {
   Equipment,
   Finding,
@@ -62,13 +63,18 @@ export type Autonomy = RunRecord['autonomy']
 /** A ProjectBundle with every optional collection filled in (see normalizeBundle). */
 export type Bundle = Required<ProjectBundle>
 
+/**
+ * Fills the optional collections and applies the event visibility rule (spec §6.2) to static and
+ * replay bundles too, so exports, agent counts, replay and asset narration never see a superseded
+ * attempt's events (final review I12; the live adapter already applies it).
+ */
 export function normalizeBundle(b: ProjectBundle): Bundle {
   return {
     project: b.project,
     brief: b.brief ?? null,
     runs: b.runs ?? [],
     steps: b.steps ?? [],
-    events: [...(b.events ?? [])].sort((x, y) => x.seq - y.seq),
+    events: visibleEvents(b.events ?? [], b.steps ?? []),
     revisions: [...(b.revisions ?? [])].sort((x, y) => x.created_at - y.created_at),
     findings: b.findings ?? {},
     approvals: b.approvals ?? [],

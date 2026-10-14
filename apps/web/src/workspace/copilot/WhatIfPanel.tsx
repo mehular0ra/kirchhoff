@@ -1,5 +1,5 @@
 import { LoaderCircle, TriangleAlert, X } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Num } from '@/components/Labels'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input'
 import { CHAIN_COLORS } from '@/lib/agents'
 import { fmtQty } from '@/lib/format'
 import { classifyChain } from '@/lib/impact'
+import { statusRank } from '@/lib/status'
 import type { WhatIfParam } from '@/lib/types'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
 import { chipLabel, chipsFor, paramLabel, useWhatIf, WHAT_IF_PRESETS } from './useWhatIf'
 
+const COLLAPSED = 6
 const PARAMS: WhatIfParam[] = ['rack_kw', 'liquid_fraction', 'dv_limit_pct', 'tx_loading_cap_pct']
 
 /** What-if chips + custom input + result with the two-colour impact chain (spec §3 1:40–1:58). */
@@ -22,6 +24,14 @@ export function WhatIfPanel() {
   const [param, setParam] = useState<WhatIfParam>('rack_kw')
   const [value, setValue] = useState('')
   const chips = chipsFor(view.bundle.what_ifs.filter((w) => w.revision_ref === view.revRef))
+  // "Show all" belongs to one what-if result; a new result starts collapsed again.
+  const [expanded, setExpanded] = useState<object | null>(null)
+  const showAll = !!active && expanded === active.result
+  const setShowAll = (on: boolean) => setExpanded(on && active ? active.result : null)
+  const sorted = useMemo(
+    () => [...(active?.result.findings ?? [])].sort((a, b) => statusRank(b.status) - statusRank(a.status)),
+    [active],
+  )
   if (!view.rev) return null
 
   return (
@@ -88,21 +98,7 @@ export function WhatIfPanel() {
               <X aria-hidden />
             </Button>
           </div>
-          <ul className="flex flex-col gap-1" aria-label="What-if failures">
-            {active.result.findings.map((f) => (
-              <li key={f.id} className="flex flex-wrap items-center gap-1.5">
-                <StatusBadge status={f.status} compact />
-                <span className="font-mono text-zinc-100">
-                  {f.rule_id} · {f.element_id}
-                </span>
-                {typeof f.value === 'number' && (
-                  <span className="text-zinc-400">
-                    <Num>{fmtQty(f.value, f.unit)}</Num> vs limit <Num>{fmtQty(f.limit ?? null, f.unit)}</Num>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          {/* The chain first: it is the story ("lights up across power and cooling"); the list follows (M13). */}
           <ol className="flex flex-col gap-1" aria-label="Impact chain">
             {active.result.impact_chain.map((chain) => {
               const d = classifyChain(chain, view.model)
@@ -115,6 +111,26 @@ export function WhatIfPanel() {
               )
             })}
           </ol>
+          <ul className="flex flex-col gap-1" aria-label="What-if failures">
+            {(showAll ? sorted : sorted.slice(0, COLLAPSED)).map((f) => (
+              <li key={f.id} className="flex flex-wrap items-center gap-x-1.5">
+                <StatusBadge status={f.status} compact />
+                <span className="font-mono text-zinc-100">
+                  {f.rule_id} · {f.element_id}
+                </span>
+                {typeof f.value === 'number' && (
+                  <span className="text-zinc-400">
+                    <Num>{fmtQty(f.value, f.unit)}</Num> vs limit <Num>{fmtQty(f.limit ?? null, f.unit)}</Num>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {sorted.length > COLLAPSED && (
+            <Button size="xs" variant="ghost" className="self-start" onClick={() => setShowAll(!showAll)}>
+              {showAll ? 'Show fewer' : `Show all ${sorted.length} findings`}
+            </Button>
+          )}
         </div>
       )}
     </section>

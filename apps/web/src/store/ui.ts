@@ -57,7 +57,8 @@ export const useUi = create<UiState>()((set) => ({
   ...initial,
   autonomy: 'ask',
   setTab: (tab) => set({ tab }),
-  setViewRev: (viewRev) => set({ viewRev }),
+  // A what-if was computed for the revision on screen; switching revision drops it (M13).
+  setViewRev: (viewRev) => set((s) => (viewRev === s.viewRev ? s : { viewRev, whatIf: null })),
   setCompare: (compare) => set({ compare }),
   openFinding: (findingId) => set({ findingId }),
   closeFinding: () => set({ findingId: null }),

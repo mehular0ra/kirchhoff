@@ -123,3 +123,11 @@ test('I5: Show on canvas from the Matrix switches to the 3D hall, focuses the el
   await user.click(screen.getByRole('button', { name: /show on canvas/i }))
   expect(useUi.getState()).toMatchObject({ tab: 'hall', focusId: 'FA-01', findingId: null })
 })
+
+test('I11: a document opened without a quote never claims a verified quote', () => {
+  renderDrawer()
+  act(() => useUi.getState().openCitation({ doc_id: 'tender-hall-a', page: 1, quote: '', bbox: null, clause: null }))
+  const dlg = screen.getByRole('dialog')
+  expect(within(dlg).queryByText(/Verified quote/)).not.toBeInTheDocument()
+  expect(within(dlg).getByText('Tender PDF · page 1')).toBeInTheDocument()
+})

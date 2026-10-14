@@ -1,11 +1,14 @@
 import { chipsFor } from '@/workspace/copilot/useWhatIf'
 import { fixtureBundle } from '@/test/fixtures'
+import hallMini from '@/test/fixtures/hall-mini.json'
+import { normalizeBundle, type ProjectBundle } from './types'
 import { visibleEvents } from './events'
 import {
   agentsInvolved,
   approvalFor,
   buildLanes,
   countByStatus,
+  exportsOf,
   findWhatIf,
   findingsFor,
   latestRevision,
@@ -80,4 +83,16 @@ test('backlog [6]: precomputed what-ifs match a float value within tolerance (0.
   expect(findWhatIf(b, w.revision_ref, w.param, w.value + 1e-12)).toBe(w)
   expect(findWhatIf(b, w.revision_ref, w.param, w.value + 0.5)).toBeNull()
   expect(chipsFor([{ ...w, param: 'liquid_fraction', value: 0.9000000000000001 }]).filter((c) => c.param === 'liquid_fraction')).toHaveLength(1)
+})
+
+test('I12: normalizeBundle applies the visibility rule, so a stale attempt never reaches exports, counts or replay', () => {
+  const raw = structuredClone(hallMini) as unknown as ProjectBundle
+  raw.events = [
+    ...(raw.events ?? []),
+    { seq: 99, phase: 'p3', step: 'p3.check', attempt: 1, agent: 'docs', kind: 'artifact', title: 'stale export', detail: '', payload: { type: 'export', ref: '/stale.pdf' }, ts: 1760000999 },
+  ]
+  const b = normalizeBundle(raw)
+  expect(b.events.map((e) => e.seq)).not.toContain(14)
+  expect(b.events.map((e) => e.seq)).not.toContain(99)
+  expect(exportsOf(b).map((x) => x.ref)).not.toContain('/stale.pdf')
 })

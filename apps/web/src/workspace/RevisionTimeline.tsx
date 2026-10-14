@@ -1,10 +1,30 @@
 import { cn } from 'cn'
-import { CircleCheck, CircleX, GitCompareArrows, Stamp } from 'lucide-react'
+import { CircleCheck, CircleDashed, CircleX, GitCompareArrows, Stamp, TriangleAlert } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 import { Switch } from '@/components/ui/switch'
 import { approvalFor, countByStatus, findingsFor } from '@/lib/select'
+import type { Finding } from '@/lib/types'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from './WorkspaceContext'
+
+/** Worst outcome of a revision's checks, icon + text (M7: warnings and "not checked yet" are not "all pass"). */
+function RevisionVerdict({ findings }: { findings: Finding[] }) {
+  const c = countByStatus(findings)
+  const v = !findings.length
+    ? { icon: CircleDashed, cls: 'text-zinc-400', text: 'not checked yet' }
+    : c.fail > 0
+      ? { icon: CircleX, cls: 'text-rose-400', text: `${c.fail} fail` }
+      : c.warn > 0
+        ? { icon: TriangleAlert, cls: 'text-amber-300', text: `${c.warn} warn` }
+        : { icon: CircleCheck, cls: 'text-emerald-400', text: 'all pass' }
+  const Icon = v.icon
+  return (
+    <span className={cn('inline-flex items-center gap-0.5', v.cls)}>
+      <Icon aria-hidden className="size-3.5" />
+      {v.text}
+    </span>
+  )
+}
 
 export function RevisionTimeline() {
   const { bundle, rev, parent } = useWorkspace()
@@ -14,17 +34,16 @@ export function RevisionTimeline() {
   const runId = new URLSearchParams(useLocation().search).get('run')
   if (!bundle.revisions.length) {
     return (
-      <footer className="flex h-10 items-center border-t px-4 text-xs text-zinc-500">
+      <footer className="flex h-10 items-center border-t px-4 text-xs text-zinc-400">
         Revisions appear here after the Checker's first pass.
       </footer>
     )
   }
   return (
     <footer aria-label="Revisions" className="flex h-11 items-center gap-3 overflow-x-auto border-t px-4 text-xs">
-      <span className="font-medium uppercase tracking-wide text-zinc-500">Revisions</span>
+      <span className="font-medium uppercase tracking-wide text-zinc-400">Revisions</span>
       <ol className="flex items-center gap-2">
         {bundle.revisions.map((r, i) => {
-          const c = countByStatus(findingsFor(bundle, r.id))
           const approval = approvalFor(bundle, r.id)
           const active = r.id === rev?.id
           return (
@@ -40,17 +59,7 @@ export function RevisionTimeline() {
                 )}
               >
                 {r.id}{' '}
-                {c.fail > 0 ? (
-                  <span className="inline-flex items-center gap-0.5 text-rose-400">
-                    <CircleX aria-hidden className="size-3.5" />
-                    {c.fail} fail
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-0.5 text-emerald-400">
-                    <CircleCheck aria-hidden className="size-3.5" />
-                    all pass
-                  </span>
-                )}
+                <RevisionVerdict findings={findingsFor(bundle, r.id)} />
               </button>
               {approval && (
                 <span className="inline-flex items-center gap-1 text-emerald-300">
