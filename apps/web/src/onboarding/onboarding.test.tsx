@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { Route, Routes, useLocation } from 'react-router'
 import { vi } from 'vitest'
 import { useWorldStore } from '@/data/useWorld'
+import { useBundleStore } from '@/store/bundles'
 import { AppShell } from '@/shell/AppShell'
 import { ApiError } from '@/services/apiClient'
 import { fakeApi, fakeServices, renderWithProviders } from '@/test/render'
@@ -84,6 +85,69 @@ test('tour step 3 opens the first failing finding; step 4 counts agents from the
   expect(TOUR_STEPS[3].title({ hallA: b })).toBe("8 agents designed this; here's what each did")
   expect(TOUR_STEPS[4].target).toBe('[data-tour="whatif-chip"]')
   expect(TOUR_STEPS).toHaveLength(7)
+})
+
+const rectAt = (x: number, y: number, width: number, height: number) =>
+  ({ x, y, left: x, top: y, width, height, right: x + width, bottom: y + height, toJSON: () => ({}) }) as DOMRect
+
+test('C1: the spotlight keeps re-measuring a target that is still sliding in (drawer) until its rect is stable', async () => {
+  app()
+  const target = screen.getByText('projects')
+  let calls = 0
+  // First frames: mid-slide (off to the right). Then the drawer settles.
+  vi.spyOn(target, 'getBoundingClientRect').mockImplementation(() => (++calls < 4 ? rectAt(900, 148, 105, 33) : rectAt(500, 148, 105, 33)))
+  act(() => useTour.getState().start())
+  await screen.findByRole('dialog', { name: 'Guided tour' })
+  await waitFor(() => expect(screen.getByTestId('tour-anchor').style.left).toBe('494px'))
+  expect(calls).toBeGreaterThanOrEqual(4)
+})
+
+test('C1: the spotlight is clamped to the viewport for a target taller than the screen', async () => {
+  app()
+  const target = screen.getByText('projects')
+  vi.spyOn(target, 'getBoundingClientRect').mockImplementation(() => rectAt(175, -518, 817, 1997))
+  act(() => useTour.getState().start())
+  await screen.findByRole('dialog', { name: 'Guided tour' })
+  const anchor = screen.getByTestId('tour-anchor')
+  await waitFor(() => expect(parseFloat(anchor.style.top)).toBeGreaterThanOrEqual(0))
+  expect(parseFloat(anchor.style.top) + parseFloat(anchor.style.height)).toBeLessThanOrEqual(window.innerHeight)
+})
+
+test('C1: a viewport resize re-measures the spotlight', async () => {
+  app()
+  const target = screen.getByText('projects')
+  let x = 300
+  vi.spyOn(target, 'getBoundingClientRect').mockImplementation(() => rectAt(x, 100, 80, 30))
+  act(() => useTour.getState().start())
+  await screen.findByRole('dialog', { name: 'Guided tour' })
+  await waitFor(() => expect(screen.getByTestId('tour-anchor').style.left).toBe('294px'))
+  await new Promise((r) => setTimeout(r, 800)) // let the post-find tracking settle and stop
+  x = 200
+  act(() => {
+    window.dispatchEvent(new Event('resize'))
+  })
+  await waitFor(() => expect(screen.getByTestId('tour-anchor').style.left).toBe('194px'))
+})
+
+test('M6: step 3 re-navigates to the failing finding once Hall A loads after the step started', async () => {
+  renderWithProviders(
+    <Routes>
+      <Route path="/app" element={<AppShell />}>
+        <Route index element={<Where />} />
+        <Route path="p/:pid" element={<Where />} />
+      </Route>
+    </Routes>,
+    { route: '/app' },
+  )
+  act(() => {
+    useTour.getState().start()
+    useTour.getState().next()
+    useTour.getState().next()
+  })
+  await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/app/p/hall-a?tab=matrix'))
+  expect(screen.getByTestId('where')).not.toHaveTextContent('finding=')
+  act(() => useBundleStore.getState().setBundle('hall-a:static', fixtureBundle(), 'static'))
+  await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('finding=R05%3AFA-01'))
 })
 
 test('keyboard: g i goes to integrations, g p to projects, ? opens help with tour restart', async () => {

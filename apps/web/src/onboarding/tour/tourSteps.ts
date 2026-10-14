@@ -13,6 +13,8 @@ export interface TourStep {
   target: string
   title: (ctx: TourContext) => string
   body: string
+  /** Preferred popover side (Radix flips/shifts it to stay on screen). Default "bottom". */
+  side?: 'top' | 'right' | 'bottom' | 'left'
 }
 
 /** The earliest revision with a failing finding, and that finding (tour step 3 opens it). */
@@ -46,6 +48,7 @@ export const TOUR_STEPS: TourStep[] = [
       return f ? `/app/p/hall-a?tab=matrix&rev=${f.rev}&finding=${encodeURIComponent(f.id)}` : '/app/p/hall-a?tab=matrix'
     },
     target: '[data-tour="tender-chip"]',
+    side: 'left',
     title: () => 'Open a finding and its source',
     body: 'This failure was caught on the first revision. Click the tender chip: the PDF opens at the clause, highlighted.',
   },
@@ -53,6 +56,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'lanes',
     route: () => '/app/p/hall-a',
     target: '[data-tour="lanes"]',
+    side: 'right',
     title: (ctx) => {
       const n = ctx.hallA ? agentsInvolved(ctx.hallA).length : null
       return n ? `${n} agents designed this; here's what each did` : "The agents that designed this, and what each did"

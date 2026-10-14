@@ -84,7 +84,7 @@ export function Dashboard() {
   return (
     <div className="mx-auto grid h-full max-w-7xl grid-cols-1 gap-6 overflow-auto p-6 lg:grid-cols-[1fr_18rem]">
       <Welcome onStartTour={startTour} />
-      <section aria-labelledby="projects-h" data-tour="projects" className="flex flex-col gap-6">
+      <section aria-labelledby="projects-h" className="flex flex-col gap-6">
         <div>
           <h1 id="projects-h" className="text-lg font-semibold">
             Projects
@@ -97,7 +97,8 @@ export function Dashboard() {
           if (!projects.length) return null
           const Icon = pack.icon
           return (
-            <div key={pack.id} role="group" aria-label={pack.label} className="flex flex-col gap-3">
+            // Tour step 1 spotlights the data-hall group (a target that fits on screen), not the whole column.
+            <div key={pack.id} role="group" aria-label={pack.label} data-tour={pack.id === 'datahall' ? 'projects' : undefined} className="flex flex-col gap-3">
               <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
                 <Icon aria-hidden className="size-4" /> {pack.label}
               </h2>
