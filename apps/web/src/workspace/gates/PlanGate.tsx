@@ -1,5 +1,6 @@
 import { CircleX, Hand, ListChecks } from 'lucide-react'
 import { useState } from 'react'
+import { Hint } from '@/components/Hint'
 import { AgentDot } from '@/components/Labels'
 import { TenderChip } from '@/components/TenderChip'
 import { Button } from '@/components/ui/button'
@@ -44,10 +45,12 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
 
   return (
     <section aria-label="Plan" className="flex flex-col gap-3 rounded-lg border bg-card p-3 text-sm" data-tour="plan-gate">
-      <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-        {interactive ? <Hand aria-hidden className="size-4 text-amber-300" /> : <ListChecks aria-hidden className="size-4" />}
-        {interactive ? 'Plan gate · waiting for you' : 'Plan'}
-      </h3>
+      <Hint id="gates" text="Gates pause the run until you decide. In Auto, plan and option gates resolve by the tender and log why.">
+        <h3 tabIndex={0} className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
+          {interactive ? <Hand aria-hidden className="size-4 text-amber-300" /> : <ListChecks aria-hidden className="size-4" />}
+          {interactive ? 'Plan gate · waiting for you' : 'Plan'}
+        </h3>
+      </Hint>
       <ol className="flex flex-col gap-1.5">
         {plan.map((s, i) => (
           <li key={s.id} className="flex flex-col gap-1">

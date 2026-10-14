@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/Labels'
 import { useProjectData } from '@/data/useProjectData'
 import { useWorldProject } from '@/data/useWorld'
 import type { Project } from '@/lib/types'
+import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
@@ -55,6 +56,10 @@ export function WorkspacePage() {
 function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: string | null; replay: boolean; project: Project | null }) {
   const data = useProjectData(pid, { runId, replay, project })
   useUrlState(pid)
+  const signed = (data.bundle?.approvals.length ?? 0) > 0
+  useEffect(() => {
+    if (signed) completeItem('open_signed')
+  }, [signed])
 
   if (data.status === 'error' && !data.bundle) {
     return (

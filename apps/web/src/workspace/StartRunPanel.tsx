@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { writeJson } from '@/lib/storage'
 import type { Project } from '@/lib/types'
+import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { describeApiError } from '@/services/apiClient'
 import { useServices } from '@/services/services'
 import { useUi } from '@/store/ui'
@@ -35,6 +36,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
       await api.ensureWorkspace()
       const { run_id } = await api.startRun(LIVE_TARGET, autonomy)
       writeJson(`lastRun.${LIVE_TARGET}`, run_id)
+      completeItem('run_live')
       onStarted?.()
       navigate(`/app/p/${LIVE_TARGET}?run=${run_id}`)
     } catch (e) {

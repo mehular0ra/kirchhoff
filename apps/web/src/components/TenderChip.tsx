@@ -1,6 +1,7 @@
 import { FileText } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Citation } from '@/lib/types'
+import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { useUi } from '@/store/ui'
 
 /** NotebookLM-style citation: hover previews the verified quote, click opens the PDF at the clause. */
@@ -16,6 +17,7 @@ export function TenderChip({ citation, onOpen }: { citation: Citation; onOpen?: 
           aria-label={`Open tender ${label}`}
           onClick={() => {
             openCitation(citation)
+            completeItem('inspect_source')
             onOpen?.()
           }}
           className="inline-flex items-center gap-1 rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[11px] text-sky-200 hover:bg-sky-500/20"
