@@ -7,13 +7,13 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 | Workstream | Branch | Done | In flight |
 |---|---|---|---|
 | WS1 Engine (P1) | `ws1-engine` | 15 / 15 + hardening, merged | done |
-| WS2 Agents + API (P2) | `ws2-agents` | 12 / 18 merged to build | Task 13 (phase 3: checker + fix loop) in fix round 1; Task 11 contradiction backstop in fix round 4 |
+| WS2 Agents + API (P2) | `ws2-agents` | 15 / 18 merged to build (full P1→P4 pipeline + co-pilot) | Task 16 voice; then 17 asset agent, 18 docs exports, final review |
 | WS3 Web UI (P3) | `ws3-web` | 19 / 19, merged | final whole-branch review → one fix wave |
 | WS4 Infra + enterprise + demo world (P4) | `ws4-infra` | 12 / 16, merged | Tasks 13–16 need the deploy + golden capture |
 | Bids inbox (§20) | `jd/inbox-*` | I-1 (#4) and I-3 (#5) merged | I-2 (#2) |
 | Submission | `docs/submission/` | drafts reviewed | team bios/photos, video, measured run metrics |
 
-`build` (`f8524ae`) has every workstream merged. Its suites pass: 453 pytest, 164 vitest and `tsc -b`.
+`build` has every workstream merged. Its suites pass: 515 pytest, 164 vitest and `tsc -b`. A live P1→P4 run on Vertex passed in 177 s (about $0.06 of Gemini per design).
 
 **Live:** https://kirchhoff.web.app still shows the P0 shell until the first deploy from `build` (issue #6).
 

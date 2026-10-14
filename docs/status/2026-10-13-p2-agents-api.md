@@ -130,3 +130,68 @@ Task 11: fix round 3 scoped re-review dispatched (sonnet, da03d89..940d994)
 Task 11: fix round 3 re-review (sonnet): partially addressed. The prompt and the 3 offline tests are OK, and "N+1" asymmetry was judged correct. Critical: the backstop OpenQuestion.text bypasses sanitize(). Important: pyright None guard at brief.py:73/79; topic-blind duplicate suppression; first-match pairing. Fix list: task-11-fix4.md (includes the P2-R14 carry)
 Task 11: fix round 4 dispatched (FRESH implementer, opus per R≥4 escalation; FIX_BASE 940d994; concurrent with the Task 13 fix round 1 implementer, on disjoint files)
 build: PRs #4 and #5 (Jayadratha, bids inbox I-1 and I-3) reviewed and merged with user approval; ws4-infra P4 Tasks 1–12 merged; demo world regenerated (f8524ae, pushed). Issues #6 (cloud ops) and #7 (E2E + QA) created for Jayadratha; #2 (I-2) given the go-ahead.
+Task 13: fix round 1/5 implemented 1a12d3b (422 passed ×3; forged id+patch discriminating tests incl. matched-id BW-2000; exhaustion lists open findings; no-candidate path with accurate ledger + stop entry in final rev ledger) — scoped re-review dispatched (original opus reviewer)
+Ruling P2-R15: dispatch Task 14 pipelined with the Task 13 re-review and the Task 11 fix round 4. Its files (runs/phase4.py new, api/runs_routes.py, tests/api) are disjoint from both, and it consumes the Task 13 interfaces latest_revision/load_revision_model as committed in 1a12d3b. The live full-run test is written but run by the controller only. Cost if wrong: a small rebase if a Task 13 fix changes those signatures.
+Task 14: dispatched (BASE 1a12d3b, implementer sonnet; pipelined per P2-R15)
+Task 13: fix round 1/5 re-review APPROVED (opus). Mutation-verified: the matched-id test fails under both a swallowed-reply mutation and a merged-patch mutation, so it guards P1-R7's patch half. Exhaustion and no-candidate ledgers are accurate and land in the final revision's stored ledger.
+Task 13: complete (commits dfbba8d..1a12d3b, review approved after 1 fix round)
+Task 13: minor (deferred → P2 final fix wave):
+  - test_runs_p3.py:125-129: the comment claims test (a) catches a swallowed reply. It doesn't; also assert no "agent unavailable" status at p3.fix.1.
+  - phase3.py:165: "R11" should read "ruling R11", and one of the two duplicate joint-effects comments should go.
+  - phase3.py:231: "after 1 iteration(s)" should read "after N fix attempt(s)".
+  - phase3.py:236/241: the LedgerEntry is built twice.
+  - test_runs_real_engine.py:143-148: load r2's model explicitly.
+Task 14: implemented e9eed12 (428 passed; the seq-contiguity assertion was adapted to Task 10's SEQ_GAP deviation, test-only; live full-run test written but not run) — review dispatched (opus)
+Task 11: fix round 4/5 implemented 1163fc9 (opus, fresh). A single _question_text sanitize path is now used for every OpenQuestion.text (it also closed the same hole in _question's fallback). None or blank clause labels are guarded. Suppression requires both clauses to be cited, pairing is key-ranked, and an id collision gives Q-redundancy-2. Live P1 budget is < 240 s with diagnostics printed before the asserts. 443 passed; pyright 0. Scoped re-review queued for the next free slot.
+Ruling P2-R16: route the implementer's pre-existing trust concerns to the P2 final fix wave as an IMPORTANT "trust sweep":
+  - _question options and default_resolution fall back to raw LLM values;
+  - question ids built from model topics can carry digits;
+  - Citation.clause is displayed as the model wrote it (validate it against ^(§\d+(\.\d+)*|App\. [A-Z])$ or a sanitised form);
+  - duplicate model-question ids are dropped by the plan gate;
+  - "Appendix B" is not detected as an appendix.
+  Why: §6.3 trust rules are the demo's thesis. None of these shows with our tender, so they don't block Task 11. Cost if wrong: a judge feeding their own tender could see a raw LLM digit.
+Task 15: dispatched (BASE 1163fc9, implementer sonnet; pipelined with the Task 14 review, on disjoint files)
+Task 14: review Needs fixes (opus). P4 is correct and enterprise-idempotent (probe: 5 PRs, no duplicates, 1 CRM call after resume). Open:
+  - the approval and signed status are written before the gate claim (global-cap 429, retry and double-click leave duplicate or contradictory approvals);
+  - the seq assertion is a tautology;
+  - no idempotency regression test.
+  Fix list: task-14-fix1.md. QUEUED: both implementer slots are busy (Task 15, P3 fix wave). Resume the Task 14 implementer when Task 15 finishes.
+Task 11: fix round 4 scoped re-review dispatched (sonnet; 1a12d3b..1163fc9 filtered to intake files)
+Task 11: fix round 4 re-review APPROVED (sonnet): every OpenQuestion.text goes through one sanitize path; None/blank clauses guarded; suppression is pair-scoped; pairing is key-ranked; live budget 240 s with diagnostics; pyright 0; intake 54 passed, runs 104 passed
+Task 11: complete (commits 6f2725a..1163fc9, review approved after 4 fix rounds)
+Task 11: minor (deferred → P2 final wave): _key_words strips a trailing -<digits> that might belong to the key itself (degrades only the pairing heuristic)
+Controller: live P1 smoke on 1163fc9 started (one run)
+Controller live P1 smoke on 1163fc9: PASSED. 59.0 s to the plan gate; quotes 27/28 verified; intake recall 0.84; the model itself produced the §4.2 vs App. B question (backstop_fired=false). The tightened prompt works live, with the backstop as a safety net.
+Task 15: implemented 687040f (453 passed; seed bundles inline model; real 200 kW what-if on the signed r2 = 60 findings / 18 chains with the engine's default_erp(), but 69 with FakeEnterprise's catalogue; the real-bundle test reads hall-a.json via `git show build:` as a fallback) — review dispatched (opus)
+Controller: merged build into ws2-agents (bids inbox, P4 bundles + infra, P3 web); 502 passed, 8 skipped
+Task 14: fix round 1 dispatched (resumed implementer; FIX_BASE e9eed12; branch has since gained 1163fc9, 687040f and the build merge)
+Task 15: review Needs fixes (opus). Production ERP = enterprise_seed.json (60 materials) = the static bundle's catalogue, so the deployed 200 kW what-if = 60/18; the web serves the precomputed seed result anyway (useWhatIf.ts:82-86). FakeEnterprise's 69/18 is test-only. Open: the test's git-ref fallback and skip; ValueError → 500; shared-pool starvation. Fix list: task-15-fix1.md. QUEUED behind the Task 14 fix round (implementer cap).
+Ruling P2-R17: an out-of-range what-if value returns 422 `invalid_value`; the web gets DETAIL_TEXT.invalid_value (sent to the P3 fix wave). Cost if wrong: a one-word code rename.
+P2 final wave carry (cross-WS):
+  - R13's explanation reads "fed from 2 systems independent UPS-backed systems" (the WS1 template plus the fill_finding unit rule); the web fillPlaceholders behaves the same. Fix in the engine template (ws1-engine), without touching hashes.
+  - P4/infra: smoke.sh should check that kirchhoff-enterprise /health reports seed_hash == the local enterprise_seed hash and materials == 60. Re-run seed_cli after any world rebuild.
+Task 14: fix round 1/5 implemented 374e330 (claim-first sign via resume_from_gate payload and p4.sign StepOutput.docs; Reject as one transaction; fail-closed guard; non-tautological seq/attempt/visibility assertions; flaky-enterprise idempotency test; 7 minors; 507 passed) — scoped re-review dispatched (original opus reviewer)
+Task 15: fix round 1 dispatched (resumed implementer; FIX_BASE 687040f; branch now at 374e330)
+Task 14: fix round 1 re-review APPROVED (opus). Probes: cap → 429 with nothing written; double approve → 1 approval; 3 race interleavings consistent; ERP failure then resume → no duplicates; empty summary → 409. Each new assertion is mutation-verified.
+Task 14: complete (commits e9eed12..374e330, review approved after 1 fix round)
+Task 14: minor (deferred → P2 final wave):
+  - add one true interleaving test (monkeypatch ensure_gate, as in scratchpad probe_t14_fix1.py);
+  - the run doc carries a `review` key outside the frozen RunRecord (document it in interfaces.md run-doc notes, or move it);
+  - _sign raises a bare KeyError('rev') when review is missing;
+  - the guard treats a non-empty summary with no `fail` key as 0.
+Controller: live full-run smoke (test_api_live_full.py) on 374e330 started in a scratch worktree
+Controller live FULL run (P1→P4, Hall B, Vertex gemini-3.8-flash, 374e330): PASSED in 176.5 s. time_to_clean 172.6 s; tokens 10,432 in / 12,991 out (≈ $0.057 per run at $0.75/$3.75 per M); quotes 27/28 verified. Use the golden capture for the deck/brief numbers of record.
+Task 15: fix round 1/5 implemented 4284db2 (18/18 copilot tests; 515 passed; separate engine and LLM pools, cancel on timeout, a single explain attempt, 422 invalid_value, production-catalogue real-bundle test with equality across all 5 what-ifs) — scoped re-review dispatched (original opus reviewer)
+Ruling P2-R18: dispatch Task 16 pipelined with the Task 15 re-review. Task 16 APPENDS to copilot.py and copilot_routes.py. If Task 15 needs a round 2, it waits for Task 16's commit, so the same files are never edited concurrently. Cost if wrong: one serialised fix round.
+Task 16: dispatched (BASE 4284db2, implementer sonnet)
+Task 15: fix round 1 re-review APPROVED (opus). The real-bundle test equals all 5 precomputed what-ifs on the production catalogue; 422 invalid_value; split pools; 404 and 503 mappings. Starvation test passes 5/5.
+Task 15: complete (commits 687040f..4284db2, review approved after 1 fix round)
+Task 15 residuals: sent to the Task 16 implementer as a SEPARATE commit:
+  (a) one explain deadline taken at submit time (measured 11.02 s against the 10 s budget with a cold ERP fetch and a hung LLM);
+  (b) `except ValueError` in what-if is too broad (re-raise ValidationError, or check PARAM_BOUNDS);
+  (c) event-based starvation test instead of wall-clock.
+Deferred → P2 final wave:
+  - a no-retry option on AdkRunner/GenaiRunner for co-pilot calls (Task 5);
+  - Deps.erp() holds _lock during the HTTP fetch (Task 12);
+  - seeded._erp private attribute in a test;
+  - conftest mid-file imports.
