@@ -1,3 +1,4 @@
+import { CircleX } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -14,11 +15,17 @@ const KEYS: [string, string][] = [
   ['Esc', 'Close a drawer, dialog or the tour'],
 ]
 
+/** A reset that could not fully complete: kept (409, nothing cleared) or failed after clearing local progress. */
+interface ResetFailure {
+  kept: boolean
+  message: string
+}
+
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { api } = useServices()
   const start = useTour((s) => s.start)
   const [confirm, setConfirm] = useState(false)
-  const [resetError, setResetError] = useState<string | null>(null)
+  const [resetFailure, setResetFailure] = useState<ResetFailure | null>(null)
 
   const reset = async () => {
     // Deletes the visitor's Firestore overlay (live runs, approvals, PRs, CRM stage) and local progress.
@@ -27,13 +34,27 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
     } catch (e) {
       // WS2 refuses while a run holds a live lease (409 run_in_progress): keep everything and say so.
       if (e instanceof ApiError && e.status === 409) {
-        setResetError(describeApiError(e))
+        setResetFailure({ kept: true, message: describeApiError(e) })
         return
       }
-      // Backend unreachable: still clear local progress (the Firestore overlay stays until the next reset).
+      // Backend unreachable or a server error: still clear local progress, but never navigate away
+      // silently — the server-side overlay (live runs, approvals, PRs, CRM stage) was NOT cleared,
+      // so the visitor needs to see that and retry later.
+      clearKirchhoffStorage()
+      setResetFailure({
+        kept: false,
+        message: 'Your local progress was cleared, but the server-side reset failed. You can retry it later; some data may still be in your workspace.',
+      })
+      return
     }
     clearKirchhoffStorage()
     window.location.assign('/app')
+  }
+
+  const dismissFailure = () => {
+    const failed = resetFailure
+    setResetFailure(null)
+    if (failed && !failed.kept) window.location.assign('/app')
   }
 
   return (
@@ -79,9 +100,13 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
             </Button>
           )}
         </div>
-        {resetError && (
-          <p role="alert" className="text-xs text-amber-200">
-            {resetError}
+        {resetFailure && (
+          <p role="alert" className="flex items-center gap-1.5 text-xs text-amber-200">
+            <CircleX aria-hidden className="size-3.5 shrink-0" />
+            <span>{resetFailure.message}</span>
+            <Button size="xs" variant="ghost" className="ml-auto" onClick={dismissFailure}>
+              Dismiss
+            </Button>
           </p>
         )}
       </DialogContent>

@@ -1,5 +1,5 @@
 // In-house spotlight tour on shadcn Popover (spec §12 libraries, §13.5).
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -17,6 +17,23 @@ export function TourHost() {
   const s = TOUR_STEPS[step]
   const ctx = { hallA }
   const route = s.route(ctx)
+
+  // Non-modal focus management: move focus into the popover's primary control on each step
+  // (never trapped there — Escape/Skip/clicking elsewhere all still work), and give it back to
+  // whatever had focus before the tour started once it stops.
+  const openerRef = useRef<HTMLElement | null>(null)
+  const wasActive = useRef(false)
+  useEffect(() => {
+    if (active && !wasActive.current) {
+      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    }
+    if (!active && wasActive.current) {
+      const opener = openerRef.current
+      openerRef.current = null
+      opener?.focus?.()
+    }
+    wasActive.current = active
+  }, [active])
 
   useEffect(() => {
     if (!active) return
@@ -73,7 +90,15 @@ export function TourHost() {
         aria-label="Guided tour"
         onEscapeKeyDown={() => stop(false)}
         onInteractOutside={(e) => e.preventDefault()}
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          // Prevent Radix's default (focus the first tabbable) and focus our primary control
+          // ourselves on the next frame, once the content (and its buttons) has painted.
+          e.preventDefault()
+          const container = e.target as HTMLElement
+          requestAnimationFrame(() => {
+            container.querySelector<HTMLButtonElement>('[data-tour-next]')?.focus()
+          })
+        }}
       >
         <p className="font-mono text-[11px] text-zinc-500">
           Step {step + 1} of {TOUR_STEPS.length}
@@ -88,7 +113,7 @@ export function TourHost() {
           <Button size="xs" variant="outline" className="ml-auto" disabled={step === 0} onClick={prev}>
             Back
           </Button>
-          <Button size="xs" onClick={next}>
+          <Button data-tour-next size="xs" onClick={next}>
             {last ? 'Finish' : 'Next'}
           </Button>
         </div>
