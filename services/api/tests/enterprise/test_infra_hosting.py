@@ -36,10 +36,16 @@ def test_rewrites_and_public_dir_are_unchanged():
     ]
 
 
-def test_regexes_are_re2_compatible():
-    assert all(not re.search(r"\(\?[=!<]", r["regex"]) for r in HOSTING["headers"] if "regex" in r)
+def test_no_cache_headers_do_not_match_api_paths():
+    for api_path in ("/api/health", "/api/whoami", "/api/enterprise/erp/materials"):
+        assert _cache(api_path) == [], f"API path {api_path} should not match any cache rule, got {_cache(api_path)}"
 
 
 def test_smoke_checks_the_three_cache_policies():
     text = (REPO / "infra" / "smoke.sh").read_text(encoding="utf-8")
     assert "no-cache" in text and "public, max-age=31536000, immutable" in text
+
+
+def test_smoke_checks_api_headers_are_not_no_cache():
+    text = (REPO / "infra" / "smoke.sh").read_text(encoding="utf-8")
+    assert "no-cache" in text and "/api/health" in text

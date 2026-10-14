@@ -23,6 +23,7 @@ fi
 for path in / /app /app/p/hall-a /index.html; do
   [ "$(cc "$path")" = "no-cache" ] || fail "Cache-Control on $path is '$(cc "$path")' (want no-cache)"
 done
+[ "$(cc "/api/health")" != "no-cache" ] || fail "Cache-Control on /api/health must NOT be no-cache (got: $(cc "/api/health"))"
 ASSET="$(curl -fsS "$BASE/" | grep -oE '/assets/[^"]+\.js' | head -1)"
 [ -n "$ASSET" ] || fail "index.html references no /assets/*.js"
 [ "$(cc "$ASSET")" = "public, max-age=31536000, immutable" ] || fail "Cache-Control on $ASSET is '$(cc "$ASSET")'"
