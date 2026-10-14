@@ -1,6 +1,6 @@
 // Integrations (spec §13.3): ERP/CRM sandbox via /api/enterprise/*, documents and notifications from
 // the static snapshot; falls back to /demo/integrations.json with a "showing cached snapshot" note.
-import { Bell, Boxes, Cloud, Handshake, Puzzle, type LucideIcon } from 'lucide-react'
+import { Bell, Boxes, Cloud, CloudOff, Handshake, LoaderCircle, Puzzle, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { EmptyState, Num, SandboxLabel } from '@/components/Labels'
 import { Button } from '@/components/ui/button'
@@ -13,31 +13,34 @@ import { useServices } from '@/services/services'
 export interface IntegrationsState {
   data: IntegrationsSnapshot | null
   live: boolean
+  /** True while the live ERP/CRM calls are still in flight (the cached snapshot is already shown). */
+  connecting: boolean
   syncedAt: number | null
   error: string | null
 }
 
+/**
+ * Static first (spec §11, §13.3; final review I4): the cached snapshot renders as soon as it loads,
+ * and the live ERP/CRM data replaces it only if /api/enterprise/* answers — a cold Cloud Run start
+ * or a hanging sign-in never leaves the page (or the tour's step 6 anchor) on "Loading…".
+ */
 export function useIntegrations(): IntegrationsState {
   const { api, getJson } = useServices()
-  const [state, setState] = useState<IntegrationsState>({ data: null, live: false, syncedAt: null, error: null })
+  const [state, setState] = useState<IntegrationsState>({ data: null, live: false, connecting: true, syncedAt: null, error: null })
   useEffect(() => {
     let alive = true
+    let upgraded = false
     const snapshot = loadIntegrationsSnapshot(getJson)
+    snapshot
+      .then((snap) => alive && !upgraded && setState((s) => ({ ...s, data: snap, syncedAt: snap.synced_at ?? null })))
+      .catch((e: Error) => alive && !upgraded && setState((s) => ({ ...s, error: e.message })))
     Promise.all([api.erpMaterials(), api.erpPrs(), api.crmOpportunities(), snapshot])
       .then(([materials, prs, opportunities, snap]) => {
-        if (alive)
-          setState({
-            data: { ...snap, erp: { materials, prs }, crm: { opportunities } },
-            live: true,
-            syncedAt: Date.now() / 1000,
-            error: null,
-          })
+        if (!alive) return
+        upgraded = true
+        setState({ data: { ...snap, erp: { materials, prs }, crm: { opportunities } }, live: true, connecting: false, syncedAt: Date.now() / 1000, error: null })
       })
-      .catch(() =>
-        snapshot
-          .then((snap) => alive && setState({ data: snap, live: false, syncedAt: snap.synced_at ?? null, error: null }))
-          .catch((e: Error) => alive && setState({ data: null, live: false, syncedAt: null, error: e.message })),
-      )
+      .catch(() => alive && setState((s) => ({ ...s, connecting: false })))
     return () => {
       alive = false
     }
@@ -109,8 +112,8 @@ const th = 'border-b px-2 py-1 text-left font-medium text-zinc-400'
 const td = 'border-b border-zinc-800/70 px-2 py-1'
 
 export function IntegrationsPage() {
-  const { data, live, syncedAt, error } = useIntegrations()
-  if (error) return <EmptyState title="Integrations snapshot unavailable">{error}</EmptyState>
+  const { data, live, connecting, syncedAt, error } = useIntegrations()
+  if (error && !data) return <EmptyState tone="error" title="Integrations snapshot unavailable">{error}</EmptyState>
   if (!data) return <EmptyState title="Loading integrations…" />
   const status = live
     ? `Connected · last sync ${syncedAt ? fmtRelative(syncedAt) : 'now'}`
@@ -122,8 +125,17 @@ export function IntegrationsPage() {
       <div className="flex flex-wrap items-baseline gap-3">
         <h1 className="text-lg font-semibold">Integrations</h1>
         {!live && (
-          <span role="status" className="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-200">
-            API unreachable — showing cached snapshot
+          <span role="status" className="inline-flex items-center gap-1.5 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-200">
+            {connecting ? (
+              <>
+                <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> Connecting to the live sandbox… showing the cached
+                snapshot
+              </>
+            ) : (
+              <>
+                <CloudOff aria-hidden className="size-3.5" /> API unreachable — showing cached snapshot
+              </>
+            )}
           </span>
         )}
       </div>
@@ -134,7 +146,7 @@ export function IntegrationsPage() {
             <li key={p.id} className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-zinc-100">{p.id}</span>
               <span className="text-zinc-400">
-                {p.project_id} · revision {p.revision} · {p.lines.length} lines · {p.status}
+                {p.project_id} · revision {p.revision} · {p.lines.length} {p.lines.length === 1 ? 'line' : 'lines'} · {p.status}
               </span>
               <SandboxLabel />
             </li>

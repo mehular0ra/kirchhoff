@@ -56,7 +56,7 @@ export function InboxPage() {
   useEffect(() => {
     if (emailId) markRead(emailId)
   }, [emailId])
-  if (error) return <EmptyState title="Could not load the bids inbox">{error}</EmptyState>
+  if (error) return <EmptyState tone="error" title="Could not load the bids inbox">{error}</EmptyState>
   if (!data) return <EmptyState title="Loading the bids inbox…" />
   const selected = data.emails.find((e) => e.id === emailId) ?? null
   return (

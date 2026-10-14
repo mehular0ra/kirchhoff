@@ -142,11 +142,17 @@ function SldCanvas() {
     })
   }, [graph, pos, view, reveal, levelOf, whatIfActive])
 
+  // Waits for the layout (`pos`): when the tab mounts with a focus already set (Show on canvas from
+  // the Matrix), the first run has no positions yet (final review I5). A focused feeder frames both ends.
   useEffect(() => {
-    if (!focusId || !graph) return
+    if (!focusId || !graph || !pos) return
     const target = graph.nodes.find((n) => n.id === focusId || n.members.includes(focusId))
-    if (target) fitView({ nodes: [{ id: target.id }], duration: reduce ? 0 : 500, maxZoom: 1.3, padding: 0.6 })
-  }, [focusId, graph, fitView, reduce])
+    const edge = target ? null : graph.edges.find((e) => e.id === focusId)
+    const ids = target ? [target.id] : edge ? [edge.source, edge.target] : []
+    if (!ids.length) return
+    const raf = requestAnimationFrame(() => fitView({ nodes: ids.map((id) => ({ id })), duration: reduce ? 0 : 500, maxZoom: 1.3, padding: 0.6 }))
+    return () => cancelAnimationFrame(raf)
+  }, [focusId, graph, pos, fitView, reduce])
 
   return (
     <ReactFlow

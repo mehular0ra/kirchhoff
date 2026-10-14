@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { useMemo } from 'react'
 import { EmptyState, IllustrativeLabel } from '@/components/Labels'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { canvasesFor } from '@/lib/model'
 import { countByStatus } from '@/lib/select'
 import { STATUS_META, ruleName } from '@/lib/status'
 import type { Finding } from '@/lib/types'
@@ -39,6 +40,7 @@ export function ComplianceMatrix() {
   const view = useWorkspace()
   const focus = useUi((s) => s.focus)
   const whatIf = view.whatIf
+  const model = view.model
   const findings = whatIf ? whatIf.findings : view.findings
   const { rows, rules } = useMemo(() => buildMatrix(findings), [findings])
   const rulesKey = rules.join(',')
@@ -49,7 +51,11 @@ export function ComplianceMatrix() {
           id: 'element',
           header: 'Element',
           cell: (ctx) => (
-            <button type="button" onClick={() => focus(ctx.row.original.element)} className="font-mono text-zinc-100 hover:underline">
+            <button
+              type="button"
+              onClick={() => focus(ctx.row.original.element, canvasesFor(model, ctx.row.original.element))}
+              className="font-mono text-zinc-100 hover:underline"
+            >
               {ctx.row.original.element}
             </button>
           ),
@@ -66,7 +72,7 @@ export function ComplianceMatrix() {
         ),
       ]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rulesKey, focus],
+    [rulesKey, focus, model],
   )
   const table = useTable({ features, columns, data: rows, getRowId: (r) => r.element })
 

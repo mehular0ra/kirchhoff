@@ -6,6 +6,7 @@ import { ClauseChip, TenderChip } from '@/components/TenderChip'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { fillPlaceholders, fmtInput, fmtKeyValue } from '@/lib/format'
+import { canvasesFor } from '@/lib/model'
 import { ruleName } from '@/lib/status'
 import type { Finding } from '@/lib/types'
 import { useServices } from '@/services/services'
@@ -93,7 +94,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
                 size="sm"
                 className="self-start"
                 onClick={() => {
-                  focus(f.element_id)
+                  focus(f.element_id, canvasesFor(view.model, f.element_id)) // switches away from Matrix (I5)
                   close()
                 }}
               >

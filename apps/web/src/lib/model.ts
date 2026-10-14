@@ -28,3 +28,17 @@ export function elementIndex(m: DesignModel | null): Map<string, ElementInfo> {
   }
   return idx
 }
+
+export type Canvas = 'hall' | 'sld'
+
+/**
+ * Which canvases draw `id`: boards, transformers, UPS and internal links are SLD-only; pipes, CDUs,
+ * manifolds and zones are 3D-only; racks, routed feeders and busways are on both. Unknown ids → both.
+ */
+export function canvasesFor(m: DesignModel | null, id: string): Canvas[] {
+  const info = elementIndex(m).get(id)
+  if (!info) return ['hall', 'sld']
+  if (info.discipline === 'cooling') return ['hall']
+  if (info.kind === 'rack' || info.kind === 'feeder' || info.kind === 'busway') return ['hall', 'sld']
+  return ['sld']
+}

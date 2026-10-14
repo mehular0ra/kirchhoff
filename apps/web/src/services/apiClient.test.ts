@@ -1,4 +1,4 @@
-import { ApiError, describeApiError, httpApiClient, type Fetcher } from './apiClient'
+import { ApiError, describeApiError, httpApiClient, withTimeout, type Fetcher } from './apiClient'
 import { test, expect, vi } from 'vitest'
 
 function recorder(response: Response) {
@@ -95,4 +95,48 @@ test('inbox calls hit the inbox routes; inbox error codes read as sentences', as
   expect(describeApiError(new ApiError(409, 'precomputed'))).toBe(
     'Only the Hall B email can be triaged live; this one shows the recorded triage.',
   )
+})
+
+test('I4: a call whose sign-in/App Check never settles is rejected after 12 s (the whole call, not just fetch)', async () => {
+  vi.useFakeTimers()
+  const hanging: Fetcher = () => new Promise<Response>(() => {}) // e.g. Auth waiting forever on reCAPTCHA
+  const api = httpApiClient(hanging)
+  const call = api.erpPrs().catch((e: unknown) => e)
+  const blob = api.fileBlob('exports/r2/boq.csv').catch((e: unknown) => e)
+  await vi.advanceTimersByTimeAsync(11_999)
+  let settled = false
+  void call.then(() => (settled = true))
+  await Promise.resolve()
+  expect(settled).toBe(false)
+  await vi.advanceTimersByTimeAsync(1)
+  const err = await call
+  expect(err).toBeInstanceOf(ApiError)
+  expect((err as ApiError).detail).toBe('client_timeout')
+  expect(describeApiError(err)).toMatch(/did not answer in time/)
+  expect(await blob).toMatchObject({ detail: 'client_timeout' })
+})
+
+test('I4: withTimeout rejects a promise that never settles, and passes through one that does', async () => {
+  vi.useFakeTimers()
+  const never = withTimeout(new Promise(() => {}), 5_000, () => new Error('sign-in timed out')).catch((e: Error) => e.message)
+  await vi.advanceTimersByTimeAsync(5_000)
+  expect(await never).toBe('sign-in timed out')
+  await expect(withTimeout(Promise.resolve(7), 5_000, () => new Error('x'))).resolves.toBe(7)
+})
+
+test('DETAIL_TEXT covers run_not_found, the two 401s, enterprise_unavailable and invalid_value with plain sentences', () => {
+  for (const [status, code] of [
+    [404, 'run_not_found'],
+    [401, 'missing bearer token'],
+    [401, 'invalid app check token'],
+    [502, 'enterprise_unavailable'],
+    [422, 'invalid_value'],
+  ] as const) {
+    const text = describeApiError(new ApiError(status, code))
+    expect(text).not.toMatch(/answered/)
+    expect(text).not.toMatch(/\d/)
+    expect(text.endsWith('.')).toBe(true)
+  }
+  expect(describeApiError(new ApiError(404, 'run_not_found'))).toMatch(/run/i)
+  expect(describeApiError(new ApiError(422, 'invalid_value'))).toMatch(/range/)
 })

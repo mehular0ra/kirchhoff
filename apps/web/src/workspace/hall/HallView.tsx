@@ -499,7 +499,7 @@ export default function HallView() {
   const labelEls = useRef(new Map<string, HTMLElement>())
   const leaders = useRef(new Map<string, SVGGElement>())
   if (!scene) return <EmptyState title="No revision yet">The 3D hall is built from the first checked revision.</EmptyState>
-  if (!webgl) return <EmptyState title="3D needs WebGL">Your browser has WebGL disabled; the SLD and Matrix tabs show the same design.</EmptyState>
+  if (!webgl) return <EmptyState tone="error" title="3D needs WebGL">Your browser has WebGL disabled; the SLD and Matrix tabs show the same design.</EmptyState>
   return (
     <div className="relative h-full w-full" role="figure" aria-label="3D hall">
       <Canvas flat camera={{ position: [scene.hall.w * 0.45, scene.hall.w * 0.5, scene.hall.d * 1.15], fov: 40, near: 0.1, far: 500 }} dpr={[1, 2]}>

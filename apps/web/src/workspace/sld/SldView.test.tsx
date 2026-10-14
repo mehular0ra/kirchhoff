@@ -6,6 +6,17 @@ import { SldView } from './SldView'
 
 // The staged top-down reveal is time-based (spec §12); force it to show every level at once so
 // keyboard/click tests don't need to wait out the stagger, same as a reduced-motion visitor sees.
+// ELK itself is covered by sldGraph.test.ts; here a deterministic grid layout keeps these UI tests
+// fast and independent of loading a 1.4 MB layout engine under full-suite load (it timed out cold).
+vi.mock('./sldGraph', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./sldGraph')>()
+  return {
+    ...actual,
+    layoutSld: async (g: ReturnType<typeof actual.buildSldGraph>) =>
+      new Map(g.nodes.map((n, i) => [n.id, { x: (i % 6) * 160, y: n.level * 100 }])),
+  }
+})
+
 vi.mock('motion/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('motion/react')>()
   return { ...actual, useReducedMotion: () => true }

@@ -63,7 +63,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
 
   if (data.status === 'error' && !data.bundle) {
     return (
-      <EmptyState title="This project's data is not available">
+      <EmptyState tone="error" title="This project's data is not available">
         {data.error}. Seed projects load from static files; live runs need the backend.
       </EmptyState>
     )

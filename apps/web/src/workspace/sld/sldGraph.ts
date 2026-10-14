@@ -1,6 +1,7 @@
 // DesignModel → single-line-diagram graph, laid out with ELK "layered" (top-down by level).
-import ELK from 'elkjs/lib/elk.bundled.js'
+import type { ElkNode } from 'elkjs/lib/elk-api'
 import { fmtQty } from '@/lib/format'
+import { withTimeout } from '@/lib/timeout'
 import type { DesignModel, EquipmentKind } from '@/lib/types'
 
 export type SldKind = 'mv' | 'transformer' | 'board' | 'ups' | 'sts' | 'busway' | 'rackgroup'
@@ -96,10 +97,31 @@ export function buildSldGraph(model: DesignModel): SldGraph {
   return { nodes, edges }
 }
 
-const elk = new ELK()
+interface ElkLayouter {
+  layout(graph: ElkNode): Promise<ElkNode>
+}
+
+// ELK is ~1.4 MB: load it only when the SLD tab lays out, and run it in a Web Worker so the layout
+// never blocks the main thread (final review I9). Without Worker support (tests, old browsers) or if
+// the worker fails, the in-thread bundled build is used instead.
+let workerElk: Promise<ElkLayouter> | null = null
+let bundledElk: Promise<ElkLayouter> | null = null
+
+function inThreadElk(): Promise<ElkLayouter> {
+  bundledElk ??= import('elkjs/lib/elk.bundled.js').then(({ default: ELK }) => new ELK())
+  return bundledElk
+}
+
+function elk(): Promise<ElkLayouter> {
+  if (typeof Worker === 'undefined') return inThreadElk()
+  workerElk ??= Promise.all([import('elkjs/lib/elk-api.js'), import('elkjs/lib/elk-worker.min.js?url')]).then(
+    ([{ default: ELK }, { default: workerUrl }]) => new ELK({ workerUrl }),
+  )
+  return workerElk
+}
 
 export async function layoutSld(g: SldGraph): Promise<Map<string, { x: number; y: number }>> {
-  const res = await elk.layout({
+  const graph: ElkNode = {
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
@@ -117,6 +139,13 @@ export async function layoutSld(g: SldGraph): Promise<Map<string, { x: number; y
       layoutOptions: { 'elk.partitioning.partition': String(n.level) },
     })),
     edges: g.edges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
-  })
+  }
+  let res: ElkNode
+  try {
+    res = await withTimeout((await elk()).layout(graph), 20_000, () => new Error('ELK worker did not answer'))
+  } catch {
+    workerElk = null
+    res = await (await inThreadElk()).layout(graph)
+  }
   return new Map((res.children ?? []).map((c) => [c.id, { x: c.x ?? 0, y: c.y ?? 0 }]))
 }

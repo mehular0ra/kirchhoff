@@ -78,7 +78,7 @@ function InboxEntry() {
 export function Dashboard() {
   const { world, error } = useWorld()
   const startTour = useTour((s) => s.start)
-  if (error) return <EmptyState title="Could not load the demo world">{error}</EmptyState>
+  if (error) return <EmptyState tone="error" title="Could not load the demo world">{error}</EmptyState>
   if (!world) return <EmptyState title="Loading projects…" />
   const activity = [...world.activity].sort((a, b) => b.ts - a.ts)
   return (

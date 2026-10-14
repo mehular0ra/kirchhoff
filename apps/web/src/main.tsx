@@ -7,12 +7,10 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import App from './App'
 import { TooltipProvider } from './components/ui/tooltip'
-import { initAppCheck } from './firebase'
 import { initPresentationMode } from './lib/flags'
 import { productionServices } from './services/production'
 import { ServicesProvider } from './services/services'
 
-initAppCheck()
 initPresentationMode()
 document.documentElement.classList.add('dark')
 

@@ -111,3 +111,15 @@ test('ask-why falls back to the engine explanation when the API is down', async 
   await user.click(screen.getByRole('button', { name: /ask the co-pilot why/i }))
   expect(await screen.findByText(/Co-pilot is unavailable/)).toBeInTheDocument()
 })
+
+test('I5: Show on canvas from the Matrix switches to the 3D hall, focuses the element and closes the drawer', async () => {
+  const user = userEvent.setup()
+  renderDrawer()
+  act(() => {
+    useUi.getState().setTab('matrix')
+    useUi.getState().setViewRev('r1')
+    useUi.getState().openFinding('R05:FA-01')
+  })
+  await user.click(screen.getByRole('button', { name: /show on canvas/i }))
+  expect(useUi.getState()).toMatchObject({ tab: 'hall', focusId: 'FA-01', findingId: null })
+})

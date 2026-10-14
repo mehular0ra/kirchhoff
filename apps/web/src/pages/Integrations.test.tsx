@@ -29,7 +29,7 @@ test('with the API up, ERP and CRM come from /api/enterprise/* and are labelled 
 
 test('with the API down, the static snapshot renders with a cached note and the handoff strip', async () => {
   renderWithProviders(<IntegrationsPage />)
-  expect(await screen.findByRole('status')).toHaveTextContent('showing cached snapshot')
+  expect(await screen.findByText(/API unreachable — showing cached snapshot/)).toBeInTheDocument()
   const handoff = screen.getByRole('region', { name: 'Latest handoff' })
   expect(handoff).toHaveAttribute('data-tour', 'integrations-prs')
   expect(within(handoff).getByText('PR-2026-0142')).toBeInTheDocument()
@@ -48,7 +48,7 @@ test('with the real generated snapshot, counts, Hall A PRs and opportunity stage
       }),
     }),
   })
-  await screen.findByRole('status')
+  await screen.findByText(/API unreachable — showing cached snapshot/)
   const erp = screen.getByRole('article', { name: 'ERP (SAP-style)' })
   expect(within(erp).getByText('60 materials')).toBeInTheDocument()
   expect(within(erp).getByText('17 purchase requisitions')).toBeInTheDocument()
@@ -71,4 +71,20 @@ test('with the real generated snapshot, counts, Hall A PRs and opportunity stage
   for (const stage of ['Negotiation', 'Design approved', 'Design in progress', 'Qualification', 'Closed won', 'Proposal']) {
     expect(within(opps).getAllByText(stage).length).toBeGreaterThan(0)
   }
+})
+
+test('I4: with the API hanging (sign-in or App Check stuck), the cached snapshot shows at once with a connecting note', async () => {
+  const never = () => new Promise<never>(() => {})
+  const api = fakeApi({ erpMaterials: vi.fn(never), erpPrs: vi.fn(never), crmOpportunities: vi.fn(never) })
+  renderWithProviders(<IntegrationsPage />, { services: fakeServices({ api }) })
+  const handoff = await screen.findByRole('region', { name: 'Latest handoff' })
+  expect(within(handoff).getByText('PR-2026-0142')).toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent(/Connecting to the live sandbox/)
+  expect(within(screen.getByRole('article', { name: 'ERP (SAP-style)' })).getByText(/^Cached snapshot/)).toBeInTheDocument()
+})
+
+test('backlog [4]: the "API unreachable" note carries an icon as well as text', async () => {
+  renderWithProviders(<IntegrationsPage />)
+  const note = await screen.findByText(/API unreachable/)
+  expect(note.closest('[role="status"]')!.querySelector('svg')).not.toBeNull()
 })

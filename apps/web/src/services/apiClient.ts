@@ -13,6 +13,7 @@ import type {
   WhatIfParam,
   WhatIfResult,
 } from '@/lib/types'
+import { withTimeout } from '@/lib/timeout'
 
 export type Fetcher = (path: string, init?: RequestInit) => Promise<Response>
 
@@ -79,8 +80,16 @@ const DETAIL_TEXT: Record<string, string> = {
   triage_failed: 'The Inbox agent could not finish this triage.',
   not_triaged: 'Triage this email before pursuing it.',
   cannot_pursue: 'Only bids with a Pursue or Clarify verdict in one of our asset packs can be pursued.',
-  enterprise_unavailable: 'The CRM sandbox is not answering right now.',
+  enterprise_unavailable: 'The ERP and CRM sandbox is not answering right now. The cached snapshot is shown where there is one.',
+  run_not_found: 'That run is not in your workspace. It may have been reset or belong to another visitor; start a new run or watch the recorded one.',
+  'missing bearer token': 'Your demo session has not signed in yet. Reload the page; seed projects and replays work without it.',
+  'invalid app check token': 'The browser check (App Check) did not pass. Disable blockers for this site or reload; seed projects and replays still work.',
+  invalid_value: 'That value is outside the range the engine can check. Pick a value within the limits shown.',
+  client_timeout: 'The live backend did not answer in time. Try again in a moment; seed projects and replays still work.',
 }
+
+// The 12 s bound wraps the whole call (sign-in, App Check and fetch; final review I4).
+export { withTimeout }
 
 export function describeApiError(e: unknown): string {
   if (e instanceof ApiError) return DETAIL_TEXT[e.detail] ?? `The live backend answered ${e.status}: ${e.detail}.`
@@ -91,27 +100,37 @@ export function httpApiClient(
   fetcher: Fetcher,
   plainFetch: (url: string) => Promise<Response> = (u) => fetch(u),
 ): ApiClient {
-  async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+  /**
+   * The 12 s budget covers the whole call — `fetcher` first awaits Firebase sign-in and an App Check
+   * token, and either can hang when reCAPTCHA is blocked — not just the fetch (final review I4).
+   */
+  function bounded<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
-    try {
-      const r = await fetcher(path, { ...init, signal: ctrl.signal })
-      if (!r.ok) {
-        let detail = r.statusText
-        try {
-          const body = (await r.json()) as { detail?: unknown }
-          if (body.detail !== undefined) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
-        } catch {
-          // non-JSON error body
-        }
-        throw new ApiError(r.status, detail)
+    return withTimeout(run(ctrl.signal), TIMEOUT_MS, () => {
+      ctrl.abort()
+      return new ApiError(0, 'client_timeout')
+    })
+  }
+
+  function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+    return bounded((signal) => send<T>(path, { ...init, signal }))
+  }
+
+  async function send<T>(path: string, init: RequestInit): Promise<T> {
+    const r = await fetcher(path, init)
+    if (!r.ok) {
+      let detail = r.statusText
+      try {
+        const body = (await r.json()) as { detail?: unknown }
+        if (body.detail !== undefined) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+      } catch {
+        // non-JSON error body
       }
-      if (r.status === 204) return undefined as T
-      const text = await r.text()
-      return (text ? JSON.parse(text) : undefined) as T
-    } finally {
-      clearTimeout(timer)
+      throw new ApiError(r.status, detail)
     }
+    if (r.status === 204) return undefined as T
+    const text = await r.text()
+    return (text ? JSON.parse(text) : undefined) as T
   }
   const post = <T>(path: string, body?: unknown) =>
     call<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
@@ -145,16 +164,17 @@ export function httpApiClient(
     erpMaterials: () => call('/api/enterprise/erp/materials'),
     erpPrs: () => call('/api/enterprise/erp/prs'),
     crmOpportunities: () => call('/api/enterprise/crm/opportunities'),
-    fileBlob: async (path) => {
-      // Ruling R19: get the signed URL as JSON, then fetch it with no auth/App Check headers (no CORS preflight).
-      const r = await fetcher(`/api/files/${path.replace(/^\/+/, '')}?redirect=0`)
-      if (!r.ok) throw new ApiError(r.status, r.statusText)
-      if (r.headers.get('X-Kirchhoff-Inline') === '1') return r.blob() // WS2 local fakes serve bytes inline
-      const { url } = (await r.json()) as { url: string }
-      const f = await plainFetch(url)
-      if (!f.ok) throw new ApiError(f.status, f.statusText)
-      return f.blob()
-    },
+    fileBlob: (path) =>
+      bounded(async (signal) => {
+        // Ruling R19: get the signed URL as JSON, then fetch it with no auth/App Check headers (no CORS preflight).
+        const r = await fetcher(`/api/files/${path.replace(/^\/+/, '')}?redirect=0`, { signal })
+        if (!r.ok) throw new ApiError(r.status, r.statusText)
+        if (r.headers.get('X-Kirchhoff-Inline') === '1') return r.blob() // WS2 local fakes serve bytes inline
+        const { url } = (await r.json()) as { url: string }
+        const f = await plainFetch(url)
+        if (!f.ok) throw new ApiError(f.status, f.statusText)
+        return f.blob()
+      }),
     inbox: () => call('/api/inbox'),
     triage: (emailId) => post(`/api/inbox/${encodeURIComponent(emailId)}/triage`),
     pursue: (emailId) => post(`/api/inbox/${encodeURIComponent(emailId)}/pursue`),

@@ -1,5 +1,5 @@
 import { cn } from 'cn'
-import { FlaskConical, Info } from 'lucide-react'
+import { CircleX, FlaskConical, Info, LoaderCircle, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { AGENTS } from '@/lib/agents'
 import type { AgentName } from '@/lib/types'
@@ -30,7 +30,7 @@ export function SandboxLabel({ className }: { className?: string }) {
 }
 
 export function IllustrativeLabel({ className }: { className?: string }) {
-  return <span className={cn('text-[11px] uppercase tracking-wide text-zinc-500', className)}>{ILLUSTRATIVE_TEXT}</span>
+  return <span className={cn('text-[11px] uppercase tracking-wide text-zinc-400', className)}>{ILLUSTRATIVE_TEXT}</span>
 }
 
 export function AgentDot({ agent, className }: { agent: AgentName; className?: string }) {
@@ -48,9 +48,36 @@ export function Num({ children, className }: { children: ReactNode; className?: 
   return <span className={cn('font-mono tabular-nums', className)}>{children}</span>
 }
 
-export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+const EMPTY_TONE: Record<'info' | 'error' | 'loading', { icon: LucideIcon; cls: string }> = {
+  info: { icon: Info, cls: 'text-zinc-400' },
+  error: { icon: CircleX, cls: 'text-rose-400' },
+  loading: { icon: LoaderCircle, cls: 'animate-spin text-zinc-400 motion-reduce:animate-none' },
+}
+
+/** Empty, loading and error states: always an icon with the text (status is never colour alone, M1). */
+export function EmptyState({
+  title,
+  children,
+  action,
+  tone,
+  icon,
+}: {
+  title: string
+  children?: ReactNode
+  action?: ReactNode
+  /** Defaults to "loading" for "Loading…" titles, else "info". */
+  tone?: 'info' | 'error' | 'loading'
+  icon?: LucideIcon
+}) {
+  const t = tone ?? (title.startsWith('Loading') ? 'loading' : 'info')
+  const Icon = icon ?? EMPTY_TONE[t].icon
   return (
-    <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center">
+    <div
+      data-tone={t}
+      role={t === 'loading' ? 'status' : undefined}
+      className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center"
+    >
+      <Icon aria-hidden className={cn('size-5', EMPTY_TONE[t].cls)} />
       <p className="text-sm font-medium text-zinc-200">{title}</p>
       {children && <div className="max-w-md text-sm text-zinc-400">{children}</div>}
       {action}
