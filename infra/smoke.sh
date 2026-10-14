@@ -5,6 +5,7 @@ BASE="${1:-https://kirchhoff.web.app}"
 P=ordinal-mep
 fail() { echo "smoke FAIL: $*" >&2; exit 1; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+cc() { curl -fsSI "$BASE$1" | tr -d '\r' | awk 'tolower($1)=="cache-control:" { sub(/^[^:]*: */, ""); print; exit }'; }
 
 curl -fsS "$BASE/api/health" | grep -q '"ok":true' || fail "/api/health is not ok"
 [ "$(code "$BASE/api/whoami")" = "401" ] || fail "GET /api/whoami without a token must be 401"
@@ -18,4 +19,11 @@ ENT_URL="$(gcloud run services describe kirchhoff-enterprise --project=$P --regi
 if [ -n "$ENT_URL" ]; then
   [ "$(code "$ENT_URL/health")" = "403" ] || fail "kirchhoff-enterprise must reject unauthenticated callers (403)"
 fi
+
+for path in / /app /app/p/hall-a /index.html; do
+  [ "$(cc "$path")" = "no-cache" ] || fail "Cache-Control on $path is '$(cc "$path")' (want no-cache)"
+done
+ASSET="$(curl -fsS "$BASE/" | grep -oE '/assets/[^"]+\.js' | head -1)"
+[ -n "$ASSET" ] || fail "index.html references no /assets/*.js"
+[ "$(cc "$ASSET")" = "public, max-age=31536000, immutable" ] || fail "Cache-Control on $ASSET is '$(cc "$ASSET")'"
 echo "smoke OK: $BASE"
