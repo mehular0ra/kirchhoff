@@ -4,6 +4,7 @@ import { IntegrationsPage } from './pages/Integrations'
 import { Landing } from './pages/Landing'
 import { NotFound } from './pages/NotFound'
 import { AppShell } from './shell/AppShell'
+import { ReviewPage } from './workspace/review/ReviewPage'
 import { WorkspacePage } from './workspace/WorkspacePage'
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/app" element={<AppShell />}>
         <Route index element={<Dashboard />} />
         <Route path="p/:pid" element={<WorkspacePage />} />
+        <Route path="p/:pid/review/:rev" element={<ReviewPage />} />
         <Route path="integrations" element={<IntegrationsPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
