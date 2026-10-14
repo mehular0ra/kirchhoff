@@ -7,7 +7,11 @@ import type { Project } from '@/lib/types'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
 import { CanvasTabs } from './CanvasTabs'
+import { DocsTab } from './docs/DocsTab'
 import { FindingDrawer } from './finding/FindingDrawer'
+import { GateBanner } from './gates/GateBanner'
+import { OptionCards } from './gates/OptionCards'
+import { HeaderActions } from './HeaderActions'
 import { ComplianceMatrix } from './matrix/ComplianceMatrix'
 import { RequirementsPanel } from './RequirementsPanel'
 import { RevisionTimeline } from './RevisionTimeline'
@@ -69,20 +73,21 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
     ),
     sld: <SldView />,
     matrix: <ComplianceMatrix />,
-    options: <EmptyState title="Topology options">Costed options appear here after Power and Procurement.</EmptyState>,
-    docs: <EmptyState title="Documents">Tender, drawings and exports appear here.</EmptyState>,
+    options: <OptionCards />,
+    docs: <DocsTab />,
   }
 
   return (
     <WorkspaceProvider bundle={data.bundle} source={data.source}>
       <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto]">
-        <WorkspaceHeader />
+        <WorkspaceHeader actions={<HeaderActions />} />
         <div className="grid min-h-0 grid-cols-[16rem_minmax(0,1fr)_20rem]">
           <aside className="min-h-0 border-r">
             <AgentLanes />
           </aside>
           <section aria-label="Canvas" className="flex min-h-0 flex-col">
             <RunBar replay={data.replay} controls={data.controls} />
+            <GateBanner />
             <div className="min-h-0 flex-1">
               <CanvasTabs panes={panes} />
             </div>
