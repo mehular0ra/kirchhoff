@@ -94,7 +94,10 @@ def unit_in_quote(unit: str | None, quote: str) -> bool:
         return True
     q = normalize(quote)
     forms = UNIT_ALIASES.get(unit, (unit,))
-    return any(f in q for f in forms)  # case-sensitive: "kA" is not "KA"
+    # Token-bounded (P2-R8): no ASCII letter immediately before or after, so "m" doesn't match inside
+    # "mm" and "min"/"week" don't match inside "aluminum"/"midweek". A digit right before the unit is
+    # allowed ("300mm", "2.0%"), and matching stays case-sensitive for symbols ("kA" is not "KA").
+    return any(re.search(rf"(?<![A-Za-z]){re.escape(f)}(?![A-Za-z])", q) for f in forms)
 
 
 def verify_quote(pdf: PdfText, page: int, quote: str, value: float | int | str | None,
