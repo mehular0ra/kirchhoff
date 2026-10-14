@@ -16,6 +16,7 @@ from .options import annotate_options, power_options, power_recheck  # noqa: F40
 from .routing import route  # noqa: F401
 from .scenario import Scenario, load_scenario  # noqa: F401
 from .spatial import detect_clashes  # noqa: F401
+from .validate import validate_model  # noqa: F401
 from .whatif import CHIP_WHAT_IFS, chip_what_ifs, what_if  # noqa: F401
 
 NOT_CHECKED = [
@@ -33,6 +34,7 @@ NOT_CHECKED = [
 
 def check(scn: Scenario, model: DesignModel, erp: ErpView, pr_lines: list[PRLine] | None = None) -> list[Finding]:
     """Full rule pack R01–R15 incl. R04b; one Finding per (rule, element) incl. passes."""
+    validate_model(scn, model)
     return run_rules(scn, model, erp, pr_lines)
 
 

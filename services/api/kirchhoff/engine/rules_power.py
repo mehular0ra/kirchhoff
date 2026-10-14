@@ -106,6 +106,17 @@ def r04b(ctx: Ctx) -> list[Finding]:
     return out
 
 
+def feeder_run_length_m(ctx: Ctx, feeder) -> float:
+    """The feeder's physical length is judged from its routed geometry whenever one exists; the stored
+    `length_m` is used only when there is no route, so a caller cannot shorten the model's billed/plotted
+    length to beat R05 while the routed polyline stays long (spec §6.3)."""
+    if feeder.route:
+        from .routing import feeder_length_m
+
+        return feeder_length_m(ctx.scn, [(p.x, p.y, p.z) for p in feeder.route])
+    return feeder.length_m
+
+
 def feeder_dv_pct(ctx: Ctx, feeder, current_a: float | None = None) -> float:
     """ΔV from the UPS output board to the furthest tap-off: feeder (factor 1) + row busway ((n+1)/(2n))."""
     u, pf = limit(ctx.scn, "lv_v"), limit(ctx.scn, "pf")
@@ -116,7 +127,7 @@ def feeder_dv_pct(ctx: Ctx, feeder, current_a: float | None = None) -> float:
                             int(f_item.get("conductors_per_phase", 1)))
     z_b = calc.z_eff_mohm_m(float(b_item["r_mohm_m"]), float(b_item["x_mohm_m"]), pf)
     i = ctx.study.worst_busway_a(feeder.dst) if current_a is None else current_a
-    sections = [(feeder.length_m, z_f, 1.0),
+    sections = [(feeder_run_length_m(ctx, feeder), z_f, 1.0),
                 (float(busway.params["length_m"]), z_b, calc.row_factor(int(busway.params["taps"])))]
     return calc.dv_pct(i, sections, u)
 
@@ -127,7 +138,8 @@ def r05(ctx: Ctx) -> list[Finding]:
     for c in ctx.feeders():
         dv = feeder_dv_pct(ctx, c)
         out.append(make_finding(ctx.scn, "R05", c.id, status_of(dv <= lim + EPS), value=dv, limit=lim, unit="%",
-                                inputs={"i_a": ctx.study.worst_busway_a(c.dst), "feeder_length_m": c.length_m,
+                                inputs={"i_a": ctx.study.worst_busway_a(c.dst),
+                                        "feeder_length_m": feeder_run_length_m(ctx, c),
                                         "busway": c.dst, "catalogue_id": c.catalogue_id, "source": c.src},
                                 explanation=f"Voltage drop from the UPS output board to the furthest tap-off via "
                                             f"{c.id} is {{value}}% against a limit of {{limit}}%."))

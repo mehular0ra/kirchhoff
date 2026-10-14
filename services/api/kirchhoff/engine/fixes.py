@@ -16,17 +16,57 @@ DROP_MARGIN_M = 0.6
 
 
 def apply_fix(model: DesignModel, candidate: FixCandidate) -> DesignModel:
+    """Validates the patch before applying it (spec §6.3: nothing an LLM supplies can change a verdict without
+    passing through the engine's own checks). apply_fix's signature is frozen (facade), so it cannot take the
+    Scenario needed to check a catalogue id against the busway/cable list; that check happens the moment the
+    output next passes through a facade entry point (check, route, ...), all of which call validate_model."""
     patch = candidate.patch
-    if patch["op"] == "set_feeder":
+    op = patch.get("op")
+    if op is None:
+        raise ValueError("fix patch has no 'op'")
+    if op == "set_feeder":
+        fid = patch.get("feeder")
+        feeder = next((c for c in model.connections if c.id == fid), None)
+        if feeder is None:
+            raise ValueError(f"fix patch names an unknown feeder {fid!r}")
         conns = [c.model_copy(update={"kind": patch["kind"], "catalogue_id": patch["catalogue_id"]})
-                 if c.id == patch["feeder"] else c for c in model.connections]
-        return model.model_copy(update={"connections": conns})
-    if patch["op"] == "set_pipe_routes":
-        routes = patch["routes"]
+                 if c.id == fid else c for c in model.connections]
+        out = model.model_copy(update={"connections": conns})
+    elif op == "set_pipe_routes":
+        routes = patch.get("routes", {})
+        pipes_by_id = {p.id: p for p in model.pipes}
+        old_ends: dict[str, tuple[tuple, tuple]] = {}
+        new_ends: dict[str, tuple[tuple, tuple]] = {}
+        for pid, pts in routes.items():
+            pipe = pipes_by_id.get(pid)
+            if pipe is None:
+                raise ValueError(f"fix patch names an unknown pipe {pid!r}")
+            if len(pts) < 2:
+                raise ValueError(f"fix patch route for {pid} has fewer than 2 points")
+            old_ends[pid] = ((pipe.route[0].x, pipe.route[0].y, pipe.route[0].z),
+                             (pipe.route[-1].x, pipe.route[-1].y, pipe.route[-1].z))
+            new_ends[pid] = (tuple(pts[0]), tuple(pts[-1]))
+
+        def _moved_ok(pid: str, which: int) -> bool:
+            """An endpoint may move only as part of a consistent joint: some other pipe touched by the same
+            patch shared that exact old point and now shares the exact new point too (e.g. an authored reroute
+            that relocates the junction between a header and the branch it feeds)."""
+            old_pt, new_pt = old_ends[pid][which], new_ends[pid][which]
+            if old_pt == new_pt:
+                return True
+            return any(old_ends[other][w2] == old_pt and new_ends[other][w2] == new_pt
+                      for other in routes if other != pid for w2 in (0, 1))
+
+        for pid in routes:
+            for which in (0, 1):
+                if not _moved_ok(pid, which):
+                    raise ValueError(f"fix patch route for {pid} changes an endpoint")
         pipes = [p.model_copy(update={"route": [Point3(x=x, y=y, z=z) for x, y, z in routes[p.id]]})
                  if p.id in routes else p for p in model.pipes]
-        return model.model_copy(update={"pipes": pipes})
-    raise ValueError(f"unknown fix op {patch['op']!r}")
+        out = model.model_copy(update={"pipes": pipes})
+    else:
+        raise ValueError(f"unknown fix op {op!r}")
+    return out
 
 
 def _feeder_candidates(scn: Scenario, model: DesignModel, finding: Finding) -> list[FixCandidate]:

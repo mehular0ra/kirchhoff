@@ -79,6 +79,26 @@ def _route(b: Bench, pid: str, pts: list[tuple[float, float, float]]) -> Bench:
     return _pipe(b, pid, route=[Point3(x=x, y=y, z=z) for x, y, z in pts])
 
 
+def _lengthen_feeder(b: Bench, cid: str, extra_m: float) -> Bench:
+    """Make a feeder's routed run actually `extra_m` longer (I-2: R05 now judges the route, not the stored
+    length_m) by inserting an out-and-back detour along its first segment; `length_m` is recomputed from the
+    new route so BOQ quantities stay consistent."""
+    import math
+
+    from .routing import feeder_length_m
+
+    conn = next(c for c in b.model.connections if c.id == cid)
+    pts = [(p.x, p.y, p.z) for p in conn.route]
+    (x0, y0, z0), (x1, y1, _z1) = pts[0], pts[1]
+    dx, dy = x1 - x0, y1 - y0
+    seg_len = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / seg_len, dy / seg_len
+    bump = extra_m / 2.0
+    new_pts = [pts[0], (x0 + ux * bump, y0 + uy * bump, z0), pts[0], *pts[1:]]
+    return _conn(b, cid, route=[Point3(x=x, y=y, z=z) for x, y, z in new_pts],
+                length_m=feeder_length_m(b.scn, new_pts))
+
+
 def _racks(b: Bench, rows: set[str], **update) -> Bench:
     racks = [r.model_copy(update=update) if r.row in rows else r for r in b.model.racks]
     return replace(b, model=b.model.model_copy(update={"racks": racks}))
@@ -165,9 +185,7 @@ def mutations() -> list[Mutation]:
         Mutation("M10", "R04b", "Busway Icw 50 kA", lambda b: _cat(b, "busways", "icw_ka", 50), {"R04b"}),
         Mutation("M11", "R04b", "Busway peak withstand 120 kA", lambda b: _cat(b, "busways", "ipk_ka", 120),
                  {"R04b"}),
-        Mutation("M12", "R05", "FB-02 routed 60 m longer",
-                 lambda b: _conn(b, "FB-02", length_m=next(c.length_m for c in b.model.connections
-                                                            if c.id == "FB-02") + 60.0), {"R05"}),
+        Mutation("M12", "R05", "FB-02 routed 60 m longer", lambda b: _lengthen_feeder(b, "FB-02", 60.0), {"R05"}),
         Mutation("M13", "R05", "Voltage-drop limit 1.0%", lambda b: _limit(b, "dv_max_pct", 1.0), {"R05"}),
         Mutation("M14", "R05", "FA-01 fix reverted to 1,600 A busway",
                  lambda b: _conn(b, "FA-01", kind="busway", catalogue_id="BW-1600"), {"R05"}),
