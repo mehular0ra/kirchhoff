@@ -322,3 +322,314 @@ def test_failure_path_release_lease_error_does_not_crash_the_worker_thread(deps,
     run = _run(deps, rid)
     assert run["status"] == "running"  # the release failed, so status could not flip to "failed"
     assert run["lease"]["owner"] == deps.owner  # the lease was never actually released either
+
+
+def test_concurrent_start_phase_exactly_one_wins(deps, make_run):
+    """Only one of several concurrent start_phase calls on the same run may win the lease; every other
+    caller must raise LeaseBusy, never silently no-op or double-start a worker."""
+    deps.phases = dummy_phases([])
+    deps.spawn = lambda f: None  # don't actually run a worker; this test is only about the lease race
+    rid = make_run()
+    results: list = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(6)
+
+    def attempt():
+        barrier.wait(5)
+        try:
+            r = start_phase(deps, "u1", rid, "p1")
+        except orch.LeaseBusy:
+            r = "busy"
+        with lock:
+            results.append(r)
+
+    threads = [threading.Thread(target=attempt) for _ in range(6)]
+    [t.start() for t in threads]
+    [t.join(5) for t in threads]
+    wins = [r for r in results if r != "busy"]
+    assert wins == [1]  # exactly one caller won, with attempt 1
+    assert results.count("busy") == 5
+
+
+def test_metrics_accumulate_exactly_across_phases_and_gate_waits(deps, make_run):
+    """Exact metrics bookkeeping with a fake clock (mirrors the reviewer's s10_metrics.py shape):
+    tokens_in/out add up across phases, active_s is worker time only (excludes gate waits), and
+    gate_wait_s accumulates across every gate resume rather than being overwritten by the latest one."""
+    clock = FakeClock()
+    deps.clock = clock
+
+    def make(name, gate):
+        def run(ctx):
+            for part in ("a", "b"):
+                sid = f"{name}.{part}"
+
+                def work(sid=sid):
+                    clock.advance(5.0)
+                    return StepOutput(data={})
+                run_step(ctx, sid, work)
+            ctx.metrics["tokens_in"] = ctx.metrics.get("tokens_in", 0.0) + 7.0
+            ctx.metrics["tokens_out"] = ctx.metrics.get("tokens_out", 0.0) + 3.0
+            return PhaseOutcome(gate=gate)
+        return run
+
+    deps.phases = {"p1": make("p1", "plan"), "p2": make("p2", "option"), "p3": make("p3", "review"),
+                  "p4": make("p4", None)}
+    rid = make_run()
+
+    start_phase(deps, "u1", rid, "p1")
+    run = _run(deps, rid)
+    assert run["metrics"]["active_s"] == 10.0
+    assert run["metrics"]["tokens_in"] == 7.0 and run["metrics"]["tokens_out"] == 3.0
+
+    clock.advance(100.0)
+    resume_from_gate(deps, "u1", rid, "plan")
+    run = _run(deps, rid)
+    assert run["metrics"]["active_s"] == 20.0
+    assert run["metrics"]["gate_wait_s"] == 100.0
+    assert run["metrics"]["tokens_in"] == 14.0
+
+    clock.advance(200.0)
+    resume_from_gate(deps, "u1", rid, "option")
+    run = _run(deps, rid)
+    assert run["metrics"]["active_s"] == 30.0
+    assert run["metrics"]["gate_wait_s"] == 300.0  # accumulated (100 + 200), never overwritten
+    assert run["metrics"]["tokens_in"] == 21.0
+
+    clock.advance(50.0)
+    resume_from_gate(deps, "u1", rid, "review")
+    run = _run(deps, rid)
+    assert run["status"] == "done"
+    assert run["metrics"]["active_s"] == 40.0
+    assert run["metrics"]["gate_wait_s"] == 350.0
+    assert run["metrics"]["tokens_in"] == 28.0 and run["metrics"]["tokens_out"] == 12.0
+
+
+def test_patch_if_holder_raises_lease_lost_and_writes_nothing_under_a_new_holder(deps, make_run):
+    """An Auto-mode worker advancing from one phase to the next (_patch_if_holder) must not patch
+    `phase`/`metrics` once another attempt holds the lease -- it must raise LeaseLost and leave the run
+    doc exactly as the new holder left it."""
+    rid = make_run(autonomy="auto")
+    attempt = orch.acquire_lease(deps.store, "u1", rid, deps.owner, deps.clock(), {"phase": "p1"})
+    run = _run(deps, rid)
+    deps.store.set_doc(run_path("u1", rid), {**run, "lease": {"owner": "other", "attempt": attempt + 1,
+                                                              "heartbeat_at": deps.clock()}})
+    with pytest.raises(LeaseLost):
+        orch._patch_if_holder(deps, "u1", rid, attempt, {"phase": "p2", "metrics": {"x": 1.0}})
+    after = _run(deps, rid)
+    assert after["phase"] == "p1" and "x" not in (after.get("metrics") or {})
+
+
+def test_auto_mode_worker_losing_the_lease_between_phases_does_not_patch_under_the_new_holder(deps, make_run):
+    """End-to-end companion to the unit test above: an Auto-mode worker whose p1 completes, but whose
+    lease is stolen before the advance-to-p2 patch lands, must raise LeaseLost out of _worker (caught,
+    logged, no release -- "LeaseLost exits without writing") rather than clobber the new holder's run
+    doc."""
+    takeover_attempt = {}
+
+    def p1(ctx):
+        def a():
+            return StepOutput(data={})
+        run_step(ctx, "p1.a", a)
+
+        def b():
+            # Simulate a stale takeover landing right between p1's last step committing and the
+            # Auto-mode advance-to-p2 patch (_patch_if_holder) for this same attempt.
+            run = ctx.deps.store.get_doc(ctx.run_path)
+            new_attempt = run["lease"]["attempt"] + 1
+            ctx.deps.store.set_doc(ctx.run_path, {**run, "lease": {"owner": "other", "attempt": new_attempt,
+                                                                    "heartbeat_at": ctx.deps.clock()}})
+            takeover_attempt["v"] = new_attempt
+            return StepOutput(data={})
+        run_step(ctx, "p1.b", b)
+        return PhaseOutcome(gate="plan")
+
+    deps.phases = {"p1": p1}
+    rid = make_run(autonomy="auto")
+    start_phase(deps, "u1", rid, "p1")
+    run = _run(deps, rid)
+    # The new holder's lease/attempt must be untouched by the old worker's (failed) advance attempt.
+    assert run["lease"]["owner"] == "other" and run["lease"]["attempt"] == takeover_attempt["v"]
+    assert run["phase"] == "p1"  # never patched to "p2" under the new holder
+
+
+def test_resume_run_on_an_at_gate_run_returns_false_and_leaves_the_gate_unchanged(deps, make_run):
+    deps.phases = dummy_phases([])
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")
+    before = _run(deps, rid)
+    assert before["status"] == "at_gate" and before["gate"] == "plan"
+    assert resume_run(deps, "u1", rid) is False
+    after = _run(deps, rid)
+    assert after["status"] == "at_gate"
+    assert after["gate"] == before["gate"]
+    assert after["metrics"]["gate_entered_at"] == before["metrics"]["gate_entered_at"]
+
+
+def test_resume_run_on_an_expired_at_gate_run_marks_it_expired_and_returns_false(deps, make_run):
+    deps.phases = dummy_phases([])
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")
+    run = _run(deps, rid)
+    deps.store.set_doc(run_path("u1", rid), {**run, "metrics": {**run["metrics"],
+                                                               "gate_entered_at": deps.clock() - 90_000}})
+    assert resume_run(deps, "u1", rid) is False
+    after = _run(deps, rid)
+    assert after["status"] == "expired" and after["gate"] is None and after["finished_at"]
+
+
+def test_no_heartbeat_loop_threads_survive_after_the_worker_exits(deps, make_run):
+    """Covers `finally: stop.set()` -- once a worker's phase parks at a gate (or finishes), its
+    heartbeat thread must actually stop, not linger as a background thread."""
+    from kirchhoff.runs.deps import thread_spawn
+    deps.phases = dummy_phases([])
+    deps.spawn = thread_spawn  # real background threads this time, not the conftest's synchronous spawn
+    rid = make_run()
+    before = threading.active_count()
+    start_phase(deps, "u1", rid, "p1")
+    assert _wait_until(lambda: (_run(deps, rid) or {}).get("status") == "at_gate")
+    assert _wait_until(lambda: threading.active_count() <= before)
+
+
+def test_gate_expiry_boundary_exactly_24h_is_valid_24h_plus_a_ms_is_expired(deps, make_run):
+    deps.phases = dummy_phases([])
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")
+    entered = _run(deps, rid)["metrics"]["gate_entered_at"]
+
+    deps.clock = FakeClock(entered + orch.GATE_TTL_S)  # exactly 24h: still valid
+    run = ensure_gate(deps, "u1", rid, "plan")
+    assert run["status"] == "at_gate"
+
+    deps.clock = FakeClock(entered + orch.GATE_TTL_S + 0.001)  # 24h + 1ms: expired
+    with pytest.raises(GateExpired):
+        ensure_gate(deps, "u1", rid, "plan")
+    after = _run(deps, rid)
+    assert after["status"] == "expired" and after["gate"] is None and after["finished_at"]
+
+
+# --- Minor 1 (fix round 1): a transactional gate claim closes the expiry check-then-act race (E1/E2) --
+
+
+def _pause_on(store, predicate):
+    """Pauses the FIRST store.transact() call whose read_paths matches `predicate`, in whichever thread
+    reaches it first, until `go` is set. Mirrors the reviewer's harness `pause_on` helper."""
+    reached, go, fired = threading.Event(), threading.Event(), []
+    orig = store.transact
+
+    def wrapped(read_paths, fn):
+        if not fired and predicate(read_paths):
+            fired.append(1)
+            reached.set()
+            assert go.wait(5), "probe: never released"
+        return orig(read_paths, fn)
+    store.transact = wrapped
+    return reached, go, orig
+
+
+def _side_deps(deps, owner, clock):
+    from kirchhoff.runs.fakes import build_fake_deps
+    d = build_fake_deps(deps.store, deps.scenarios_dir, seed_dir=deps.seed_dir, owner=owner, clock=clock,
+                        heartbeat_s=3600.0, spawn=lambda f: f())
+    d.phases = deps.phases
+    return d
+
+
+def test_e1_resume_from_gate_vs_concurrent_expiry(deps, make_run, monkeypatch):
+    """E1: A's ensure_gate passes just under the 24h boundary, then A stalls right before its own
+    acquire_lease transaction commits; B expires the run (just past the boundary) while A is stalled.
+    A's transactional `expect` must see the now-expired run and abort -- it must never start p2 on an
+    expired run -- and the precise, current exception (WrongState, since the run is "expired" now, not
+    "at_gate") must surface instead of silently proceeding."""
+    executed: list[str] = []
+    deps.phases = dummy_phases(executed)
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")
+    entered = _run(deps, rid)["metrics"]["gate_entered_at"]
+
+    a_deps = _side_deps(deps, "A", FakeClock(entered + orch.GATE_TTL_S - 0.1))
+    b_deps = _side_deps(deps, "B", FakeClock(entered + orch.GATE_TTL_S + 0.1))
+    reached, go, orig_transact = _pause_on(deps.store, lambda paths: paths == [run_path("u1", rid), LIVE_RUNS_DOC])
+    results = {}
+
+    def a_resume():
+        try:
+            results["A"] = resume_from_gate(a_deps, "u1", rid, "plan")
+        except Exception as e:  # noqa: BLE001
+            results["A"] = type(e).__name__
+
+    t = threading.Thread(target=a_resume)
+    t.start()
+    assert reached.wait(5)
+    with pytest.raises(GateExpired):
+        ensure_gate(b_deps, "u1", rid, "plan")  # B expires the run while A is stalled mid-commit
+    go.set()
+    t.join(5)
+    deps.store.transact = orig_transact
+    assert results["A"] in ("WrongState", "GateExpired")
+    run = _run(deps, rid)
+    assert run["status"] == "expired" and run["gate"] is None
+    assert not any(x.startswith("p2") for x in executed)  # p2 never ran on the expired run
+
+
+def test_e2_resumed_run_is_never_reported_expired_once_its_worker_has_taken_over(deps, make_run):
+    """E2: B reads the run as `at_gate` and past the boundary, and stalls right before its own (now
+    conditional) expiry write; meanwhile A legitimately resumes (acquire_lease commits first) and its
+    worker starts running p2. B's stalled expiry write must land as a no-op (the lease is now held),
+    and ensure_gate must then report the CURRENT, accurate state (WrongState -- the run is "running"
+    again) rather than a stale "expired" verdict for a run that has already moved on."""
+    executed: list[str] = []
+    entered_box = {}
+
+    def make(name, gate, block):
+        def run(ctx):
+            for part in ("a", "b"):
+                sid = f"{name}.{part}"
+
+                def work(sid=sid, block=block):
+                    executed.append(sid)
+                    if block is not None:
+                        entered, release = block
+                        entered.set()
+                        assert release.wait(5)
+                    return StepOutput(data={})
+                run_step(ctx, sid, work)
+            return PhaseOutcome(gate=gate)
+        return run
+
+    rel = threading.Event()
+    p2_entered = threading.Event()
+    deps.phases = {"p1": make("p1", "plan", None), "p2": make("p2", "review", (p2_entered, rel)),
+                  "p3": make("p3", None, None)}
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")
+    entered = _run(deps, rid)["metrics"]["gate_entered_at"]
+
+    from kirchhoff.runs.deps import thread_spawn
+    a_deps = _side_deps(deps, "A", FakeClock(entered + orch.GATE_TTL_S - 0.1))
+    a_deps.spawn = thread_spawn  # A's worker must run in the background so this thread can keep driving
+    b_deps = _side_deps(deps, "B", FakeClock(entered + orch.GATE_TTL_S + 0.1))
+    reached, go, orig_transact = _pause_on(deps.store, lambda paths: paths == [run_path("u1", rid)])
+    results = {}
+
+    def b_ensure():
+        try:
+            ensure_gate(b_deps, "u1", rid, "plan")
+            results["B"] = "ok"
+        except GateExpired:
+            results["B"] = "GateExpired"
+        except WrongState:
+            results["B"] = "WrongState"
+
+    t = threading.Thread(target=b_ensure)
+    t.start()
+    assert reached.wait(5)  # B is stalled right inside its own (soon-to-be no-op) expiry write
+    results["A"] = resume_from_gate(a_deps, "u1", rid, "plan")  # A resumes cleanly; its worker starts p2
+    assert p2_entered.wait(5)  # A's worker is now inside p2, lease held by A
+    go.set()  # let B's stalled expiry write proceed -- it must see the lease held and no-op
+    t.join(5)
+    deps.store.transact = orig_transact
+    rel.set()  # let A's p2 finish
+    assert _wait_until(lambda: (_run(deps, rid) or {}).get("status") == "at_gate")
+    assert results["B"] == "WrongState"  # never told "expired" once A's worker had taken over
+    run = _run(deps, rid)
+    assert run["status"] != "expired"

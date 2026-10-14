@@ -1,4 +1,6 @@
 """Run leases (spec §6.2) and the global live-run cap (spec §11). All writes go through Store.transact."""
+from collections.abc import Callable
+
 from kirchhoff.store import Store
 
 STALE_S = 60.0
@@ -32,17 +34,25 @@ def _fresh_others(live: dict | None, key: str, now: float) -> dict[str, float]:
     return {k: float(t) for k, t in runs.items() if k != key and now - float(t) < STALE_S}
 
 
-def acquire_lease(store: Store, uid: str, rid: str, owner: str, now: float,
-                  run_patch: dict | None = None) -> int | None:
-    """Returns the new attempt, or `None` if the run is missing or its lease is live. Raises
-    `CapReached` (nothing written, including to `LIVE_RUNS_DOC`) when the global cap is already
-    held by other runs. `run_patch`, if given, is a *shallow* merge into the run doc (top-level
-    keys only -- it replaces a key's whole value, it does not deep-merge nested dicts)."""
+def acquire_lease(store: Store, uid: str, rid: str, owner: str, now: float, run_patch: dict | None = None,
+                  expect: Callable[[dict], bool] | None = None) -> int | None:
+    """Returns the new attempt, or `None` if the run is missing, its lease is live, or `expect` (when
+    given) returns False. Raises `CapReached` (nothing written, including to `LIVE_RUNS_DOC`) when the
+    global cap is already held by other runs. `run_patch`, if given, is a *shallow* merge into the run
+    doc (top-level keys only -- it replaces a key's whole value, it does not deep-merge nested dicts).
+
+    Minor 1 (fix round 1): `expect` lets a caller claim the lease only if the run doc still looks the
+    way it expected when it decided to claim it (e.g. `resume_from_gate` wants to confirm it is still
+    at the gate it checked, and not yet expired) -- evaluated *inside* this transaction, on the actual
+    snapshot being committed against, closing the check-then-act gap between a caller's own read and
+    its subsequent acquire_lease call (E1/E2)."""
     path, key = run_path(uid, rid), _key(uid, rid)
 
     def fn(snap: dict[str, dict | None]):
         run, live = snap[path], snap[LIVE_RUNS_DOC]
         if run is None or lease_is_live(run.get("lease"), now):
+            return []
+        if expect is not None and not expect(run):
             return []
         others = _fresh_others(live, key, now)
         if len(others) >= GLOBAL_CAP:

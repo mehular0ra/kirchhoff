@@ -48,26 +48,71 @@ def phase_fn(deps: Deps, phase: str) -> Callable[[PhaseContext], PhaseOutcome]:
     return getattr(module, f"run_{phase}")
 
 
-def start_phase(deps: Deps, uid: str, rid: str, phase: str, run_patch: dict | None = None) -> int:
+def start_phase(deps: Deps, uid: str, rid: str, phase: str, run_patch: dict | None = None,
+               expect: Callable[[dict], bool] | None = None) -> int:
     patch = {**(run_patch or {}), "status": "running", "phase": phase, "gate": None}
-    attempt = acquire_lease(deps.store, uid, rid, deps.owner, deps.clock(), patch)
+    attempt = acquire_lease(deps.store, uid, rid, deps.owner, deps.clock(), patch, expect)
     if attempt is None:
         raise LeaseBusy(rid)
     deps.spawn(lambda: _worker(deps, uid, rid, phase, attempt))
     return attempt
 
 
-def ensure_gate(deps: Deps, uid: str, rid: str, gate: str) -> dict:
+def _gate_expired(run: dict, gate: str, now: float) -> bool:
+    entered = float((run.get("metrics") or {}).get("gate_entered_at", now))
+    return now - entered > GATE_TTL_S
+
+
+def _expire(deps: Deps, uid: str, rid: str) -> bool:
+    """Marks an `at_gate` run expired. Minor 1/4 (fix round 1): the write is itself transactional and
+    conditional -- it only lands if the run is still actually `at_gate` AND nobody holds its lease --
+    so a concurrently-resumed run (a worker already claimed it, or another caller already expired or
+    advanced it) is never clobbered back to "expired" out from under its new holder. Also sets
+    `finished_at` and, since no worker is running at this point (nothing to race with), emits a
+    `status` event recording the expiry; a failure to emit that event is logged and swallowed, not
+    allowed to undo (or hide) the expiry itself."""
+    rp = run_path(uid, rid)
+    now = deps.clock()
+
+    def fn(snap: dict[str, dict | None]):
+        run = snap[rp]
+        if run is None or run.get("status") != "at_gate" or (run.get("lease") or {}).get("owner"):
+            return []
+        return [(rp, {**run, "status": "expired", "gate": None, "finished_at": now})]
+
+    wrote = deps.store.transact([rp], fn)
+    if not wrote:
+        return False
+    new_run = wrote[0][1]
+    attempt = int((new_run.get("lease") or {}).get("attempt") or 1)
+    try:
+        w = EventWriter(deps.store, rp, phase=new_run.get("phase") or "p1", step="gate.expired", attempt=attempt,
+                        start_seq=next_seq(deps.store, rp, attempt), flush_interval_s=0)
+        w.emit("system", "status", "The run's gate wait exceeded 24 h; the run has expired.", step="gate.expired")
+        w.close()
+    except Exception:
+        log.exception("could not record the gate-expiry event for %s/%s", uid, rid)
+    return True
+
+
+def ensure_gate(deps: Deps, uid: str, rid: str, gate: str, _retried: bool = False) -> dict:
     run = deps.store.get_doc(run_path(uid, rid))
     if run is None:
         raise KeyError(rid)
     if run.get("status") != "at_gate" or run.get("gate") != gate:
         raise WrongState(gate)
-    entered = float((run.get("metrics") or {}).get("gate_entered_at", deps.clock()))
-    if deps.clock() - entered > GATE_TTL_S:
-        deps.store.update_doc(run_path(uid, rid), {"status": "expired", "gate": None})
+    if not _gate_expired(run, gate, deps.clock()):
+        return run
+    if _expire(deps, uid, rid):
         raise GateExpired(gate)
-    return run
+    if _retried:
+        raise GateExpired(gate)  # pathological: still can't land the write; report expired anyway
+    # Minor 1/4 (fix round 1, E2): the expiry write didn't land because the run already moved on --
+    # e.g. a concurrent resume_from_gate's acquire_lease committed first and now legitimately holds the
+    # lease. Re-reading and re-running the same checks (bounded to one retry) reports the precise,
+    # CURRENT reason (almost always WrongState, since the run is "running" again) instead of a stale
+    # "expired" verdict for a run a worker has already taken over.
+    return ensure_gate(deps, uid, rid, gate, _retried=True)
 
 
 def resume_from_gate(deps: Deps, uid: str, rid: str, gate: str, run_patch: dict | None = None) -> int:
@@ -76,7 +121,22 @@ def resume_from_gate(deps: Deps, uid: str, rid: str, gate: str, run_patch: dict 
     metrics = dict(run.get("metrics") or {})
     entered = float(metrics.pop("gate_entered_at", now))
     metrics["gate_wait_s"] = float(metrics.get("gate_wait_s", 0.0)) + (now - entered)
-    return start_phase(deps, uid, rid, NEXT_PHASE[PHASE_BEFORE_GATE[gate]], {**(run_patch or {}), "metrics": metrics})
+
+    def expect(current: dict) -> bool:
+        # Minor 1 (fix round 1): re-checked INSIDE the acquire_lease transaction, closing the gap
+        # between ensure_gate's own read above and this claim (E1/E2) -- if the run moved on (another
+        # caller already resumed/expired it) between the two, this aborts with no write at all.
+        return (current.get("status") == "at_gate" and current.get("gate") == gate
+                and not _gate_expired(current, gate, now))
+
+    try:
+        return start_phase(deps, uid, rid, NEXT_PHASE[PHASE_BEFORE_GATE[gate]],
+                           {**(run_patch or {}), "metrics": metrics}, expect)
+    except LeaseBusy:
+        # The transactional claim lost the race (E1/E2): re-run ensure_gate's own checks so the precise,
+        # *current* reason (WrongState or GateExpired) surfaces instead of a generic LeaseBusy.
+        ensure_gate(deps, uid, rid, gate)
+        raise  # ensure_gate didn't raise either: a genuine concurrent resume_from_gate call won the race
 
 
 def resume_run(deps: Deps, uid: str, rid: str) -> bool:
@@ -84,6 +144,12 @@ def resume_run(deps: Deps, uid: str, rid: str) -> bool:
     if run is None:
         raise KeyError(rid)
     now = deps.clock()
+    if run.get("status") == "at_gate":
+        # Minor 4 (fix round 1): give an abandoned gate the same 24 h visibility resume_from_gate/
+        # ensure_gate already give it -- a run nobody ever came back to must not sit "at_gate" forever.
+        if _gate_expired(run, run.get("gate") or "", now):
+            _expire(deps, uid, rid)
+        return False
     stale = run.get("status") == "running" and not lease_is_live(run.get("lease"), now)
     if not (stale or run.get("status") == "failed"):
         return False
