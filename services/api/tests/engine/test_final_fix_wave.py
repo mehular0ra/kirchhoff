@@ -256,6 +256,30 @@ def test_fix_candidates_calls_validate_model(scn, erp, routed):
         api.fix_candidates(scn, bad, real, erp)
 
 
+
+
+# ---------------------------------------------------------------- I-6 ----
+
+def test_warm_up_idempotent_and_speeds_up_what_if(scn, erp, routed):
+    import time
+
+    t0 = time.perf_counter()
+    api.warm_up()
+    first = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
+    api.warm_up()
+    second = time.perf_counter() - t0
+    assert second < first
+    assert second < 0.05
+
+    m = routed["2N"]
+    t0 = time.perf_counter()
+    api.what_if(scn, m, "rack_kw", 150.0, "x", erp)
+    took = time.perf_counter() - t0
+    assert took < 0.1
+
+
 def test_m5_warnings_regions_are_lock_guarded():
     import threading
 

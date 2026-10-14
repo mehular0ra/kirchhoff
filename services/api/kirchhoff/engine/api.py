@@ -47,3 +47,24 @@ def model_hash(model: DesignModel) -> str:
 def ledger_not_checked() -> list[str]:
     """Spec §8.4 items shown in the assumptions ledger as "not checked"."""
     return list(NOT_CHECKED)
+
+
+_WARMED_UP = False
+
+
+def warm_up() -> None:
+    """I-6: pay pandapower's lazy import and first-call JIT/setup cost once, up front, instead of on the first
+    real request. Idempotent and cheap after the first call."""
+    global _WARMED_UP
+    if _WARMED_UP:
+        return
+    from .scenario import cat_section
+    from .shortcircuit import short_circuit
+    from .topology import build_model
+
+    scn = load_scenario("hall_a")
+    racks = place_racks(scn)
+    tx_id = sorted(cat_section(scn, "transformers"), key=lambda t: (t["rating_kva"], t["unit_price"], t["id"]))[0]["id"]
+    model = build_model(scn, racks, "2N", tx_id)
+    short_circuit(scn, model)
+    _WARMED_UP = True
