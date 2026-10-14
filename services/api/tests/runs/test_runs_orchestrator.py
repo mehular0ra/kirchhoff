@@ -633,3 +633,64 @@ def test_e2_resumed_run_is_never_reported_expired_once_its_worker_has_taken_over
     assert results["B"] == "WrongState"  # never told "expired" once A's worker had taken over
     run = _run(deps, rid)
     assert run["status"] != "expired"
+
+
+# --- Mutation-table follow-ups (fix round 1) -----------------------------------------------------------
+
+
+def test_worker_fences_the_writer_when_phase_fn_raises_lease_lost_directly(deps, make_run):
+    """Covers the explicit `events.fence()` in _worker's own `except LeaseLost` handler. A phase
+    function that raises LeaseLost directly -- bypassing both run_step's own fencing and ctx.emit's own
+    fencing (it never calls either again after the raise) -- must still have its writer fenced by
+    _worker itself. Without that, the writer's already-armed trailing flush timer (events were emitted
+    moments before the raise) would still fire on schedule and durably write a step's events after the
+    worker has already given up on it."""
+    def p1(ctx):
+        ctx.emit("p1.x", "system", "status", "should never be durably written")  # arms a real timer
+        raise LeaseLost("direct raise, bypassing run_step's and ctx.emit's own fencing paths")
+
+    deps.phases = {"p1": p1}
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")  # synchronous spawn (conftest); _worker catches LeaseLost itself
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        if "should never be durably written" in [e["title"] for e in _events(deps, rid)]:
+            pytest.fail("the pending event was flushed after a direct LeaseLost raise: the writer "
+                       "was never fenced")
+        time.sleep(0.02)
+
+
+def test_resume_run_never_acquires_for_a_running_run_whose_lease_is_still_live(deps, make_run, monkeypatch):
+    """`resume_run` must short-circuit on `stale` without ever attempting `acquire_lease` for a
+    "running" run whose lease is still live -- acquire_lease's own live-lease guard happens to produce
+    the same False return value either way, so this has to be caught by checking it is never even
+    called, not by the return value alone."""
+    rid = make_run()
+    orch.acquire_lease(deps.store, "u1", rid, deps.owner, deps.clock(), {"phase": "p1"})  # a live lease
+    calls = []
+    real_acquire = orch.acquire_lease
+
+    def counting_acquire(*a, **k):
+        calls.append(1)
+        return real_acquire(*a, **k)
+
+    monkeypatch.setattr(orch, "acquire_lease", counting_acquire)
+    assert resume_run(deps, "u1", rid) is False
+    assert calls == []  # never even attempted: the live lease is fatal on its own
+
+
+def test_expire_never_clobbers_an_at_gate_run_whose_lease_is_held(deps, make_run):
+    """`_expire`'s own documented contract: only expire an `at_gate` run if nobody holds its lease.
+    Exercised directly (rather than via a real takeover timing race, already covered by the E2 test
+    above) to pin down this defensive check itself -- belt-and-suspenders against any future
+    lease-granting path that might ever leave a lease held on a nominally `at_gate` run."""
+    deps.phases = dummy_phases([])
+    rid = make_run()
+    start_phase(deps, "u1", rid, "p1")
+    run = _run(deps, rid)
+    assert run["status"] == "at_gate"
+    deps.store.set_doc(run_path("u1", rid), {**run, "lease": {"owner": "somebody", "attempt": run["lease"]["attempt"],
+                                                              "heartbeat_at": deps.clock()}})
+    assert orch._expire(deps, "u1", rid) is False
+    after = _run(deps, rid)
+    assert after["status"] == "at_gate"  # untouched
