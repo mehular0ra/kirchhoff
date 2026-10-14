@@ -4,11 +4,12 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from kirchhoff.contracts import OpenQuestion, PlanStep, RunRecord, TopologyId
+from kirchhoff.contracts import Approval, OpenQuestion, PlanStep, RunRecord, TopologyId
 from kirchhoff.runs.deps import Deps
 from kirchhoff.runs.leases import CapReached, run_path
-from kirchhoff.runs.orchestrator import (GateExpired, LeaseBusy, WrongState, resume_from_gate, resume_run,
-                                        start_phase)
+from kirchhoff.runs.orchestrator import (GateExpired, LeaseBusy, WrongState, ensure_gate, resume_from_gate,
+                                        resume_run, start_phase)
+from kirchhoff.runs.revisions import latest_revision
 
 from .errors import err
 
@@ -27,6 +28,14 @@ class PlanGate(BaseModel):
 
 class OptionGate(BaseModel):
     option_id: TopologyId
+
+
+REVIEWER_NAME, REVIEWER_ROLE = "You (Demo Reviewer)", "Reviewer"
+
+
+class ReviewGate(BaseModel):
+    decision: Literal["approved", "rejected"]
+    comment: str = ""
 
 
 def make_router(deps: Deps, current_uid) -> APIRouter:
@@ -105,5 +114,30 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
             return {"resumed": resume_run(deps, uid, rid)}
         except CapReached:
             return err(429, "global_cap", offer="replay")
+
+    @router.post("/api/runs/{rid}/gates/review", status_code=202)
+    def gate_review(rid: str, body: ReviewGate, uid: str = Depends(current_uid)):
+        try:
+            ensure_gate(deps, uid, rid, "review")
+        except KeyError:
+            return err(404, "run_not_found")
+        except WrongState:
+            return err(409, "wrong_state")
+        except GateExpired:
+            return err(409, "gate_expired")
+        rev = latest_revision(deps.store, uid, rid)
+        if rev is None:
+            return err(409, "wrong_state")
+        if body.decision == "approved" and (rev.get("check_summary") or {}).get("fail", 0) > 0:
+            return err(409, "open_findings")
+        now = deps.clock()
+        appr = Approval(id=uuid.uuid4().hex[:12], revision=rev["id"], approver_name=REVIEWER_NAME, role=REVIEWER_ROLE,
+                        decision=body.decision, comment=body.comment, ts=now)
+        deps.store.set_doc(f"workspaces/{uid}/approvals/{appr.id}", appr.model_dump(mode="json"))
+        if body.decision == "rejected":
+            deps.store.update_doc(run_path(uid, rid), {"status": "done", "gate": None, "finished_at": now})
+            return {"ok": True}
+        deps.store.update_doc(f"workspaces/{uid}/revisions/{rev['id']}", {"status": "signed"})
+        return advance(uid, rid, "review", {})
 
     return router
