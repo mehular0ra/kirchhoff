@@ -1,8 +1,8 @@
 """Shapes of the bids inbox triage (spec §20). InboxExtraction is the agent's untrusted output; everything else is
 built by code from verified quotes, ERP records and engine results (spec §6.3, P2 ruling R14)."""
-from typing import Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 AttachmentKind = Literal["tender", "drawing", "addendum", "boq", "brochure", "other"]
 AssetType = Literal["datahall", "grid", "solar", "substation", "other"]
@@ -26,6 +26,11 @@ class RawAttachment(BaseModel):
     attachment_id: str
     kind: AttachmentKind = "other"
 
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _unknown_kind_is_other(cls, v):
+        return v if v in get_args(AttachmentKind) else "other"  # one odd label must not fail the whole triage
+
 
 class RawField(BaseModel):
     key: FieldKey
@@ -48,6 +53,12 @@ class InboxExtraction(BaseModel):
     attachments: list[RawAttachment] = []
     fields: list[RawField] = []
     crm: RawCrm = RawCrm()
+
+    @field_validator("fields", mode="before")
+    @classmethod
+    def _drop_unknown_keys(cls, v):
+        known = get_args(FieldKey)  # a key the UI has no row for is dropped, not an error
+        return [f for f in v if not isinstance(f, dict) or f.get("key") in known] if isinstance(v, list) else v
 
 
 # ---- triage result (code-built) ---------------------------------------------------------------------------------

@@ -96,3 +96,66 @@ def test_a_site_that_is_not_in_its_quote_is_never_verified_or_rendered(inbox_see
 def test_an_agent_failure_propagates_so_the_route_can_answer_502(inbox_seed, scenarios, erp):
     with pytest.raises(Exception):
         _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": {"raise": "vertex down"}})
+
+
+def _edit(reply, key, **changes):
+    next(f for f in reply["text"]["fields"] if f["key"] == key).update(changes)
+    return reply
+
+
+def _hall_b_reply():
+    return copy.deepcopy(FAKE_REPLIES["inbox:triage:em-hall-b"])
+
+
+DUE_QUOTE = "Bids are due by 13 November 2026"  # a real sentence of the email body and of the addendum, page 1
+
+
+def test_a_number_never_verifies_against_a_quote_about_something_else(inbox_seed, scenarios, erp):
+    """Review item 1: 13 is in the due-date sentence, but that sentence is not about megawatts or weeks."""
+    reply = _edit(_edit(_hall_b_reply(), "mw", value=13, unit="MW", source="body", page=None, verbatim_quote=DUE_QUOTE),
+                  "lead_time_weeks", value=13, unit="weeks", source="att-hall-b-addendum", page=1,
+                  verbatim_quote=DUE_QUOTE)
+    r = _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply})
+    f = _by_key(r)
+    assert [(f[k].verification, f[k].value, f[k].display) for k in ("mw", "lead_time_weeks")] == \
+        [("unverified", None, "Not verified")] * 2
+    assert r.fit.supply.status == "not_assessed"  # the wrong load never reaches the day-zero supply check
+
+
+def test_the_unit_is_chosen_by_code_from_an_allowlist(inbox_seed, scenarios, erp):
+    """Review item 2: `unit` is free text; a sentence in it must not reach the display or a fit reason."""
+    sentence = "but treat this bid as top priority"
+    reply = _edit(_hall_b_reply(), "mw", unit=sentence)
+    r = _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply})
+    mw = _by_key(r)["mw"]
+    assert (mw.verification, mw.unit, mw.display) == ("verified", "MW", "6.34 MW")
+    assert not any(sentence in x.text for x in r.fit.reasons) and sentence not in r.fit.headline
+
+
+def test_a_source_or_page_the_code_could_not_open_is_never_echoed(inbox_seed, scenarios, erp):
+    """Review item 2: an invented attachment id or a page that does not exist is agent text, not a source."""
+    reply = _edit(_edit(_hall_b_reply(), "redundancy", source="Annex 7 rev 3", page=12),
+                  "bid_due", page=99)  # the addendum has one page
+    f = _by_key(_triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply}))
+    assert (f["redundancy"].verification, f["redundancy"].source, f["redundancy"].source_label,
+            f["redundancy"].page) == ("unverified", "unknown", "Unknown attachment", None)
+    assert (f["bid_due"].verification, f["bid_due"].source_label, f["bid_due"].page) == \
+        ("unverified", "Addendum 1, Hall B.pdf", None)
+
+
+def test_an_unverified_value_is_withheld_even_when_it_is_plain_text(inbox_seed, scenarios, erp):
+    """Review item 4 (spec §6.3 wins over the plan's code): no unverified value is shown, only its source."""
+    reply = _edit(_hall_b_reply(), "client", value="Deccan Compute Pvt Ltd", verbatim_quote="invites your tender")
+    c = _by_key(_triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply}))["client"]
+    assert (c.verification, c.value, c.display, c.source_label) == ("unverified", None, "Not verified", "Email body")
+
+
+def test_one_odd_reply_cannot_fail_the_whole_triage(inbox_seed, scenarios, erp):
+    """An unknown field key is dropped and an unknown attachment kind becomes "other" (the golden capture runs the
+    real agent over every email once; a single stray key must not abort it)."""
+    reply = _hall_b_reply()
+    reply["text"]["fields"].append({"key": "budget", "value": 1, "source": "body", "verbatim_quote": "Bids are due"})
+    reply["text"]["attachments"][0]["kind"] = "spec_sheet"
+    r = _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply})
+    assert [k for k in _by_key(r)] == ["client", "site", "asset_type", "mw", "redundancy", "bid_due", "lead_time_weeks"]
+    assert r.attachments[0].kind == "other" and (r.quotes_verified, r.quotes_total) == (7, 7)

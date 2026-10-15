@@ -10,6 +10,7 @@ from concurrent.futures import TimeoutError as FuturesTimeout
 
 from fastapi import APIRouter, Depends
 
+from kirchhoff.agents.copilot import call_with_timeout
 from kirchhoff.agents.ports import STAGE_QUALIFYING
 from kirchhoff.contracts import Opportunity, Project
 from kirchhoff.inbox import fit
@@ -70,7 +71,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
                                 supply_fn=SUPPLY_FN)
 
         try:
-            result = _POOL.submit(run).result(timeout=TRIAGE_TIMEOUT_S)
+            result = call_with_timeout(run, TRIAGE_TIMEOUT_S, pool=_POOL)  # cancels the future on timeout
         except FuturesTimeout:
             return err(504, "timeout")
         except Exception as exc:  # agent, repair or enterprise failure: the UI falls back to the recorded triage

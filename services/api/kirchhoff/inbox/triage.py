@@ -1,8 +1,9 @@
 """Inbox agent triage (spec §20). Gemini classifies the attachments, links the CRM and extracts bid fields with
 verbatim quotes. Code verifies every quote (pdfplumber `verify_quote` on PDF pages that have text, a normalized
 substring check on the email body), marks pages without a text layer "unverified (scan)", withholds unverified
-numbers, sanitizes the LLM summary (spec §6.3) and runs the deterministic fit check, whose sentences are sanitized
-too (see fit.py)."""
+values (never shown), sanitizes the LLM summary (spec §6.3) and runs the deterministic fit check, whose sentences
+are sanitized too (see fit.py). A number is verified together with its unit, and the unit, source and page that reach
+the UI are chosen by code, never copied from agent text."""
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -10,17 +11,18 @@ from typing import Literal
 
 from kirchhoff.agents.runner import MODEL, AgentRunner, AgentSpec, Attachment, run_json
 from kirchhoff.agents.specs import INBOX
-from kirchhoff.agents.trust import fmt_value, is_clean, sanitize
+from kirchhoff.agents.trust import fmt_value, sanitize
 from kirchhoff.contracts import Opportunity
 from kirchhoff.enterprise.world.inbox import Appetite, InboxEmail
 from kirchhoff.intake.textnorm import normalize
-from kirchhoff.intake.verify import PdfText, value_in_quote, verify_quote
+from kirchhoff.intake.verify import PdfText, unit_in_quote, value_in_quote, verify_quote
 
 from .fit import SupplyFn, assess_fit, day_zero_supply, fmt_date, parse_due, supply_for
 from .models import (ASSET_LABELS, FIELD_LABELS, FIELD_ORDER, AttachmentTriage, CrmLink, ExtractedField,
                      InboxExtraction, RawCrm, RawField, TriageResult)
 
 NUMERIC = ("mw", "lead_time_weeks")
+UNITS = {"mw": ("MW", "MWp"), "lead_time_weeks": ("weeks",)}  # the only units a number is checked and shown with
 TRIAGE_PROMPT = """Triage this email from the bids@ mailbox of Meridian Power Engineering, an EPC contractor for AI data
 halls, grid connections and solar plants. The attached PDFs follow in the order listed under "Attachments".
 Reply with JSON only:
@@ -72,6 +74,16 @@ def _display(key: str, value, unit: str | None) -> str:
     return str(value)
 
 
+def _unit(key: str, requested: str | None, quote: str) -> str | None:
+    """The unit a numeric field is checked and shown with. It is always one of UNITS[key], never the agent's own
+    text: the requested one when the quote has it, else whichever allowed form the quote has (a solar plant's "MWp")."""
+    allowed = UNITS.get(key)
+    if allowed is None:
+        return None
+    first = requested if requested in allowed else allowed[0]
+    return first if unit_in_quote(first, quote) else next((u for u in allowed if unit_in_quote(u, quote)), first)
+
+
 def verify_field(raw: RawField, email: InboxEmail, pdfs: dict[str, PdfText], names: dict[str, str]) -> ExtractedField:
     value = raw.value
     if raw.key in NUMERIC:
@@ -81,32 +93,34 @@ def verify_field(raw: RawField, email: InboxEmail, pdfs: dict[str, PdfText], nam
         value = value if value in ASSET_LABELS else None
     check_value = None if raw.key == "asset_type" else value  # a category is not printed; its quote must exist
     quote = normalize(raw.verbatim_quote)
+    unit = _unit(raw.key, raw.unit, quote)  # a number must be quoted with its unit, as intake does (phase1.py)
     verification, bbox, page = "unverified", None, raw.page
     if raw.source == "body":
-        source_label, page = "Email body", None
-        if value is not None and len(quote) >= 8 and quote in normalize(email.body) and value_in_quote(check_value, quote):
+        source, source_label, page = "body", "Email body", None
+        if (value is not None and len(quote) >= 8 and quote in normalize(email.body) and value_in_quote(check_value, quote)
+                and unit_in_quote(unit, quote)):
             verification = "verified"
     else:
-        name = names.get(raw.source, raw.source)
-        source_label = f"{name} · p.{page}" if page else name
-        pdf = pdfs.get(raw.source)
-        if pdf is not None and page is not None and 1 <= page <= pdf.page_count:
+        pdf, name = pdfs.get(raw.source), names.get(raw.source)
+        source = raw.source if name else "unknown"  # an id the code did not list is agent text, not a source
+        if pdf is None or page is None or not 1 <= page <= pdf.page_count:
+            page = None  # never echo a page the code could not open
+        source_label = f"{name} · p.{page}" if name and page else (name or "Unknown attachment")
+        if page is not None:
             if not pdf.page_text(page):
                 verification = "unverified_scan"
             elif value is not None:
-                chk = verify_quote(pdf, page, raw.verbatim_quote, check_value)
+                chk = verify_quote(pdf, page, raw.verbatim_quote, check_value, unit)
                 if chk.ok:
                     verification, bbox = "verified", list(chk.bbox) if chk.bbox else None
-    unit = raw.unit if raw.unit and is_clean(raw.unit, ()) else None
     if verification == "verified":
         return ExtractedField(key=raw.key, label=FIELD_LABELS[raw.key], value=value, unit=unit,
-                              display=_display(raw.key, value, unit), source=raw.source, source_label=source_label,
+                              display=_display(raw.key, value, unit), source=source, source_label=source_label,
                               page=page, quote=quote, verification="verified", bbox=bbox)
-    shown = value if isinstance(value, str) and is_clean(value, ()) else None  # never an unverified digit (§6.3)
-    display = (_display(raw.key, shown, unit) if shown is not None
-               else "Not verified (scan)" if verification == "unverified_scan" else "Not verified")
-    return ExtractedField(key=raw.key, label=FIELD_LABELS[raw.key], value=shown, unit=unit, display=display,
-                          source=raw.source, source_label=source_label, page=page, verification=verification)
+    # Spec §6.3 outranks the plan's code: an unverified value is never shown, whatever it looks like. Only its source is.
+    display = "Not verified (scan)" if verification == "unverified_scan" else "Not verified"
+    return ExtractedField(key=raw.key, label=FIELD_LABELS[raw.key], value=None, display=display, source=source,
+                          source_label=source_label, page=page, verification=verification)
 
 
 def _subject_name(subject: str) -> str:

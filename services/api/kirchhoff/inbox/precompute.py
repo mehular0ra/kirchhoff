@@ -1,9 +1,10 @@
 """Precompute the triage of every seeded email with the real Inbox agent (spec §20 "static first"; ruling B5).
 Run once at golden-capture time, from services/api:
   GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=ordinal-mep GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep \
-    GOOGLE_CLOUD_LOCATION=global uv run python -m kirchhoff.inbox.precompute
+    GOOGLE_CLOUD_LOCATION=global uv run python -m kirchhoff.inbox.precompute --backend adk
 then `make demo-world` folds scenarios/demo_world/captures/inbox-triage.json into /demo/inbox.json and the seed.
-`--backend replay` runs the FAKE_REPLIES fixtures instead (no cloud access)."""
+--backend is required. `--backend replay --out <file>` runs the FAKE_REPLIES fixtures instead (no cloud access); it
+refuses the default --out so that hand-authored replies never reach the static bundle as the real model's output."""
 import argparse
 import dataclasses
 import json
@@ -49,10 +50,18 @@ def main(argv: list[str] | None = None) -> int:
 
     scen = scenarios_dir()
     ap = argparse.ArgumentParser(description="Precompute the bids inbox triage with the real Inbox agent")
+    default_out = scen / "demo_world" / "captures" / "inbox-triage.json"
     ap.add_argument("--seed", type=Path, default=scen / "demo_world" / "out" / "inbox_seed.json")
-    ap.add_argument("--out", type=Path, default=scen / "demo_world" / "captures" / "inbox-triage.json")
-    ap.add_argument("--backend", choices=("adk", "genai", "replay"), default="adk")
+    ap.add_argument("--out", type=Path, default=None, help=f"default: {default_out} (not allowed with --backend replay)")
+    ap.add_argument("--backend", choices=("adk", "genai", "replay"), required=True)  # never a silent default
     args = ap.parse_args(argv)
+    if args.backend == "replay" and args.out is None:
+        # `make demo-world` folds the default capture into the static bundle: hand-authored replies must not land
+        # there labelled with the real model.
+        print("precompute: --backend replay needs an explicit --out (it never writes the default capture)",
+              file=sys.stderr)
+        return 2
+    args.out = args.out or default_out
     enterprise = make_enterprise_client()
     try:
         capture = precompute(load_inbox_seed(args.seed), runner=_runner(args.backend), scenarios_dir=scen,

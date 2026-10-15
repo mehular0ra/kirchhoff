@@ -2514,7 +2514,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 Run on the merged `build` branch, after I-1 and Steps 1–9 have landed:
 ```bash
 cd services/api && GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=ordinal-mep GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep \
-  GOOGLE_CLOUD_LOCATION=global uv run python -m kirchhoff.inbox.precompute && cd ../.. && make demo-world && \
+  GOOGLE_CLOUD_LOCATION=global uv run python -m kirchhoff.inbox.precompute --backend adk && cd ../.. && make demo-world && \
   cd services/api && uv run python ../../scenarios/demo_world/build_inbox.py --check
 ```
 Expected:

@@ -1,6 +1,8 @@
 import copy
 import json
 
+import pytest
+
 from kirchhoff.agents.runner import ReplayRunner
 from kirchhoff.enterprise.world.config import load_world_config
 from kirchhoff.enterprise.world.inbox import build_inbox
@@ -46,3 +48,19 @@ def test_cli_with_the_replay_backend_writes_the_capture(tmp_path, capsys):
     data = json.loads(out.read_text(encoding="utf-8"))
     assert sorted(data["results"]) == sorted(VERDICTS)
     assert "em-hall-b: pursue (7/7 quotes verified)" in capsys.readouterr().out
+
+
+def test_the_cli_never_picks_a_backend_for_you(tmp_path):
+    """Review item 3: a bare run must not quietly call Gemini (or quietly replay)."""
+    with pytest.raises(SystemExit):
+        main(["--out", str(tmp_path / "inbox-triage.json")])
+
+
+def test_replay_never_writes_the_default_capture(tmp_path, monkeypatch, capsys):
+    """Review item 3: `make demo-world` folds the default capture into the static bundle. Hand-authored replies
+    must not land there labelled with the real model, so replay needs an explicit --out."""
+    import kirchhoff.api.deps as api_deps
+    monkeypatch.setattr(api_deps, "scenarios_dir", lambda: tmp_path)  # a bare run would otherwise write the real file
+    assert main(["--backend", "replay"]) == 2
+    assert not (tmp_path / "demo_world").exists()
+    assert "--out" in capsys.readouterr().err
