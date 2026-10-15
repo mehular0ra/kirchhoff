@@ -13,6 +13,13 @@ export const CANVAS_TABS: { id: CanvasTab; label: string }[] = [
 
 export type CitationKind = 'tender' | 'drawing'
 
+/**
+ * Why the revision on screen is on screen (#37): "user" only after a pick in the revision bar; "auto" for
+ * every automatic move (D1's "why" answer, a ?rev= deep link, a lane event, the cold-open shot, a what-if
+ * returning to the head). What-ifs run on the head revision unless it is "user".
+ */
+export type ViewRevSource = 'auto' | 'user'
+
 export interface WhatIfView {
   result: WhatIfResult
   /** "precomputed" when served from the static bundle (spec §6.4), "engine" when from /api/what-if. */
@@ -22,6 +29,7 @@ export interface WhatIfView {
 interface UiState {
   tab: CanvasTab
   viewRev: string | null // null = latest revision
+  viewRevSource: ViewRevSource
   /** null = default: on for a signed revision that has a parent, so Hall A opens on its fix story (UX-1 I1). */
   compare: boolean | null
   findingId: string | null
@@ -32,7 +40,8 @@ interface UiState {
   whatIf: WhatIfView | null
   autonomy: Autonomy
   setTab(tab: CanvasTab): void
-  setViewRev(rev: string | null): void
+  /** `source` defaults to "auto": only the revision bar passes "user". */
+  setViewRev(rev: string | null, opts?: { source?: ViewRevSource }): void
   setCompare(on: boolean): void
   openFinding(id: string): void
   closeFinding(): void
@@ -51,6 +60,7 @@ interface UiState {
 const initial = {
   tab: 'hall' as CanvasTab,
   viewRev: null,
+  viewRevSource: 'auto' as ViewRevSource,
   compare: null,
   findingId: null,
   focusId: null,
@@ -63,8 +73,13 @@ export const useUi = create<UiState>()((set) => ({
   ...initial,
   autonomy: 'ask',
   setTab: (tab) => set({ tab }),
-  // A what-if was computed for the revision on screen; switching revision drops it (M13).
-  setViewRev: (viewRev) => set((s) => (viewRev === s.viewRev ? s : { viewRev, whatIf: null })),
+  // A what-if was computed for the revision on screen; switching revision drops it (M13). A pick of the
+  // revision already on screen makes it explicit; an automatic move to it keeps an earlier pick (#37).
+  setViewRev: (viewRev, { source = 'auto' } = {}) =>
+    set((s) => {
+      if (viewRev !== s.viewRev) return { viewRev, viewRevSource: source, whatIf: null }
+      return source === 'user' && s.viewRevSource !== 'user' ? { viewRevSource: source } : s
+    }),
   setCompare: (compare) => set({ compare }),
   openFinding: (findingId) => set({ findingId }),
   closeFinding: () => set({ findingId: null }),

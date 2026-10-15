@@ -155,3 +155,48 @@ test('M13: switching revision clears the what-if overlay (it was computed for an
   act(() => useUi.getState().setViewRev('r1'))
   expect(useUi.getState().whatIf).toBeNull()
 })
+
+// #37: the chips run on the head revision unless the visitor picked a revision in the revision bar.
+function renderRealHallA(services: Services) {
+  resetStores()
+  useChecklist.getState().reload()
+  const bundle = normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
+  render(
+    <ServicesProvider services={services}>
+      <TooltipProvider>
+        <WorkspaceProvider bundle={bundle} source="static">
+          <WhatIfPanel />
+        </WorkspaceProvider>
+      </TooltipProvider>
+    </ServicesProvider>,
+  )
+  return { bundle, panel: screen.getByLabelText('What-if', { selector: 'section' }) }
+}
+
+test('#37: after an automatic switch to r1 (D1, a deep link), the 200 kW chip is the head revision\'s seed result, on the head', async () => {
+  const user = userEvent.setup()
+  const api = fakeApi({ whatIf: vi.fn(async () => Promise.reject(new Error('the head revision is precomputed'))) })
+  const { bundle, panel } = renderRealHallA(fakeServices({ api }))
+  const head = bundle.revisions[bundle.revisions.length - 1]
+  act(() => useUi.getState().setViewRev('r1'))
+  await user.click(within(panel).getByRole('button', { name: 'Racks → 200 kW' }))
+  expect(api.whatIf).not.toHaveBeenCalled()
+  const seed = bundle.what_ifs.find((w) => w.revision_ref === `seed:hall-a@${head.id}` && w.param === 'rack_kw' && w.value === 200)!
+  expect(useUi.getState().whatIf).toMatchObject({ origin: 'precomputed', result: seed })
+  expect(useUi.getState().viewRev).toBeNull() // drawn on the revision it was computed for
+  expect(within(panel).getByText(`${head.id} (${head.status}) · not saved · precomputed by the engine`)).toBeInTheDocument()
+})
+
+test('#37: after a revision-bar pick of r1, the chip asks the engine for r1 and the card names r1', async () => {
+  const user = userEvent.setup()
+  const real = normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
+  const seed = real.what_ifs.find((w) => w.param === 'rack_kw' && w.value === 200)!
+  const whatIf = vi.fn(async () => ({ ...seed, revision_ref: 'seed:hall-a@r1' }))
+  const { bundle, panel } = renderRealHallA(fakeServices({ api: fakeApi({ whatIf }) }))
+  act(() => useUi.getState().setViewRev('r1', { source: 'user' }))
+  await user.click(within(panel).getByRole('button', { name: 'Racks → 200 kW' }))
+  expect(whatIf).toHaveBeenCalledWith('seed:hall-a@r1', 'rack_kw', 200)
+  expect(useUi.getState()).toMatchObject({ viewRev: 'r1', whatIf: { origin: 'engine' } })
+  const r1 = bundle.revisions.find((r) => r.id === 'r1')!
+  expect(within(panel).getByText(`r1 (${r1.status}) · not saved · engine, just now`)).toBeInTheDocument()
+})

@@ -32,7 +32,8 @@ export function RevisionTimeline() {
               <button
                 type="button"
                 aria-pressed={active}
-                onClick={() => setViewRev(r.id)}
+                // The one explicit pick (#37): what-ifs then run on this revision instead of the head.
+                onClick={() => setViewRev(r.id, { source: 'user' })}
                 className={cn(
                   'inline-flex items-center gap-1 rounded border px-2 py-1 font-mono',
                   active ? 'border-zinc-400 bg-zinc-800 text-zinc-100' : 'border-zinc-700 text-zinc-300 hover:border-zinc-500',

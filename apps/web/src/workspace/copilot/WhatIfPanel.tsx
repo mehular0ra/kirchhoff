@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { CHAIN_COLORS } from '@/lib/agents'
 import { fmtQty } from '@/lib/format'
 import { classifyChain } from '@/lib/impact'
+import { revisionLabel } from '@/lib/select'
 import { statusRank } from '@/lib/status'
 import type { WhatIfParam } from '@/lib/types'
 import { useUi } from '@/store/ui'
@@ -20,10 +21,11 @@ const PARAMS: WhatIfParam[] = ['rack_kw', 'liquid_fraction', 'dv_limit_pct', 'tx
 export function WhatIfPanel() {
   const view = useWorkspace()
   const active = useUi((s) => s.whatIf)
-  const { run, loading, error, clear } = useWhatIf()
+  const { run, revRef, loading, error, clear } = useWhatIf()
   const [param, setParam] = useState<WhatIfParam>('rack_kw')
   const [value, setValue] = useState('')
-  const chips = chipsFor(view.bundle.what_ifs.filter((w) => w.revision_ref === view.revRef))
+  // The chips run on the head revision unless one was picked in the revision bar (#37): its seed what-ifs.
+  const chips = chipsFor(view.bundle.what_ifs.filter((w) => w.revision_ref === revRef))
   // "Show all" belongs to one what-if result; a new result starts collapsed again.
   const [expanded, setExpanded] = useState<object | null>(null)
   const showAll = !!active && expanded === active.result
@@ -105,7 +107,10 @@ export function WhatIfPanel() {
         <div className="flex flex-col gap-2 rounded border border-amber-400/40 bg-amber-500/5 p-2 text-xs" aria-live="polite">
           <div className="flex items-center gap-2">
             <span className="whitespace-nowrap font-medium text-amber-100">{chipLabel(active.result)}</span>
-            <span className="text-zinc-400">not saved · {active.origin === 'precomputed' ? 'precomputed by the engine' : 'engine, just now'}</span>
+            {/* The overlay is always drawn on the revision it was computed for (M13, #37), so this names that one. */}
+            <span className="text-zinc-400">
+              {revisionLabel(view.rev)} · not saved · {active.origin === 'precomputed' ? 'precomputed by the engine' : 'engine, just now'}
+            </span>
             <Button size="icon-xs" variant="ghost" className="ml-auto" aria-label="Clear what-if" onClick={clear}>
               <X aria-hidden />
             </Button>

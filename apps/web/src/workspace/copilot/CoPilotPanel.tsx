@@ -2,12 +2,12 @@ import { Info, LoaderCircle, Mic, MicOff, Send } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import type { WhatIfResult } from '@/lib/types'
+import type { Revision, WhatIfResult } from '@/lib/types'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import type { VoiceResponse } from '@/services/apiClient'
 import { useServices, type LiveVoiceCall } from '@/services/services'
 import { canvasesFor } from '@/lib/model'
-import { revisionById } from '@/lib/select'
+import { revisionById, revisionLabel, revisionRef } from '@/lib/select'
 import { useUi } from '@/store/ui'
 import { PlanGate } from '../gates/PlanGate'
 import { RequirementsPanel } from '../RequirementsPanel'
@@ -29,7 +29,8 @@ interface LogEntry {
 export function CoPilotPanel() {
   const view = useWorkspace()
   const { api } = useServices()
-  const { run: runWhatIf } = useWhatIf()
+  // What-ifs (typed, Live and push-to-talk) run on the head revision unless one was picked in the revision bar (#37).
+  const { run: runWhatIf, show: showWhatIf, revRef: whatIfRef } = useWhatIf()
   const focusUi = useUi((s) => s.focus)
   // Co-pilot "show H-Z2" switches to a canvas that draws the element (I5).
   const focus = useCallback(
@@ -81,26 +82,36 @@ export function CoPilotPanel() {
     return out.data
   }
 
-  const onPushToTalk = (res: VoiceResponse) => {
+  const onPushToTalk = (res: VoiceResponse, sentRef: string) => {
     completeItem('ask_copilot')
     add('you', 'voice', res.transcript)
+    // The revision /api/voice answered on (#37): the head, unless one was picked in the revision bar.
+    const askedOn = view.bundle.revisions.find((r) => revisionRef(view.bundle, r.id, view.source) === sentRef) ?? null
+    let whatIfOn: Revision | null = null
     for (const t of res.tool_results) {
-      if (t.name === 'what_if' && Array.isArray((t.result as Partial<WhatIfResult>).impact_chain))
-        setWhatIf({ result: t.result as unknown as WhatIfResult, origin: 'engine' })
+      if (t.name === 'what_if' && Array.isArray((t.result as Partial<WhatIfResult>).impact_chain)) {
+        const w = { result: t.result as unknown as WhatIfResult, origin: 'engine' as const }
+        if (askedOn) showWhatIf(askedOn, w)
+        else setWhatIf(w)
+        whatIfOn = askedOn
+      }
       if (t.name === 'focus_element') focus(String(t.args.element_id ?? t.result.element_id ?? ''))
       if (t.name === 'explain_finding' && t.args.finding_id) {
         // D1, as typed and Live answers do (tools.ts): when the answer cites an earlier revision where the
         // check failed (`result.revision`, set by /api/voice only then), switch to it before opening the finding.
+        // An automatic switch, not a revision-bar pick: later what-ifs stay on the head (#37).
         const cited = typeof t.result.revision === 'string' ? revisionById(view.bundle, t.result.revision) : null
-        if (cited) setViewRev(cited.id)
+        if (cited) setViewRev(cited.id, { source: 'auto' })
         openFinding(String(t.args.finding_id))
       }
     }
-    add('co-pilot', 'voice', res.answer)
-    speak(res.answer)
+    // A what-if answer names the revision it ran on, like the typed one: "On r2 (signed): …".
+    const answer = whatIfOn ? `On ${revisionLabel(whatIfOn)}: ${res.answer}` : res.answer
+    add('co-pilot', 'voice', answer)
+    speak(answer)
   }
 
-  const voice = useVoice({ revisionRef: view.revRef, onToolCall, onPushToTalk })
+  const voice = useVoice({ revisionRef: whatIfRef, onToolCall, onPushToTalk })
   const pttMode = voice.mode === 'ptt' || voice.mode === 'recording' || voice.mode === 'thinking'
   const micAvailable = canRecord()
 

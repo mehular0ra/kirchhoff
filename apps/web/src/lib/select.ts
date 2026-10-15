@@ -76,6 +76,19 @@ export function revisionRef(b: Bundle, revId: string, source: DataSource): strin
   return source === 'live' ? `ws:${revId}` : `seed:${b.project.id}@${revId}`
 }
 
+/**
+ * The revision a what-if runs on (#37), typed, chip or voice: the one picked in the revision bar, else the head
+ * (latest) revision, whatever an automatic switch (D1's "why" answer, a deep link) left on screen.
+ */
+export function whatIfRevision(b: Bundle, onScreen: Revision | null, picked: boolean): Revision | null {
+  return (picked && onScreen) || latestRevision(b)
+}
+
+/** "r2 (signed)": how an answer names the revision it ran on (#37), from the bundle's id and status only. */
+export function revisionLabel(rev: Pick<Revision, 'id' | 'status'>): string {
+  return `${rev.id} (${rev.status})`
+}
+
 /** Input values (not results) compared with a relative tolerance, so 0.9 matches a serialised 0.9000000000000001. */
 export function sameInput(a: number, b: number): boolean {
   return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b))

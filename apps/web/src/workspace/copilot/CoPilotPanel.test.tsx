@@ -1,14 +1,16 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useChecklist } from '@/onboarding/checklist/checklistStore'
 import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiClient'
 import { ServicesProvider, type LiveVoiceCall, type Services } from '@/services/services'
 import { useUi } from '@/store/ui'
-import { normalizeBundle, type Bundle, type ProjectBundle } from '@/lib/types'
+import { normalizeBundle, type Bundle, type ProjectBundle, type WhatIfResult } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
 import hallASigned from '@/test/fixtures/hall-a-signed.json'
 import { fakeApi, fakeServices, resetStores } from '@/test/render'
+import { RevisionTimeline } from '../RevisionTimeline'
 import { WorkspaceProvider } from '../WorkspaceContext'
 import { CoPilotPanel } from './CoPilotPanel'
 import { parseIntent } from './intent'
@@ -244,4 +246,150 @@ test('N1: the input shows both kinds of question in full — a short placeholder
   expect(box).toHaveAttribute('placeholder', 'Ask why, or “what if…”')
   expect(box).toHaveAccessibleDescription('Try “why FA-01” or “what if racks go to 200 kW”')
   expect(screen.getByText('Try “why FA-01” or “what if racks go to 200 kW”')).toBeVisible()
+})
+
+// #37: what-ifs (typed, chip, voice) run on the head revision unless the visitor picked one in the revision bar;
+// D1's automatic switch to r1 is not a pick. The answer names the revision it ran on, from the bundle's id and status.
+
+/** The co-pilot with the revision bar under it, as in the workspace, on the real Hall A bundle. */
+function renderWithRevisionBar(services: Services) {
+  resetStores()
+  useChecklist.getState().reload()
+  return render(
+    <ServicesProvider services={services}>
+      <TooltipProvider>
+        <MemoryRouter>
+          <WorkspaceProvider bundle={realHallA()} source="static">
+            <CoPilotPanel />
+            <RevisionTimeline />
+          </WorkspaceProvider>
+        </MemoryRouter>
+      </TooltipProvider>
+    </ServicesProvider>,
+  )
+}
+
+/** The head revision and its precomputed 200 kW what-if, as the bundle carries them (60 checks fail on today's Hall A). */
+function headWhatIf200() {
+  const b = realHallA()
+  const head = b.revisions[b.revisions.length - 1]
+  const result = b.what_ifs.find((w) => w.revision_ref === `seed:hall-a@${head.id}` && w.param === 'rack_kw' && w.value === 200)!
+  return { head, result, fails: result.findings.filter((f) => f.status === 'fail').length }
+}
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const ask = async (user: ReturnType<typeof userEvent.setup>, q: string) =>
+  user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), `${q}{Enter}`)
+
+async function holdToTalk(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Start voice' }))
+  const hold = await screen.findByRole('button', { name: 'Hold to talk' })
+  fireEvent.keyDown(hold, { key: ' ' })
+  await screen.findByRole('button', { name: 'Release to send' })
+  fireEvent.keyUp(screen.getByRole('button', { name: 'Release to send' }), { key: ' ' })
+}
+
+test('#37: after "why FA-01" moves the view to r1, a typed 200 kW what-if runs on the head revision and names it', async () => {
+  const user = userEvent.setup()
+  const whatIf = vi.fn(async (): Promise<WhatIfResult> => Promise.reject(new Error('the head revision is precomputed')))
+  renderPanel(fakeServices({ api: fakeApi({ whatIf }) }), realHallA())
+  await ask(user, 'Why did FA-01 fail?')
+  await (await conversation()).findByText(/^In r1: /)
+  expect(useUi.getState().viewRev).toBe('r1') // D1's automatic switch
+  await ask(user, 'What if racks go to 200 kW?')
+  const { head, fails } = headWhatIf200()
+  expect(head.status).toBe('signed')
+  const answer = await (await conversation()).findByText(new RegExp(`^On ${escape(head.id)} \\(${head.status}\\): ${fails} checks fail: `))
+  expect(answer.textContent).toMatch(/^Co-pilot: On r2 \(signed\): /)
+  expect(whatIf).not.toHaveBeenCalled() // the head revision's seed what-if, from the bundle
+  expect(useUi.getState().whatIf).toMatchObject({ origin: 'precomputed', result: { revision_ref: `seed:hall-a@${head.id}` } })
+  expect(useUi.getState().viewRev).toBeNull() // the overlay is drawn on the revision it was computed for: back on the head
+})
+
+test('#37: a revision-bar pick of r1 runs the typed what-if on r1, with the engine\'s r1 count, and names r1', async () => {
+  const user = userEvent.setup()
+  const { result: headResult } = headWhatIf200()
+  // r1 has no seed what-if, so the engine answers; this fake engine's r1 answer is a different count from the head's.
+  const r1Result: WhatIfResult = { ...headResult, revision_ref: 'seed:hall-a@r1', findings: headResult.findings.slice(0, 7) }
+  const whatIf = vi.fn(async () => r1Result)
+  renderWithRevisionBar(fakeServices({ api: fakeApi({ whatIf }) }))
+  await user.click(screen.getByRole('button', { name: /^r1\b/ }))
+  expect(useUi.getState()).toMatchObject({ viewRev: 'r1', viewRevSource: 'user' })
+  await ask(user, 'what if racks go to 200 kW')
+  expect(whatIf).toHaveBeenCalledWith('seed:hall-a@r1', 'rack_kw', 200)
+  const r1 = realHallA().revisions.find((r) => r.id === 'r1')!
+  const n = r1Result.findings.filter((f) => f.status === 'fail').length
+  expect(await (await conversation()).findByText(new RegExp(`^On r1 \\(${r1.status}\\): ${n} checks fail: `))).toBeInTheDocument()
+  expect(useUi.getState().viewRev).toBe('r1')
+})
+
+test('#37: "why FA-01" after a revision-bar pick of r1 keeps the pick, so the what-if still runs on r1', async () => {
+  const user = userEvent.setup()
+  const { result: headResult } = headWhatIf200()
+  const whatIf = vi.fn(async () => ({ ...headResult, revision_ref: 'seed:hall-a@r1' }))
+  renderWithRevisionBar(fakeServices({ api: fakeApi({ whatIf }) }))
+  await user.click(screen.getByRole('button', { name: /^r1\b/ }))
+  await ask(user, 'why did FA-01 fail?') // fails on r1 itself: no switch
+  await (await conversation()).findByText(/FA-01 is 2\.16% against a limit of 2%/)
+  await ask(user, 'what if racks go to 200 kW')
+  expect(whatIf).toHaveBeenCalledWith('seed:hall-a@r1', 'rack_kw', 200)
+})
+
+test('#37: push-to-talk after the automatic switch to r1 sends the head revision_ref, and the what-if answer names it', async () => {
+  const user = userEvent.setup()
+  const { head, result } = headWhatIf200()
+  const spoken = 'With rack_kw at 200, these checks fail: R01, R02.'
+  const voice = vi.fn(
+    async (): Promise<VoiceResponse> => ({
+      transcript: 'what if racks go to 200 kW',
+      answer: spoken,
+      tool_results: [{ name: 'what_if', args: { param: 'rack_kw', value: 200 }, result: result as unknown as Record<string, unknown> }],
+    }),
+  )
+  renderPanel(fakeServices({ api: fakeApi({ voice }), startLiveVoice: async () => Promise.reject(new Error('blocked')) }), realHallA())
+  await ask(user, 'why did FA-01 fail?')
+  await (await conversation()).findByText(/^In r1: /)
+  expect(useUi.getState().viewRev).toBe('r1')
+  await holdToTalk(user)
+  await waitFor(() => expect(voice).toHaveBeenCalled())
+  expect(voice).toHaveBeenCalledWith(expect.any(Blob), `seed:hall-a@${head.id}`)
+  expect(await (await conversation()).findByText(`On ${head.id} (${head.status}): ${spoken}`)).toBeInTheDocument()
+  expect(useUi.getState().viewRev).toBeNull() // the engine result is drawn on the head revision it was computed for
+  expect(useUi.getState().whatIf?.origin).toBe('engine')
+})
+
+test('#37: push-to-talk after a revision-bar pick of r1 sends r1\'s revision_ref', async () => {
+  const user = userEvent.setup()
+  const voice = vi.fn(async (): Promise<VoiceResponse> => ({ transcript: 'show FA-01', answer: 'Showing FA-01.', tool_results: [] }))
+  renderWithRevisionBar(fakeServices({ api: fakeApi({ voice }), startLiveVoice: async () => Promise.reject(new Error('blocked')) }))
+  await user.click(screen.getByRole('button', { name: /^r1\b/ }))
+  await holdToTalk(user)
+  await waitFor(() => expect(voice).toHaveBeenCalled())
+  expect(voice).toHaveBeenCalledWith(expect.any(Blob), 'seed:hall-a@r1')
+})
+
+test('#37: a Gemini Live what_if call after the automatic switch runs on the head revision and says so in its data', async () => {
+  const user = userEvent.setup()
+  let handler: ((c: LiveVoiceCall) => Promise<Record<string, unknown>>) | null = null
+  renderPanel(
+    fakeServices({
+      startLiveVoice: async ({ onToolCall }) => {
+        handler = onToolCall
+        return { stop: async () => undefined }
+      },
+    }),
+    realHallA(),
+  )
+  await ask(user, 'why did FA-01 fail?')
+  await (await conversation()).findByText(/^In r1: /)
+  await user.click(screen.getByRole('button', { name: 'Start voice' }))
+  await screen.findByText('Listening (Gemini Live)')
+  let response: Record<string, unknown> = {}
+  await act(async () => {
+    response = await handler!({ name: 'what_if', args: { param: 'rack_kw', value: 200 } })
+  })
+  const { head, fails } = headWhatIf200()
+  expect(response).toMatchObject({ revision: head.id, revision_status: head.status })
+  expect((response.failing as unknown[]).length).toBe(fails)
+  expect(useUi.getState().viewRev).toBeNull()
 })
