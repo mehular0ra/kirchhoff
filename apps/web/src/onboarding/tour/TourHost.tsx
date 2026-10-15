@@ -6,26 +6,14 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useBundleStore } from '@/store/bundles'
 import { useUi } from '@/store/ui'
 import { useTour } from './tour'
+import { cardPlacement, spotlightBox } from './placement'
 import { TOUR_STEPS } from './tourSteps'
 
 const STABLE_FRAMES = 8 // consecutive identical rects before tracking stops
 const MIN_TRACK_MS = 600 // keep measuring at least this long after the target appears
 const FIND_FRAMES = 600 // ~10 s of frames waiting for the anchor to mount
-const PAD = 6 // spotlight padding around the target
-const EDGE = 4 // spotlight never closer than this to the viewport edge
-
 const sameRect = (a: DOMRect, b: DOMRect) =>
   Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5
-
-/** The padded spotlight clamped to the visible viewport, or null when the target is entirely off-screen. */
-function spotlightBox(r: DOMRect): { left: number; top: number; width: number; height: number } | null {
-  const left = Math.max(r.left - PAD, EDGE)
-  const top = Math.max(r.top - PAD, EDGE)
-  const right = Math.min(r.left + r.width + PAD, window.innerWidth - EDGE)
-  const bottom = Math.min(r.top + r.height + PAD, window.innerHeight - EDGE)
-  if (right <= left || bottom <= top) return null
-  return { left, top, width: right - left, height: bottom - top }
-}
 
 export function TourHost() {
   const { active, step, next, prev, stop } = useTour()
@@ -148,17 +136,20 @@ export function TourHost() {
   }, [active, next, prev])
 
   if (!active) return null
-  const spot = rect ? spotlightBox(rect) : null
-  const box = spot ?? { left: window.innerWidth / 2, top: window.innerHeight / 3, width: 1, height: 1 }
+  const vp = { w: window.innerWidth, h: window.innerHeight }
+  const spot = rect ? spotlightBox(rect, vp) : null
+  const place = spot ? cardPlacement(spot, s.side ?? 'bottom', vp) : null
+  const box = spot ?? { left: vp.w / 2, top: vp.h / 3, width: 1, height: 1 }
   const last = step === TOUR_STEPS.length - 1
   return (
     // Re-keyed when the anchor is found so the popover layer mounts above any drawer opened by the step.
     <Popover open key={`${step}:${spot ? 'found' : 'none'}`}>
+      <div data-testid="tour-anchor" className={spot ? 'tour-spotlight' : 'pointer-events-none fixed'} style={box} />
       <PopoverAnchor asChild>
-        <div data-testid="tour-anchor" className={spot ? 'tour-spotlight' : 'pointer-events-none fixed'} style={box} />
+        <div data-testid="tour-card-anchor" aria-hidden className="pointer-events-none fixed" style={place?.anchor ?? box} />
       </PopoverAnchor>
       <PopoverContent
-        side={s.side ?? 'bottom'}
+        side={place?.side ?? 'bottom'}
         align="start"
         // Never leave the viewport (C1): clamp inside a 12 px margin even if the anchor is partly off-screen.
         collisionPadding={12}
@@ -177,12 +168,12 @@ export function TourHost() {
           })
         }}
       >
-        <p className="font-mono text-[11px] text-zinc-500">
+        <p className="font-mono text-[11px] text-zinc-400">
           Step {step + 1} of {TOUR_STEPS.length}
         </p>
         <h2 className="mt-1 text-sm font-semibold text-zinc-50">{s.title(ctx)}</h2>
         <p className="mt-1 text-xs text-zinc-300">{s.body}</p>
-        {!rect && <p className="mt-1 text-xs text-zinc-500">Loading this part of the workspace…</p>}
+        {!rect && <p className="mt-1 text-xs text-zinc-400">Loading this part of the workspace…</p>}
         <div className="mt-3 flex items-center gap-2">
           <Button size="xs" variant="ghost" onClick={() => stop(false)}>
             Skip tour
