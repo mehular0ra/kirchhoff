@@ -53,14 +53,15 @@ export const LEVEL: Record<EquipmentKind, number> = {
 }
 export const MAX_LEVEL = 6
 
+/** Sized for 13 px labels and 12 px sub-labels ("3,150 kVA · TX-3150") at a legible zoom (UX-1 D8). */
 export const NODE_SIZE: Record<SldKind, { w: number; h: number }> = {
-  mv: { w: 220, h: 64 },
-  transformer: { w: 132, h: 76 },
-  board: { w: 132, h: 64 },
-  ups: { w: 132, h: 64 },
-  sts: { w: 120, h: 60 },
-  busway: { w: 118, h: 60 },
-  rackgroup: { w: 132, h: 64 },
+  mv: { w: 240, h: 72 },
+  transformer: { w: 164, h: 88 },
+  board: { w: 164, h: 74 },
+  ups: { w: 164, h: 74 },
+  sts: { w: 144, h: 70 },
+  busway: { w: 144, h: 70 },
+  rackgroup: { w: 160, h: 74 },
 }
 
 export function buildSldGraph(model: DesignModel): SldGraph {

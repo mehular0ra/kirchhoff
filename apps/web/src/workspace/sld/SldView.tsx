@@ -12,7 +12,6 @@ import {
 import { useReducedMotion } from 'motion/react'
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@/components/Labels'
-import { CHAIN_COLORS } from '@/lib/agents'
 import type { ChangeKind } from '@/lib/diff'
 import type { Discipline } from '@/lib/model'
 import { STATUS_META, statusRank, worstStatus } from '@/lib/status'
@@ -22,6 +21,7 @@ import { Legend } from '../Legend'
 import { legendKeys } from '../legendKeys'
 import { useWorkspace } from '../WorkspaceContext'
 import { nodeTypes, type SldFlowNode } from './SldNodes'
+import { edgeAppearance, initialFit } from './sldFit'
 import { buildSldGraph, layoutSld, MAX_LEVEL, NODE_SIZE } from './sldGraph'
 
 /** Accessible name with status (M11): "A-01: Pass, feeder FA-01: Fail". */
@@ -68,9 +68,22 @@ function SldCanvas() {
     return () => clearInterval(id)
   }, [view.rev?.id, reduce])
 
+  // First fit (D8): frame the revision's worst failure on the SLD, else the whole diagram at a legible zoom.
+  const plan = useMemo(() => (graph ? initialFit(graph, view.findings) : null), [graph, view.findings])
   useEffect(() => {
-    if (pos) requestAnimationFrame(() => fitView({ includeHiddenNodes: true, padding: 0.04 }))
-  }, [pos, fitView])
+    if (!pos || !plan) return
+    const raf = requestAnimationFrame(() =>
+      fitView({
+        includeHiddenNodes: true,
+        padding: plan.padding,
+        minZoom: plan.minZoom,
+        maxZoom: plan.maxZoom,
+        nodes: plan.nodes?.map((id) => ({ id })),
+        duration: 0,
+      }),
+    )
+    return () => cancelAnimationFrame(raf)
+  }, [pos, plan, fitView])
 
   const whatIfActive = view.highlights.size > 0
   const levelOf = useMemo(() => new Map(graph?.nodes.map((n) => [n.id, n.level]) ?? []), [graph])
@@ -130,24 +143,21 @@ function SldCanvas() {
       const chain: Discipline | null =
         view.highlights.get(e.id)?.[0] ??
         (view.highlights.has(e.source) && view.highlights.has(e.target) ? view.highlights.get(e.target)![0] : null)
-      const color = chain
-        ? CHAIN_COLORS[chain]
-        : status && statusRank(status) >= statusRank('warn')
-          ? STATUS_META[status].hex
-          : change
-            ? '#fbbf24'
-            : '#52525b'
-      const statusText = status && status !== 'pass' ? ` · ${STATUS_META[status].label}` : ''
+      // A failing feeder is a thick rose line with a large "✕ Fail" pill, readable at first fit (D8).
+      const look = edgeAppearance({ status, change, chain, label: e.label })
+      const color = look.color
       return {
         id: e.id,
         source: e.source,
         target: e.target,
         type: 'smoothstep',
         hidden: (levelOf.get(e.target) ?? 0) > reveal || !pos.has(e.source) || !pos.has(e.target),
-        label: e.label ? `${e.label}${statusText}${change ? ' · changed' : ''}` : undefined,
-        labelStyle: { fill: '#e4e4e7', fontFamily: 'JetBrains Mono Variable, monospace', fontSize: 10 },
-        labelBgStyle: { fill: '#0b0d10' },
-        style: { stroke: color, strokeWidth: e.label ? 2.5 : 1.5, strokeDasharray: change ? '6 4' : undefined },
+        label: look.label,
+        labelStyle: look.labelStyle,
+        labelBgStyle: look.labelBgStyle,
+        labelBgPadding: look.labelBgPadding,
+        labelBgBorderRadius: 4,
+        style: { stroke: color, strokeWidth: look.strokeWidth, strokeDasharray: change ? '6 4' : undefined },
         markerEnd: { type: MarkerType.Arrow, color, width: 12, height: 12 },
         opacity: whatIfActive && !chain ? 0.35 : 1,
       }
