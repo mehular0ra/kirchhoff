@@ -28,6 +28,9 @@ class AgentSpec:
     instruction: str
     thinking: Literal["low", "medium"] = "low"
     timeout_s: float = 30.0
+    # Attempts per call, through with_retries (429/5xx). 1 means a single attempt: voice (issue #36), whose
+    # back-off retry could not fit its budget.
+    attempts: int = 4
 
 
 @dataclass(frozen=True)
@@ -132,12 +135,16 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def run_json(runner: AgentRunner, spec: AgentSpec, key: str, message: str, schema: type[T],
-             tools: Sequence[Callable] = (), attachments: Sequence[Attachment] = ()) -> tuple[T, AgentResult]:
-    """Structured output with one repair attempt (spec §11). Raises ValueError if the repair also fails."""
+             tools: Sequence[Callable] = (), attachments: Sequence[Attachment] = (),
+             repair: bool = True) -> tuple[T, AgentResult]:
+    """Structured output with one repair attempt (spec §11). Raises ValueError if the repair also fails.
+    `repair=False` makes it exactly one runner call: a bad reply raises ValueError at once (voice, issue #36)."""
     res = runner.run(spec, key, message, tools, attachments)
     try:
         return schema.model_validate(extract_json(res.text)), res
     except (ValueError, ValidationError) as exc:
+        if not repair:
+            raise ValueError(str(exc)[:400]) from exc
         prompt = (f"Your previous reply was not valid JSON for this schema:\n"
                   f"{json.dumps(schema.model_json_schema())}\nError: {str(exc)[:400]}\n"
                   f"Previous reply:\n{res.text[:REPAIR_EXCERPT_CHARS]}\nReply with only the corrected JSON.")

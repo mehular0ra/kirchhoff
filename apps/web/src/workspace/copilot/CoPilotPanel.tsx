@@ -1,4 +1,4 @@
-import { LoaderCircle, Mic, MicOff, Send } from 'lucide-react'
+import { Info, LoaderCircle, Mic, MicOff, Send } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,6 +7,7 @@ import { completeItem } from '@/onboarding/checklist/checklistStore'
 import type { VoiceResponse } from '@/services/apiClient'
 import { useServices, type LiveVoiceCall } from '@/services/services'
 import { canvasesFor } from '@/lib/model'
+import { revisionById } from '@/lib/select'
 import { useUi } from '@/store/ui'
 import { PlanGate } from '../gates/PlanGate'
 import { RequirementsPanel } from '../RequirementsPanel'
@@ -87,7 +88,13 @@ export function CoPilotPanel() {
       if (t.name === 'what_if' && Array.isArray((t.result as Partial<WhatIfResult>).impact_chain))
         setWhatIf({ result: t.result as unknown as WhatIfResult, origin: 'engine' })
       if (t.name === 'focus_element') focus(String(t.args.element_id ?? t.result.element_id ?? ''))
-      if (t.name === 'explain_finding' && t.args.finding_id) openFinding(String(t.args.finding_id))
+      if (t.name === 'explain_finding' && t.args.finding_id) {
+        // D1, as typed and Live answers do (tools.ts): when the answer cites an earlier revision where the
+        // check failed (`result.revision`, set by /api/voice only then), switch to it before opening the finding.
+        const cited = typeof t.result.revision === 'string' ? revisionById(view.bundle, t.result.revision) : null
+        if (cited) setViewRev(cited.id)
+        openFinding(String(t.args.finding_id))
+      }
     }
     add('co-pilot', 'voice', res.answer)
     speak(res.answer)
@@ -171,7 +178,12 @@ export function CoPilotPanel() {
         ) : (
           <p className="text-xs text-zinc-400">This browser or device has no microphone access; use the typed box above.</p>
         )}
-        {voice.note && <p className="text-xs text-zinc-400">{voice.note}</p>}
+        {voice.note && (
+          <p className="flex items-start gap-1 text-xs text-zinc-400">
+            <Info aria-hidden className="mt-px size-3.5 shrink-0" />
+            {voice.note}
+          </p>
+        )}
         {log.length > 0 && (
           <ol aria-label="Conversation" className="flex flex-col gap-1 text-xs" aria-live="polite">
             {log.map((e) => (

@@ -7,8 +7,8 @@ from pydantic import BaseModel, ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.formparsers import FormData, FormParser, MultiPartException, MultiPartParser, parse_options_header
 
-from kirchhoff.agents.copilot import (BadRevisionRef, RevisionNotFound, answer_voice, call_with_timeout, explain_text,
-                                      load_revision)
+from kirchhoff.agents.copilot import (BadRevisionRef, RevisionNotFound, VoiceUnavailable, answer_voice,
+                                      call_with_timeout, explain_text, load_revision)
 from kirchhoff.engine.whatif import PARAM_BOUNDS
 from kirchhoff.runs.deps import Deps
 from kirchhoff.runs.revisions import with_citation_boxes
@@ -172,6 +172,8 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
             return err(422, "bad_revision_ref")
         except EnterpriseUnavailable:
             return err(503, "enterprise_unavailable")
+        except VoiceUnavailable:
+            return err(503, "voice_unavailable")  # a transient model error: the client says to try again
         except FuturesTimeout:
             return err(504, "timeout")
 

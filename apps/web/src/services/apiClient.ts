@@ -1,5 +1,6 @@
 // Typed client for the HTTP API table in plans/2026-10-13-interfaces.md. Every mutation goes
-// through /api (clients never write Firestore). Every call is aborted after 12 s (API budget < 10 s).
+// through /api (clients never write Firestore). Every call is aborted after 12 s (API budget < 10 s),
+// except voice, aborted after 25 s (its server budget is 20 s; issue #36).
 import type {
   AssetResult,
   Autonomy,
@@ -30,6 +31,8 @@ export class ApiError extends Error {
 export interface VoiceToolResult {
   name: 'what_if' | 'explain_finding' | 'focus_element'
   args: Record<string, unknown>
+  /** For explain_finding: `{text}`, plus an optional `revision` (the id of the earlier revision the answer
+   * cites, where the check failed; present only when that differs from the requested one, issue #36). */
   result: Record<string, unknown>
 }
 export interface VoiceResponse {
@@ -61,6 +64,8 @@ export interface ApiClient {
 }
 
 const TIMEOUT_MS = 12_000
+/** Push-to-talk (issue #36): the server's /api/voice budget is 20 s (one model round trip plus the tool). */
+const VOICE_TIMEOUT_MS = 25_000
 
 /** WS2 error codes (`detail`) → sentences for the UI (ruling R23). No digits: limits are WS2's to state. */
 const DETAIL_TEXT: Record<string, string> = {
@@ -86,6 +91,7 @@ const DETAIL_TEXT: Record<string, string> = {
   'invalid app check token': 'The browser check (App Check) did not pass. Disable blockers for this site or reload; seed projects and replays still work.',
   invalid_value: 'That value is outside the range the engine can check. Pick a value within the limits shown.',
   client_timeout: 'The live backend did not answer in time. Try again in a moment; seed projects and replays still work.',
+  voice_unavailable: 'The voice model is busy right now. Try again in a moment, or use the typed box or the chips.',
 }
 
 // The 12 s bound wraps the whole call (sign-in, App Check and fetch; final review I4).
@@ -104,16 +110,16 @@ export function httpApiClient(
    * The 12 s budget covers the whole call — `fetcher` first awaits Firebase sign-in and an App Check
    * token, and either can hang when reCAPTCHA is blocked — not just the fetch (final review I4).
    */
-  function bounded<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  function bounded<T>(run: (signal: AbortSignal) => Promise<T>, timeoutMs = TIMEOUT_MS): Promise<T> {
     const ctrl = new AbortController()
-    return withTimeout(run(ctrl.signal), TIMEOUT_MS, () => {
+    return withTimeout(run(ctrl.signal), timeoutMs, () => {
       ctrl.abort()
       return new ApiError(0, 'client_timeout')
     })
   }
 
-  function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-    return bounded((signal) => send<T>(path, { ...init, signal }))
+  function call<T>(path: string, init: RequestInit = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
+    return bounded((signal) => send<T>(path, { ...init, signal }), timeoutMs)
   }
 
   async function send<T>(path: string, init: RequestInit): Promise<T> {
@@ -158,7 +164,7 @@ export function httpApiClient(
       const form = new FormData()
       form.append('audio', audio, audio.type.includes('ogg') ? 'clip.ogg' : 'clip.webm')
       form.append('revision_ref', revisionRef)
-      return call('/api/voice', { method: 'POST', body: form })
+      return call('/api/voice', { method: 'POST', body: form }, VOICE_TIMEOUT_MS)
     },
     asset: (pack) => post(`/api/asset/${pack}`),
     erpMaterials: () => call('/api/enterprise/erp/materials'),

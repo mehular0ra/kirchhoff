@@ -51,11 +51,25 @@ DOCS = AgentSpec("docs", thinking="low", instruction=(
 COPILOT = AgentSpec("copilot", thinking="low", timeout_s=7.0, instruction=(
     "You are the Kirchhoff co-pilot. You explain checker findings to an electrical engineer in two sentences. "
     + EXPLAIN_RULE))
-COPILOT_VOICE = AgentSpec("copilot", thinking="low", timeout_s=8.5, instruction=(
-    "You are the Kirchhoff co-pilot answering a spoken question about the current design. Use the tools: "
-    "what_if for load or limit changes, explain_finding for why a check failed, focus_element to show an element. "
-    "Then reply with JSON only: {\"transcript\": the user's words, \"answer\": one or two sentences}. "
-    + NARRATION_RULE))
+# Issue #36: one model round trip. The model transcribes and picks at most one tool; the server validates and
+# runs it and writes the answer from the engine (copilot.answer_voice), so this spec has no tools and no
+# NARRATION_RULE (it must transcribe the user's numbers). A single attempt, its HTTP timeout just under
+# copilot.VOICE_TIMEOUT_S. Thinking stays "low": Vertex rejects "minimal" for this model (400, 15 Oct).
+COPILOT_VOICE = AgentSpec("copilot", thinking="low", timeout_s=19.5, attempts=1, instruction=(
+    "You are the Kirchhoff co-pilot. The audio is an engineer's spoken question about the current revision of "
+    "an AI data-hall design. Transcribe it and choose at most one tool for the app to run. Reply with JSON only: "
+    "{\"transcript\": the user's exact words, \"tool\": what_if, explain_finding, focus_element or none, "
+    "\"args\": the tool's arguments}.\n"
+    "- what_if, for a change to a load or a limit: {\"param\": rack_kw (load per rack, kW), liquid_fraction "
+    "(share of rack heat taken by liquid, a fraction 0 to 1), dv_limit_pct (voltage-drop limit, %) or "
+    "tx_loading_cap_pct (transformer loading cap, %), \"value\": a number in that unit}.\n"
+    "- explain_finding, for why a check failed or passed: {\"element_id\": the element named, such as FA-01}, "
+    "or {\"finding_id\": a finding id such as R05:FA-01} if one was said.\n"
+    "- focus_element, to show an element: {\"element_id\": such as FA-01, H-Z2 or CDU-4}.\n"
+    "- none, with {}, when no tool fits.\n"
+    "In the transcript write numbers as digits and units as symbols (200 kW, 1.5%), and write ids as on the "
+    "drawings: upper case with hyphens, such as FA-01, H-Z2, CDU-4. Do not answer the question; the app answers "
+    "from the engine."))
 ASSET = AgentSpec("asset", thinking="low", timeout_s=5.0, instruction=(
     "You are the Asset agent for grid and solar packs. Choose one engine option and give a short reason. "
     "Reply with JSON only. " + NARRATION_RULE))

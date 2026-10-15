@@ -122,8 +122,14 @@ def test_narration_agents_are_told_never_to_state_a_quantity_and_only_explain_ge
     from kirchhoff.agents import specs
 
     narrators = [specs.ORCHESTRATOR, specs.LAYOUT, specs.POWER, specs.COOLING, specs.PROCUREMENT, specs.DOCS,
-                 specs.COPILOT_VOICE, specs.ASSET]
+                 specs.ASSET]
     for spec in narrators:
         assert specs.NARRATION_RULE in spec.instruction, spec.name
         assert "{value}" not in spec.instruction and "{limit}" not in spec.instruction, spec.name
     assert "{value}" in specs.COPILOT.instruction and "{limit}" in specs.COPILOT.instruction
+    # Issue #36: the voice model no longer narrates (the answer is the code-authored engine_summary); it only
+    # transcribes and picks a tool, so it gets no NARRATION_RULE, which would forbid the digits it transcribes.
+    voice = specs.COPILOT_VOICE.instruction
+    assert specs.NARRATION_RULE not in voice
+    assert all(f'"{key}"' in voice for key in ("transcript", "tool", "args"))
+    assert "{value}" not in voice and "{limit}" not in voice

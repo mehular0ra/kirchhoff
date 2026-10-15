@@ -18,7 +18,7 @@ class AdkRunner:
             attachments: Sequence[Attachment] = ()) -> AgentResult:
         def once() -> AgentResult:
             return asyncio.run(asyncio.wait_for(self._run_async(spec, message, tools, attachments), spec.timeout_s))
-        return with_retries(once)
+        return with_retries(once, attempts=spec.attempts)
 
     def _node(self, spec: AgentSpec, tools: Sequence[Callable]):
         from google.adk.agents import LlmAgent

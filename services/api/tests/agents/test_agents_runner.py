@@ -111,3 +111,66 @@ def test_the_repair_prompt_carries_a_whole_intake_sized_reply():
     parsed, _ = run_json(Spy(), SPEC, "k", "msg", Choice)
     assert parsed.candidate_id == "c1"
     assert "TAIL-MARKER" in prompts[1]
+
+
+# --- Issue #36: voice is one model round trip -- no repair call, no retry ---
+
+def test_run_json_without_repair_makes_exactly_one_call():
+    r = ReplayRunner({"layout:k": {"text": "candidate c1 because cheaper"},
+                      "layout:k#repair": {"text": '{"candidate_id": "c1", "reason": "cheaper"}'}})
+    with pytest.raises(ValueError):
+        run_json(r, SPEC, "k", "m", Choice, repair=False)
+    assert r.calls == ["layout:k"]
+
+
+def test_run_json_without_repair_reports_a_schema_mismatch_as_a_value_error():
+    """A model reply that parses but fails the schema is the model's error (ValueError), never a pydantic
+    ValidationError, which callers reserve for server bugs."""
+    r = ReplayRunner({"layout:k": {"text": {"candidate_id": "c1"}}})
+    with pytest.raises(ValueError) as exc:
+        run_json(r, SPEC, "k", "m", Choice, repair=False)
+    assert type(exc.value) is ValueError
+
+
+def test_agent_specs_retry_by_default():
+    assert SPEC.attempts == 4
+
+
+class _FakeModels:
+    def __init__(self):
+        self.configs = []
+
+    def generate_content(self, model, contents, config):
+        self.configs.append(config)
+        raise Coded(503)
+
+
+def test_genai_runner_makes_a_single_attempt_when_the_spec_says_so():
+    from types import SimpleNamespace
+
+    from kirchhoff.agents.genai_runner import GenaiRunner
+    from kirchhoff.agents.runner import Attachment
+
+    runner = GenaiRunner()
+    models = _FakeModels()
+    runner._client = SimpleNamespace(models=models)
+    spec = AgentSpec(name="copilot", instruction="x", timeout_s=19.5, attempts=1)
+    with pytest.raises(Coded):
+        runner.run(spec, "voice", "m", attachments=[Attachment(b"RIFF", "audio/wav")])
+    assert len(models.configs) == 1  # a retryable 503, yet no second attempt
+    assert models.configs[0].tools is None and models.configs[0].http_options.timeout == 19_500
+
+
+def test_adk_runner_makes_a_single_attempt_when_the_spec_says_so(monkeypatch):
+    from kirchhoff.agents.adk_runner import AdkRunner
+
+    calls = []
+
+    async def failing(self, spec, message, tools, attachments):
+        calls.append(spec.name)
+        raise Coded(503)
+
+    monkeypatch.setattr(AdkRunner, "_run_async", failing)
+    with pytest.raises(Coded):
+        AdkRunner(mode="agent").run(AgentSpec(name="copilot", instruction="x", attempts=1), "k", "m")
+    assert calls == ["copilot"]
