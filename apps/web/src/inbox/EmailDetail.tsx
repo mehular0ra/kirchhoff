@@ -14,6 +14,7 @@ import type { CrmLink, InboxEmail, PursueResult, TriageResult } from '@/lib/type
 import { describeApiError } from '@/services/apiClient'
 import { useServices } from '@/services/services'
 import { KIND_LABEL, KIND_ORDER, VERIFICATION_META, verdictMeta } from './inboxMeta'
+import { TriageButton } from './TriageButton'
 import { applyPursue } from './useInbox'
 
 const PACKS = ['datahall', 'grid', 'solar']
@@ -261,6 +262,7 @@ export function EmailDetail({ email }: { email: InboxEmail }) {
       )}
       <div className="flex flex-wrap items-start gap-6">
         {triage && <PursueAction email={email} triage={triage} />}
+        <TriageButton email={email} />
       </div>
     </article>
   )
