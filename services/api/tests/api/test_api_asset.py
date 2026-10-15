@@ -148,15 +148,21 @@ def test_a_passing_option_is_still_picked_and_a_failing_id_stays_in_the_reason_a
         "option": "STR-26", "reason": "STR-26 is safer than STR-30.", "source": "agent"}
 
 
-@pytest.mark.parametrize("reason", ["Zebra keeps the regulation at {value} against {limit}.",
-                                    "It cuts the losses by twelve percent.", "Twenty-five percent cheaper.",
-                                    "Zebra is fine. {unit} is not."], ids=["slots", "number-word", "tens", "mixed"])
-def test_a_reason_with_a_slot_or_a_number_in_words_is_replaced(client, deps, auth, reason):
+TEMPLATE = "Recommended ACSR-Zebra on the engine's ranking."
+
+
+@pytest.mark.parametrize("reason, shown", [
+    ("Zebra keeps the regulation at {value} against {limit}.", TEMPLATE),
+    ("It cuts the losses by twelve percent.", TEMPLATE),
+    ("Twenty-five percent cheaper.", TEMPLATE),
+    ("Zebra is fine. {unit} is not.", "Zebra is fine. " + TEMPLATE)],  # only the offending sentence is replaced
+    ids=["slots", "number-word", "tens", "mixed"])
+def test_a_reason_with_a_slot_or_a_number_in_words_is_replaced(client, deps, auth, reason, shown):
     """Review of #19: nothing fills a {slot} in an asset reason, and a number spelled out is still a number the engine
-    did not produce (spec 6.3). The template sentence replaces the whole reason."""
+    did not produce (spec 6.3). Passes placeholders=False to sanitize explicitly (the P2 wave's default)."""
     deps.runner.replies["asset:grid"] = {"text": {"option": "ACSR-Zebra", "reason": reason}}
     assert client.post("/api/asset/grid", headers=auth).json()["choice"] == {
-        "option": "ACSR-Zebra", "reason": "Recommended ACSR-Zebra on the engine's ranking.", "source": "agent"}
+        "option": "ACSR-Zebra", "reason": shown, "source": "agent"}
 
 
 def test_a_slow_engine_plus_a_slow_agent_is_still_an_answer_not_a_504(client, deps, auth, monkeypatch):

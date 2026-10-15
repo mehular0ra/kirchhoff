@@ -1,8 +1,8 @@
 """Asset agent (spec §10, §6.3): picks one engine option for the grid or solar pack and gives a reason in one sentence.
 The engine does all the arithmetic. The agent may only choose one of the engine's option ids that passes its checks
 (matched to the engine's own spelling); anything else keeps the engine's `recommended`. Its reason is sanitized with
-the option ids and the finding element ids allowlisted, and a reason with a {slot} or a number in words is replaced,
-so a quantity it invented never reaches the page."""
+the option ids and the finding element ids allowlisted (digits, {slots} and numbers in words are replaced), so a
+quantity it invented never reaches the page."""
 import json
 import logging
 import time
@@ -10,7 +10,6 @@ import time
 from pydantic import BaseModel
 
 from .copilot import _LLM_POOL, call_with_timeout
-from .prose_guard import prose_is_safe
 from .runner import run_json
 from .specs import ASSET
 from .trust import sanitize
@@ -60,7 +59,8 @@ def run_asset_pack(deps, pack: str, budget_s: float | None = None) -> dict:
         if picked is not None:
             allowed = set(ids) | {f.get("element_id") for f in findings if f.get("element_id")}
             template = f"Recommended {picked} on the engine's ranking."
-            reason = sanitize(reply.reason, allowed, template) if prose_is_safe(reply.reason) else template
+            # placeholders=False: nothing fills a {value} in an asset reason, and sanitize also rejects a quantity in words
+            reason = sanitize(reply.reason, allowed, template, placeholders=False)
             choice = {"option": picked, "source": "agent", "reason": reason}
     except Exception as exc:  # timeout, agent error, bad JSON: the engine's recommendation stands
         log.warning("asset agent fallback for %s: %r", pack, exc)
