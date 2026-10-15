@@ -9,7 +9,8 @@ import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { WorkspaceProvider } from '../WorkspaceContext'
 import { bboxToCss } from './bbox'
 import { fmtKeyValue } from '@/lib/format'
-import { FindingDrawer, readFix } from './FindingDrawer'
+import { FindingDrawer } from './FindingDrawer'
+import { readFix } from './fixView'
 import PdfViewer from './PdfViewer'
 
 vi.mock('react-pdf', () => ({
