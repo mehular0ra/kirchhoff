@@ -52,3 +52,18 @@ test('D10: a recorded design without a brief says what the sample includes; a li
   )
   expect(screen.getByText('Requirement cards appear when Intake has read the tender.')).toBeInTheDocument()
 })
+
+test('N5: a replay without a brief also shows the sample sentence, not "appear when Intake has read" (?replay=1)', () => {
+  resetStores()
+  const b = fixtureBundle()
+  b.brief = null
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="replay">
+        <RequirementsPanel />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  expect(screen.getByText(SAMPLE_LINE)).toBeInTheDocument()
+  expect(screen.queryByText(/appear when Intake has read/)).not.toBeInTheDocument()
+})

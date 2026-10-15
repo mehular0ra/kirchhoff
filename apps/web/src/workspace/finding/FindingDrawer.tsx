@@ -1,4 +1,4 @@
-import { Crosshair, MessageSquare } from 'lucide-react'
+import { Crosshair, Info, MessageSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { IllustrativeLabel, Num } from '@/components/Labels'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -135,7 +135,12 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
                   </Button>
                 )}
                 {explain && 'text' in explain && <p className="rounded border border-fuchsia-400/30 bg-fuchsia-500/5 p-2 text-zinc-200">{explain.text}</p>}
-                {explain && 'error' in explain && <p className="text-xs text-zinc-400">{explain.error}</p>}
+                {explain && 'error' in explain && (
+                  // Reassurance, not an error (the engine explanation above is still complete): Info + role="status".
+                  <p role="status" className="flex items-center gap-1.5 text-xs text-zinc-400">
+                    <Info aria-hidden className="size-3.5 shrink-0" /> {explain.error}
+                  </p>
+                )}
               </section>
 
               {(fix || rejected) && (

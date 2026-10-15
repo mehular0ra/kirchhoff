@@ -128,7 +128,8 @@ function SldCanvas() {
     if (!graph || !pos) return []
     return graph.nodes.map((n) => {
       const statuses = n.members.map((m) => view.status.get(m)).filter((s): s is FindingStatus => !!s)
-      const changes = n.members.map((m) => view.diff?.byId.get(m)).filter((c): c is ChangeKind => !!c)
+      // N7: same as the edges — no stale "changed" styling while a what-if is shown.
+      const changes = view.whatIf ? [] : n.members.map((m) => view.diff?.byId.get(m)).filter((c): c is ChangeKind => !!c)
       const chain = [...new Set(n.members.flatMap((m) => view.highlights.get(m) ?? []))] as Discipline[]
       const wis = n.members.map((m) => view.whatIfStatus.get(m)).filter((s): s is FindingStatus => !!s)
       const size = NODE_SIZE[n.kind]
@@ -164,7 +165,9 @@ function SldCanvas() {
     if (!graph || !pos) return []
     return graph.edges.map((e) => {
       const status = view.status.get(e.id) ?? null
-      const change = view.diff?.byId.get(e.id) ?? null
+      // N7: drop the stale "changed" compare styling while a what-if is shown (the amber label and
+      // dashed legend key belong to the signed-vs-parent diff, not the shadow what-if copy).
+      const change = view.whatIf ? null : view.diff?.byId.get(e.id) ?? null
       const chain: Discipline | null =
         view.highlights.get(e.id)?.[0] ??
         (view.highlights.has(e.source) && view.highlights.has(e.target) ? view.highlights.get(e.target)![0] : null)

@@ -121,3 +121,23 @@ test('first revision has no parent: the diff section shows an explanation, not a
   expect(within(changes).queryByText('First revision (no parent)')).not.toBeInTheDocument()
   expect(within(changes).getByText('First revision — nothing to compare against')).toBeInTheDocument()
 })
+
+test('M8: an export link that fails to open shows an honest icon+text error with a retry, not a swallowed failure', async () => {
+  const user = userEvent.setup()
+  const b = fixtureBundle()
+  b.events = [
+    ...b.events,
+    { seq: 9001, phase: 'p3', step: 'docs.export', agent: 'docs', kind: 'artifact', title: 'M8 export', detail: '', ts: 0, payload: { type: 'export', ref: 'storage/m8-export.pdf' } },
+  ]
+  const fileBlob = vi.fn(() => Promise.reject(new Error('network down')))
+  renderWithProviders(<ReviewView bundle={b} source="static" revId="r2" runQuery="" />, { services: fakeServices({ api: fakeApi({ fileBlob }) }) })
+
+  await user.click(screen.getByRole('button', { name: /M8 export/ }))
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(/Couldn't open this export/)
+  expect(alert.querySelector('svg')).toBeTruthy()
+
+  const retry = within(alert).getByRole('button', { name: /Try again/ })
+  await user.click(retry)
+  expect(fileBlob).toHaveBeenCalledTimes(2)
+})

@@ -89,7 +89,13 @@ export function fmtRelative(ts: number, nowMs: number = Date.now()): string {
   const abs = Math.abs(diffS)
   if (abs < 60) return abs < 1 ? 'now' : REL.format(Math.round(diffS), 'second')
   if (abs < 3600) return REL.format(Math.round(diffS / 60), 'minute')
-  if (abs < 86400) return REL.format(Math.round(diffS / 3600), 'hour')
+  if (abs < 86400) {
+    // N6: an hour count that rounds up to 24 ("23h59m ago") must read as "yesterday", the same moment
+    // the day bucket below would give it, not "24 hours ago" alongside "yesterday" for the same instant.
+    const hours = Math.round(diffS / 3600)
+    if (Math.abs(hours) >= 24) return REL.format(Math.sign(diffS) || -1, 'day')
+    return REL.format(hours, 'hour')
+  }
   if (abs < 86400 * 14) return REL.format(Math.round(diffS / 86400), 'day')
   return REL.format(Math.round(diffS / (86400 * 7)), 'week')
 }

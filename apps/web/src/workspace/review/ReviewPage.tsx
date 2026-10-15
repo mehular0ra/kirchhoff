@@ -1,6 +1,6 @@
 // Review and sign-off (spec §12 screen 7): diff vs parent, findings summary, assumptions ledger,
 // Approve with stamp; after approval the PRs (ERP) and CRM stage handoff (spec §3 1:58–2:18).
-import { ArrowLeft, CircleX, Download } from 'lucide-react'
+import { ArrowLeft, CircleCheck, CircleX, Download, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { EmptyState, IllustrativeLabel, Num, SandboxLabel } from '@/components/Labels'
@@ -63,6 +63,12 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
   const [comment, setComment] = useState('')
   const [sent, setSent] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // M8: an export link that fails to open shows an honest error with a retry, instead of being swallowed.
+  const [exportError, setExportError] = useState<{ ref: string; text: string } | null>(null)
+  const tryExport = (ref: string) => {
+    setExportError(null)
+    openExport(ref).catch(() => setExportError({ ref, text: "Couldn't open this export. Check your connection and try again." }))
+  }
   const rev = revisionById(bundle, revId)
   if (!rev) return <EmptyState title={`Revision ${revId} not found`}>It may not have been created yet in this run.</EmptyState>
   const parent = parentRevision(bundle, rev)
@@ -158,8 +164,9 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
           <div className="flex max-w-xl flex-col gap-2">
             <Textarea aria-label="Review comment" placeholder="Comment for the record (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
             {failing > 0 && (
-              <p role="alert" className="text-sm text-rose-300">
-                Approve is disabled: {failing} findings still fail after the fix loop. Reject, or open the findings to see why.
+              <p role="alert" className="flex items-center gap-1.5 text-sm text-rose-300">
+                <CircleX aria-hidden className="size-4 shrink-0" /> Approve is disabled: {failing} findings still fail after the fix loop. Reject, or open
+                the findings to see why.
               </p>
             )}
             {!isLatest && failing === 0 && latest && (
@@ -177,7 +184,9 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
             </div>
             {sent &&
               (sent.ok ? (
-                <p className="text-sm text-zinc-300">{sent.text}</p>
+                <p role="status" className="flex items-center gap-1.5 text-sm text-zinc-300">
+                  <CircleCheck aria-hidden className="size-4 shrink-0 text-emerald-400" /> {sent.text}
+                </p>
               ) : (
                 <p role="alert" className="flex items-center gap-1.5 text-sm text-rose-300">
                   <CircleX aria-hidden className="size-4 shrink-0" /> {sent.text}
@@ -216,12 +225,22 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
       )}
 
       {exportsOf(bundle).length > 0 && (
-        <section aria-label="Exports" className="flex flex-wrap gap-2">
-          {exportsOf(bundle).map((x) => (
-            <Button key={x.ref} variant="outline" size="sm" onClick={() => void openExport(x.ref).catch(() => undefined)}>
-              <Download aria-hidden /> {x.title}
-            </Button>
-          ))}
+        <section aria-label="Exports" className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            {exportsOf(bundle).map((x) => (
+              <Button key={x.ref} variant="outline" size="sm" onClick={() => tryExport(x.ref)}>
+                <Download aria-hidden /> {x.title}
+              </Button>
+            ))}
+          </div>
+          {exportError && (
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-300">
+              <CircleX aria-hidden className="size-3.5 shrink-0" /> {exportError.text}
+              <Button size="xs" variant="ghost" onClick={() => tryExport(exportError.ref)}>
+                <RotateCcw aria-hidden /> Try again
+              </Button>
+            </p>
+          )}
         </section>
       )}
       <p className="text-xs text-zinc-400">

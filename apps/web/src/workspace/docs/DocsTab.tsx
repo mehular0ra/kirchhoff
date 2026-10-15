@@ -1,9 +1,9 @@
-import { Download, FileText } from 'lucide-react'
+import { CircleX, Download, FileText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { EmptyState, IllustrativeLabel } from '@/components/Labels'
 import { Button } from '@/components/ui/button'
 import { loadIntegrationsSnapshot } from '@/data/staticData'
-import { exportsOf } from '@/lib/select'
+import { buildLanes, exportsOf } from '@/lib/select'
 import type { DocumentRecord, LedgerEntry } from '@/lib/types'
 import { useServices } from '@/services/services'
 import { useUi, type CitationKind } from '@/store/ui'
@@ -87,6 +87,9 @@ export function DocsTab() {
   const exports = recorded.length
     ? recorded
     : snapshot.filter((d) => d.kind !== 'tender' && d.kind !== 'drawing').map((d) => ({ title: d.name, ref: d.url }))
+  // The Docs agent's export step may have failed on a live run; the copy then says so instead of
+  // claiming it still publishes "before the review gate" (the data decides, not a fixed sentence).
+  const docsFailed = source === 'live' && buildLanes(bundle).find((l) => l.agent === 'docs')?.status === 'failed'
   if (!docs.length && !exports.length && !rev) return <EmptyState title="No documents yet">The tender, drawings and exports appear as the run progresses.</EmptyState>
   // The interactive plan gate already appears in GateBanner above the canvas; here it is always
   // read-only, so the engineer can still see how the open question was resolved after the gate passes.
@@ -125,6 +128,10 @@ export function DocsTab() {
               </Button>
             ),
           )
+        ) : docsFailed ? (
+          <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-300">
+            <CircleX aria-hidden className="size-3.5 shrink-0" /> The Docs agent couldn't publish the calc report and BOQ for this run.
+          </p>
         ) : (
           <p className="text-xs text-zinc-400">
             {source === 'live' ? 'The Docs agent publishes the calc report and BOQ before the review gate.' : 'No exports are recorded for this design.'}
