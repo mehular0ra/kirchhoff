@@ -1,6 +1,6 @@
 # Submission checklist (AI Builder Cup 2026)
 
-Built from the organisers' own pages, read on Thu 15 Oct 2026 (issue #32). Every row gives the **owner**, the **status** and the **source**. A **FLAG** marks something we do not have yet or that needs a decision. Mehul submits; nobody else presses the button.
+Built from the organisers' own pages, read on Thu 15 Oct 2026 (issue #32). Every row gives the **owner**, the **status** and the **source**. A **FLAG** marks something we do not have yet or that needs a decision. **Jayadratha fills in and submits the form** (decided by Mehul, 16 Oct).
 
 **Deadline.** The official deadline is **Sun 18 Oct 2026**. The organisers publish **no time and no timezone** ([home page](https://aibuildercup.com/): "submit it before October 18"; the terms give none either). Our internal deadline is **Sat 17 Oct 2026, 20:00 IST**, so a wrong guess about the official cut-off costs nothing. Judging runs 19 Oct to 6 Nov; finalists are announced 7 Nov; the finale is 4 Dec in Singapore.
 
@@ -77,5 +77,5 @@ From themes. Weights add up to 100.
 1. Freeze check: `build` at the release candidate, deployed, smoke OK, no run holding a lease.
 2. Repo public, README final, notice file in, gitleaks clean, tag `v1.0-submission` (Mehul pushes the tag).
 3. Deck PDF exported (slides 1 and 7 checked for bullet and numbering glitches), video public, both links in slide 14.
-4. Fill the form from this list. Mehul submits before **Sat 17 Oct, 20:00 IST**.
+4. Fill the form from this list. **Jayadratha submits** before **Sat 17 Oct, 20:00 IST**.
 5. Keep the site up and `min-instances` decided through 6 Nov; post-submission changes only as tagged releases, deployed with no runs active.
