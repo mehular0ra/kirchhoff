@@ -161,8 +161,11 @@ def _annotate(ctx: PhaseContext, power: dict, cooling: dict) -> StepOutput:
             ctx.ledger(S_ANN, "procurement", "did",
                        f"{o.id}: {sw.get('from')} replaced by {sw.get('to')} ({sw.get('reason', 'R15')})")
     rec = choose_option([o for o, _ in annotated], ctx.outputs(S_RESOLVE)["resolutions"], lead_limit_weeks(scn))
-    # R14: code-authored, built only from the engine's annotate_options output (equipment lines and options).
-    n_items = sum(len(m.equipment) for _, m in annotated)
+    # R14: code-authored, built only from the engine's annotate_options output. The count is distinct
+    # catalogue ids across the annotated options' equipment, matching the field R15 and boq_quantities
+    # key lead times on (`catalogue_id`, engine/boq.py) -- not equipment instances, which double-counts
+    # equipment sharing one catalogue id (e.g. two busways of the same part).
+    n_items = len({e.catalogue_id for _, m in annotated for e in m.equipment if e.catalogue_id})
     template = (f"Procurement checked lead times for {_n(n_items, 'catalogue item')} across "
                 f"{_n(len(annotated), 'option')}.")
     ctx.narrate(S_ANN, "procurement", res.text if res else "", ctx.allowed(*[m for _, m in annotated]),

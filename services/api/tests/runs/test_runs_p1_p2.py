@@ -158,7 +158,9 @@ def test_cooling_narration_falls_back_to_the_engine_record_template(p12, make_ru
 
 def test_procurement_narration_falls_back_to_the_engine_record_template(p12, make_run):
     """Procurement's own narration slips a number word ("all three options"); the fallback must come from
-    the engine's annotate_options output (5 equipment lines per the fake model, 3 options)."""
+    the engine's annotate_options output -- the DISTINCT catalogue ids across the 3 options' equipment
+    (TX-3150, UPS-500, BW-1600 in the fake; shared ids like BW-1600 on two busways count once), which is
+    the field R15 and boq_quantities key lead times on -- not a count of equipment instances."""
     p12.runner.replies["procurement:p2.annotate_options"] = {
         "tool_calls": [{"name": "annotate_options", "args": {}}],
         "text": "All three options now ship within the tender's lead-time limit."}
@@ -166,7 +168,7 @@ def test_procurement_narration_falls_back_to_the_engine_record_template(p12, mak
     start_phase(p12, "u1", rid, "p1")
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "procurement"]
-    assert msgs == ["Procurement checked lead times for 15 catalogue items across 3 options."]
+    assert msgs == ["Procurement checked lead times for 3 catalogue items across 3 options."]
 
 
 def test_power_recheck_narration_falls_back_to_the_engine_record_template(p12, make_run):
@@ -190,6 +192,20 @@ def test_orchestrator_plan_narration_falls_back_to_the_engine_record_template(p1
     p12.runner.replies["orchestrator:p1.plan"] = {
         "text": {"summary": "All seven verified requirements are covered by the plan.",
                  "ask_human": ["Q-redundancy"]}}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "orchestrator"]
+    assert msgs == ["Orchestrator built a 13-step plan from 7 verified requirements, with "
+                    "1 question for you to decide."]
+
+
+def test_orchestrator_hallucinated_question_id_does_not_inflate_the_question_count(p12, make_run):
+    """Trust (ruling R14): `ask_human` is the model's own choice. A hallucinated id that isn't one of
+    the brief's real open_questions must not count toward "N question(s) for you to decide" -- mirrors
+    the filter `_power` already applies to its own `offer` list in phase2.py."""
+    p12.runner.replies["orchestrator:p1.plan"] = {
+        "text": {"summary": "All seven verified requirements are covered by the plan.",
+                 "ask_human": ["Q-redundancy", "Q-does-not-exist"]}}
     rid = make_run()
     start_phase(p12, "u1", rid, "p1")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "orchestrator"]
