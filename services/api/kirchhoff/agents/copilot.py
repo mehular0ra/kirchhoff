@@ -147,7 +147,8 @@ def explain_text(deps, model: DesignModel, finding: Finding, *, deadline: float 
     try:
         extra_ids = [finding.element_id, *deps.erp().ids()]
         res = wait(max(0.0, deadline - time.monotonic()))
-        text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template)
+        # The one surface that fills placeholders (fill_finding below, from this finding's engine record).
+        text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template, placeholders=True)
     except Exception as exc:
         cancel()
         log.warning("explain fallback for %s: %r", finding.id, exc)
@@ -184,8 +185,9 @@ def engine_summary(results: list[dict]) -> str:
 
 
 def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
-    # Fix round 2, Minor: the deadline is taken before load_revision, and deps.scenario() -- which shares
-    # Deps._lock with deps.erp() -- is fetched lazily inside what_if (its only use), not eagerly up front.
+    # Fix round 2, Minor: the deadline is taken before load_revision, and deps.scenario() is fetched lazily
+    # inside what_if (its only use), not eagerly up front. (Since the P2 final fix wave the ERP refresh also has
+    # its own lock, Deps._erp_lock, so the scenario never waits behind it either.)
     # A focus_element-only voice call has no business waiting on another request's slow ERP refresh, which
     # holds the same lock: the reviewer measured a 1s-budget voice call waiting 2.91s behind one.
     deadline = time.monotonic() + VOICE_TIMEOUT_S
@@ -269,5 +271,7 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         log.warning("voice fallback: %r", exc)
         reply = VoiceReply()
     erp_ids = erp_box[0].ids() if erp_box else ()
-    answer = sanitize(reply.answer, allowed_ids_for(model, extra=[*erp_ids, *by_id]), engine_summary(results))
+    # placeholders=False: the browser shows `answer` and speaks it (speak()); nothing fills it.
+    answer = sanitize(reply.answer, allowed_ids_for(model, extra=[*erp_ids, *by_id]), engine_summary(results),
+                      placeholders=False)
     return {"transcript": reply.transcript, "answer": answer, "tool_results": results}

@@ -15,6 +15,7 @@ from .steps import AGENT_LABEL, ParkAtGate, PhaseContext, PhaseOutcome, StepOutp
 
 log = logging.getLogger("kirchhoff")
 MAX_FIX_ITERATIONS = 2
+EXPORT_FAILED = "Calc report and BOQ exports could not be published; the checked revision is unaffected."
 S_SELECT, S_ROUTE, S_CLASH, S_BOQ, S_DOCS = "p3.select_option", "p3.route", "p3.clashes", "p3.boq", "p3.docs"
 
 
@@ -196,7 +197,9 @@ def _fix(ctx: PhaseContext, n: int, rev: str, fail_ids: list[str]) -> StepOutput
             ctx.emit(step, "checker", "status", f"No engine candidate clears {f.id}")
             continue
         template = f"{AGENT_LABEL.get(owner, owner)} chose {chosen.id} for {f.id}: {criterion(owner)}."
-        text = (sanitize(reason, allowed | {chosen.id, *(c.id for c in rejected)}, template) if reason else template)
+        # placeholders=False: the stored reason is shown raw (FindingDrawer, calc report), never filled.
+        text = (sanitize(reason, allowed | {chosen.id, *(c.id for c in rejected)}, template, placeholders=False)
+                if reason else template)
         ctx.emit(step, owner, "message", text, payload={"finding_id": f.id, "candidate": chosen.id})
         alt = preferred_candidate(owner, rejected) if rejected else None
         f2 = f.model_copy(update={
@@ -219,6 +222,7 @@ def _docs(ctx: PhaseContext, chk: dict, iterations: int, stop_reason: str | None
     store, ws = ctx.deps.store, ctx.ws_path
     rev_doc = store.get_doc(f"{ws}/revisions/{chk['rev']}")
     rev, model = Revision.model_validate(rev_doc), load_revision_model(ctx.deps, ctx.uid, rev_doc)
+    stored_ledger = len(rev.ledger)  # entries appended below are written back to the revision doc at the end
     findings = [Finding.model_validate(d) for d in store.list_docs(f"{ws}/revisions/{rev.id}/findings")]
     fixes = [Finding.model_validate(d) for r in run_revisions(store, ctx.uid, ctx.rid)
              for d in store.list_docs(f"{ws}/revisions/{r['id']}/findings") if d.get("fix")]
@@ -242,7 +246,6 @@ def _docs(ctx: PhaseContext, chk: dict, iterations: int, stop_reason: str | None
         # revision's own stored ledger (the audit trail of record) and write that revision doc again.
         rev = rev.model_copy(update={"ledger": [*rev.ledger, LedgerEntry(kind="did", agent="checker",
                                                                          text=stop_text)]})
-        extra_docs.append((f"{ws}/revisions/{rev.id}", rev.model_dump(mode="json")))
     msg = (f"Revision {rev.id}: {len(findings)} checks, {len(chk['fail_ids'])} failing, {len(fixes)} fixes applied. "
            f"Report sections: {', '.join(SECTIONS)}. "
            'Reply with JSON {"order": [section ids], "summary": one sentence for the review page}.')
@@ -251,18 +254,25 @@ def _docs(ctx: PhaseContext, chk: dict, iterations: int, stop_reason: str | None
     order += [x for x in SECTIONS if x not in order]
     summary = ctx.narrate(S_DOCS, "docs", reply.summary if reply else "", ctx.allowed(model), "the calc report",
                           template=f"Docs prepared the calc report and BOQ for {rev.id}.")
+    # P2 final fix wave (Task 18 minor): the arguments are built OUTSIDE the try, so a real bug -- missing
+    # p1.intake outputs, a malformed option or PR line -- fails the step (resumable, visible) instead of being
+    # reported as an export failure.
+    args = dict(uid=ctx.uid, rev=rev, findings=findings, fixes=fixes,
+                brief=DesignBrief.model_validate(ctx.outputs("p1.intake")["brief"]),
+                options=[TopologyOption.model_validate(o) for o in ctx.run().get("options", [])],
+                pr_lines=[PRLine.model_validate(x) for x in chk["pr_lines"]], order=order, summary=summary)
     try:
-        files = (ctx.deps.exporter or StubExporter()).export(
-            uid=ctx.uid, rev=rev, findings=findings, fixes=fixes,
-            brief=DesignBrief.model_validate(ctx.outputs("p1.intake")["brief"]),
-            options=[TopologyOption.model_validate(o) for o in ctx.run().get("options", [])],
-            pr_lines=[PRLine.model_validate(x) for x in chk["pr_lines"]], order=order, summary=summary)
+        files = (ctx.deps.exporter or StubExporter()).export(**args)
     except Exception:
         # A broken export (e.g. an unreachable blob store) must not fail the whole run: the review
         # gate still needs to be reachable. Degrade to a "failed" file status per file (rulings
-        # R13/R26 cover this status value on the export artifact/status event).
+        # R13/R26 cover this status value on the export artifact/status event), and say so on the
+        # audit trail: the run's ledger events and the final revision's own stored ledger.
         log.exception("docs export failed for revision %s", rev.id)
         files = [{"name": n, "path": None, "status": "failed"} for n in ("calc-report.pdf", "boq.csv")]
+        rev = rev.model_copy(update={"ledger": [*rev.ledger, ctx.ledger(S_DOCS, "docs", "did", EXPORT_FAILED)]})
+    if len(rev.ledger) > stored_ledger:
+        extra_docs.append((f"{ws}/revisions/{rev.id}", rev.model_dump(mode="json")))
     for f in files:
         if f.get("path"):  # storage path, served by GET /api/files/{path}
             ctx.emit(S_DOCS, "docs", "artifact", f"{f['name']} {f['status']}",

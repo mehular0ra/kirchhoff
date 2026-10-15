@@ -9,7 +9,7 @@ from kirchhoff.intake.brief import build_brief
 from kirchhoff.intake.drawing import DxfSummary, compare_drawing, parse_dxf_geometry
 from kirchhoff.intake.extract import extract_tender, read_drawing
 from kirchhoff.intake.score import load_ground_truth, score_intake
-from kirchhoff.intake.verify import PdfText, verify_quote
+from kirchhoff.intake.verify import PdfText, clause_on_page, verify_quote
 
 from .policy import PLAN_TEMPLATE
 from .steps import PhaseContext, PhaseOutcome, StepOutput, run_step
@@ -31,6 +31,9 @@ def run_p1(ctx: PhaseContext) -> PhaseOutcome:
 
 def _intake(ctx: PhaseContext) -> StepOutput:
     files = ctx.deps.inputs()
+    # P2 final fix wave (Important 4): the ERP ids are fetched BEFORE the 60-240 s intake call, so an ERP
+    # outage with no cached snapshot fails the step fast (resumable) instead of after the tokens are spent.
+    allowed = ctx.allowed()
     ctx.emit(S_INTAKE, "intake", "status", "Reading the tender and the hall drawing")
     with ThreadPoolExecutor(2) as pool:
         f_tender = pool.submit(extract_tender, ctx.deps.runner, files.tender_pdf.read_bytes())
@@ -42,7 +45,6 @@ def _intake(ctx: PhaseContext) -> StepOutput:
             drawing, r_drawing = None, None
             ctx.emit(S_INTAKE, "intake", "status", "Drawing could not be read", detail=type(exc).__name__)
     ctx.add_tokens(r_tender, r_drawing)
-    allowed = ctx.allowed()
     with PdfText(files.tender_pdf) as pdf:
         def verify(page, quote, value, unit=None):
             chk = verify_quote(pdf, page, quote, value, unit)
@@ -57,7 +59,7 @@ def _intake(ctx: PhaseContext) -> StepOutput:
                        "did not report this verified clause conflict itself.")
 
         brief = build_brief(ctx.run().get("project_id", "hall-b"), DOC_ID, extraction, verify, {}, allowed,
-                            on_backstop)
+                            on_backstop, clause_printed=lambda page, label: clause_on_page(pdf, page, label))
     def parse_dxf_geometry_tool() -> dict:
         """Parse the hall DXF: grid labels and overall size."""
         return parse_dxf_geometry(files.dxf).model_dump(mode="json")
@@ -85,7 +87,8 @@ def _intake(ctx: PhaseContext) -> StepOutput:
 
 
 def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
-    reqs = "\n".join(f"- {r.id} cites {r.citation.clause}" for r in brief.requirements if r.verified)
+    reqs = "\n".join(f"- {r.id} cites {r.citation.clause or 'an unlabelled clause'}"
+                     for r in brief.requirements if r.verified)
     qs = "\n".join(f"- {q.id}: {q.text} Options: {', '.join(q.options)}. Default: {q.default_resolution}."
                    for q in brief.open_questions) or "- none"
     msg = (f"Design brief for an AI data hall.\nVerified requirements:\n{reqs}\nOpen questions:\n{qs}\n"
@@ -102,5 +105,6 @@ def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
     plan = [PlanStep(id=sid, agent=agent, title=title).model_dump() for sid, agent, title in PLAN_TEMPLATE]
     ctx.emit(S_PLAN, "orchestrator", "plan", "Plan ready", payload={"plan": plan, "open_questions": questions})
     if reply:
-        ctx.narrate(S_PLAN, "orchestrator", reply.summary, ctx.allowed(), "planning")
+        ctx.narrate(S_PLAN, "orchestrator", reply.summary, ctx.allowed(extra=[q.id for q in brief.open_questions]),
+                    "planning")
     return StepOutput(data={"plan": plan, "open_questions": questions})

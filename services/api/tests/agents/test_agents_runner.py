@@ -92,3 +92,22 @@ def test_with_retries_retries_retryable_errors_only():
         with_retries(lambda: (_ for _ in ()).throw(ValueError("x")), sleep=lambda s: None)
     with pytest.raises(Coded):
         with_retries(lambda: (_ for _ in ()).throw(Coded(503)), attempts=2, sleep=lambda s: None)
+
+
+def test_the_repair_prompt_carries_a_whole_intake_sized_reply():
+    """P2 final fix wave (Minor 6): the intake reply is about 6-10 KB with `contradictions` last; a 4,000
+    character excerpt cut the repair off before them, so the repaired extraction lost the §4.2/App. B pair."""
+    prompts: list[str] = []
+
+    class Spy:
+        def run(self, spec, key, message, tools=(), attachments=()):
+            from kirchhoff.agents.runner import AgentResult
+
+            prompts.append(message)
+            if key.endswith("#repair"):
+                return AgentResult('{"candidate_id": "c1", "reason": "ok"}')
+            return AgentResult('{"candidate_id": 7, "padding": "' + "x" * 9_500 + '", "reason": "TAIL-MARKER"}')
+
+    parsed, _ = run_json(Spy(), SPEC, "k", "msg", Choice)
+    assert parsed.candidate_id == "c1"
+    assert "TAIL-MARKER" in prompts[1]

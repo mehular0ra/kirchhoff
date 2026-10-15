@@ -87,6 +87,9 @@ class FailingExporter:
         raise RuntimeError("blob store is unreachable")
 
 
+EXPORT_FAILED = "Calc report and BOQ exports could not be published; the checked revision is unaffected."
+
+
 def test_docs_export_failure_degrades_to_a_failed_status_without_failing_the_run(p123, make_run):
     p123.exporter = FailingExporter()
     rid = _to_review(p123, make_run)
@@ -97,6 +100,30 @@ def test_docs_export_failure_degrades_to_a_failed_status_without_failing_the_run
     evs = _events(p123, rid)
     assert [e["title"] for e in evs if e["step"] == "p3.docs" and e["kind"] == "status"] == \
         ["calc-report.pdf failed", "boq.csv failed"]
+    # P2 final fix wave (Task 18 minor): the degraded export is on the audit trail, in the run's ledger events
+    # and in the final revision's own stored ledger (the sign-off record).
+    assert [e["title"] for e in evs if e["step"] == "p3.docs" and e["kind"] == "ledger"] == [EXPORT_FAILED]
+    assert {"kind": "did", "agent": "docs", "text": EXPORT_FAILED} in latest_revision(p123.store, "u1", rid)["ledger"]
+
+
+def test_a_successful_export_writes_no_failure_ledger_line(p123, make_run):
+    rid = _to_review(p123, make_run)
+    assert not [e for e in _events(p123, rid) if e["step"] == "p3.docs" and e["kind"] == "ledger"]
+    assert all(e["text"] != EXPORT_FAILED for e in latest_revision(p123.store, "u1", rid)["ledger"])
+
+
+def test_missing_intake_outputs_fail_the_docs_step_instead_of_posing_as_an_export_failure(p123, make_run):
+    """P2 final fix wave (Task 18 minor): the export arguments are built BEFORE the try, so a real bug (here the
+    committed p1.intake outputs are gone) fails the step -- resumable, and visible -- instead of being reported
+    as "calc-report.pdf failed"."""
+    rid = make_run()
+    start_phase(p123, "u1", rid, "p1")
+    resume_from_gate(p123, "u1", rid, "plan")
+    p123.store.delete_tree(f"{run_path('u1', rid)}/outputs/p1.intake")
+    resume_from_gate(p123, "u1", rid, "option", {"selected_option": "2N"})
+    assert _run(p123, rid)["status"] == "failed"
+    assert p123.store.get_doc(f"{run_path('u1', rid)}/steps/p3.docs")["status"] == "failed"
+    assert not [e for e in _events(p123, rid) if e["step"] == "p3.docs" and e["title"].endswith(" failed")]
 
 
 def test_tender_refs_get_pdfplumber_boxes(deps):
@@ -115,6 +142,29 @@ def test_auto_picks_2n_by_the_resolved_clause(p123, make_run):
     run = _run(p123, rid)
     assert (run["gate"], run["selected_option"]) == ("review", "2N")
     assert any(e["title"].startswith("Auto mode chose 2N") for e in _events(p123, rid) if e["kind"] == "ledger")
+
+
+def test_auto_picks_2n_when_the_model_writes_appendix_b_first(p123, make_run):
+    """P2 final fix wave, Important 2: the tender prints "App. B Appendix B: ..." on page 7, so the model may
+    label the appendix "Appendix B" and list it first. The default must still come from the verified §4.2
+    quote (2N), or choose_option skips the topology filter and Auto mode picks the cheaper DR."""
+    import copy
+
+    from kirchhoff.runs.fakes import FAKE_REPLIES
+
+    reply = copy.deepcopy(FAKE_REPLIES["intake:p1.extract"])
+    reply["text"]["contradictions"] = [{
+        "topic": "redundancy", "clause_a": "Appendix B", "page_a": 7,
+        "quote_a": "Block or distributed redundancy acceptable", "value_a": "BLOCK or DR",
+        "clause_b": "Section 4.2", "page_b": 4, "quote_b": "The critical power distribution shall be 2N",
+        "value_b": "2N", "summary": "Appendix B accepts block or distributed redundancy."}]
+    p123.runner.replies["intake:p1.extract"] = reply
+    rid = _to_review(p123, make_run, autonomy="auto")
+    run = _run(p123, rid)
+    (q,) = run["open_questions"]
+    assert q["default_resolution"] == q["resolution"] == "2N" and "2N" in q["options"]
+    assert [c["clause"] for c in q["citations"]] == ["App. B", "§4.2"]
+    assert (run["gate"], run["selected_option"]) == ("review", "2N")
 
 
 def test_invalid_agent_choice_falls_back_to_the_stated_criterion(p123, make_run):

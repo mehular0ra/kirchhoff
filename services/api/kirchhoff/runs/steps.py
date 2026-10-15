@@ -130,7 +130,9 @@ class PhaseContext:
 
     def narrate(self, step: str, agent: str, text: str, allowed: Iterable[str], step_title: str,
                 template: str | None = None) -> str:
-        clean = sanitize(text, allowed, template or f"{AGENT_LABEL.get(agent, agent)} completed {step_title}.")
+        # placeholders=False: nothing fills narration, so a {value} would be shown (and captured) literally.
+        clean = sanitize(text, allowed, template or f"{AGENT_LABEL.get(agent, agent)} completed {step_title}.",
+                         placeholders=False)
         self.emit(step, agent, "message", clean)
         return clean
 

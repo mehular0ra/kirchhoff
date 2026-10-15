@@ -15,6 +15,9 @@ MODEL = "gemini-3.8-flash"
 # Gemini 3 thinking levels. If Vertex rejects "medium" (see test_medium_thinking_level_is_accepted), use "high".
 THINKING_LEVELS = {"low": "low", "medium": "medium"}
 RETRYABLE_CODES = {429, 500, 502, 503, 504}
+# P2 final fix wave (Minor 6): the repair prompt quotes the previous reply. The intake reply is about 6-10 KB with
+# `contradictions` last, so the old 4,000-character excerpt cut them off and the repair dropped the §4.2/App. B pair.
+REPAIR_EXCERPT_CHARS = 40_000
 RETRYABLE_NAMES = {"ResourceExhausted", "ServiceUnavailable", "InternalServerError", "TooManyRequests",
                    "ServerError"}
 
@@ -137,7 +140,7 @@ def run_json(runner: AgentRunner, spec: AgentSpec, key: str, message: str, schem
     except (ValueError, ValidationError) as exc:
         prompt = (f"Your previous reply was not valid JSON for this schema:\n"
                   f"{json.dumps(schema.model_json_schema())}\nError: {str(exc)[:400]}\n"
-                  f"Previous reply:\n{res.text[:4000]}\nReply with only the corrected JSON.")
+                  f"Previous reply:\n{res.text[:REPAIR_EXCERPT_CHARS]}\nReply with only the corrected JSON.")
         fixed = runner.run(spec, f"{key}#repair", prompt)
         merged = AgentResult(fixed.text, res.tool_calls + fixed.tool_calls, res.tokens_in + fixed.tokens_in,
                              res.tokens_out + fixed.tokens_out)

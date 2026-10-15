@@ -302,3 +302,21 @@ def test_backoff_grows_and_caps_at_5s_recorded_without_real_timers():
     for _ in range(MAX_FLUSH_RETRIES + 1):
         w._timer_flush()  # drive the retry sequence directly; no sleeping
     assert delays == [2.0, 4.0, 5.0, 5.0, 5.0]  # 1*2**n for n=1..5, capped at MAX_BACKOFF_S
+
+
+def test_a_trailing_flush_failing_after_close_logs_a_warning_not_an_error(caplog):
+    """P2 final fix wave (Task 6 minor): after close() the events are requeued, not lost -- close() itself
+    flushes (or raises) -- so a failed trailing flush is a WARNING, not a false ERROR alarm during judging."""
+    import logging
+
+    store = FlakyStore(fails=2)
+    w = EventWriter(store, RP, phase="p1", step="p1.a", flush_interval_s=999)
+    w.emit("system", "status", "x")
+    with pytest.raises(RuntimeError, match="firestore unavailable"):
+        w.close()  # close()'s own flush fails; the event stays queued
+    with caplog.at_level(logging.WARNING, logger="kirchhoff"):
+        w._timer_flush()  # a trailing flush that also fails after close()
+    (rec,) = [r for r in caplog.records if "after close()" in r.getMessage()]
+    assert rec.levelno == logging.WARNING and "close() will flush the requeued events" in rec.getMessage()
+    w.close()  # the store has recovered: close() delivers the requeued event
+    assert [d["seq"] for d in store.list_docs(f"{RP}/events")] == [1]

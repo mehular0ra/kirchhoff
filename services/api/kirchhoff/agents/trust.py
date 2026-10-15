@@ -6,9 +6,25 @@ from collections.abc import Iterable
 from kirchhoff.contracts import DesignModel
 
 TOPOLOGY_TOKENS = ("4-to-make-3", "3 + 1", "N+1", "2N")
-_ALWAYS = [r"R\d{2}b?", r"§\d+(?:\.\d+)*", r"\{[a-z_]+\}"]
+_ALWAYS = [r"R\d{2}b?", r"§\d+(?:\.\d+)*"]
 _SENTENCES = re.compile(r"(?<=[.!?])(?<!App\.)\s+")
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
+# The only placeholders any caller fills (fill_finding, from the finding record). Every other brace -- an
+# unfillable name such as {rack_kw}, a malformed "{ value }", or any brace at all when the caller never fills
+# placeholders (narration, fix reasons, the voice answer, question text) -- would reach the user literally.
+_FILLABLE = re.compile(r"\{(?:value|limit|unit)\}")
+_BRACE = re.compile(r"[{}]")
+# P2 final fix wave (Important 1): a quantity written in words is still an LLM-written number (spec §6.3:
+# every number displayed comes from the engine), so "two point one six percent" fails like "2.16%". A bare
+# "one" stays allowed ("the one with the largest margin"), unless it reads as a quantity ("one point five",
+# "one hundred", "one week"); ordinals ("fourth row") are not quantities.
+_CARDINALS = ("zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
+              "seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety")
+_ONE_UNITS = (r"point|hundred|thousand|million|billion|percent|per\s+cent|k[wv]|kva|mva|mw|ka|kpa|kilowatts?|"
+              r"megawatts?|volts?|amps?|amperes?|weeks?|days?|hours?|minutes?|metres?|meters?|mm|degrees?")
+_NUMBER_WORDS = re.compile(
+    rf"\b(?:{_CARDINALS}|hundreds?|thousands?|millions?|billions?|dozens?|half|twice|thrice|percent|per\s+cent)\b"
+    rf"|\bone\s+(?:{_ONE_UNITS})\b|\bpoint\s+one\b", re.IGNORECASE)
 
 
 def _has_digit(s: str) -> bool:
@@ -23,11 +39,24 @@ def _pattern(allowed_ids: Iterable[str]) -> re.Pattern:
     return re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(alts) + r")(?![A-Za-z0-9])")
 
 
-def is_clean(text: str, allowed_ids: Iterable[str]) -> bool:
-    return not _has_digit(_pattern(allowed_ids).sub("", text or ""))
+def _offends(text: str, pat: re.Pattern, placeholders: bool) -> bool:
+    """True when `text` would show the user a number the engine did not produce: a digit outside the
+    allowlisted record tokens, a quantity in words, or a brace that nothing will fill."""
+    rest = pat.sub(" ", text)
+    if placeholders:
+        rest = _FILLABLE.sub(" ", rest)
+    return _has_digit(rest) or bool(_BRACE.search(rest)) or bool(_NUMBER_WORDS.search(rest))
 
 
-def sanitize(text: str, allowed_ids: Iterable[str], template: str) -> str:
+def is_clean(text: str, allowed_ids: Iterable[str], placeholders: bool = False) -> bool:
+    return not _offends(text or "", _pattern(allowed_ids), placeholders)
+
+
+def sanitize(text: str, allowed_ids: Iterable[str], template: str, placeholders: bool = False) -> str:
+    """Replaces every offending sentence of LLM `text` with `template` (once). `placeholders=True` lets
+    {value}, {limit} and {unit} through, for the one caller that fills them afterwards from the engine's
+    finding record (explain_text, via fill_finding); every other surface keeps the default False, because an
+    unfilled placeholder would be shown, or spoken by browser speech, literally."""
     text = " ".join((text or "").split())
     if not text:
         return template
@@ -35,7 +64,7 @@ def sanitize(text: str, allowed_ids: Iterable[str], template: str) -> str:
     out: list[str] = []
     replaced = False
     for sentence in _SENTENCES.split(text):
-        if _has_digit(pat.sub("", sentence)):
+        if _offends(sentence, pat, placeholders):
             if not replaced:
                 out.append(template)
                 replaced = True

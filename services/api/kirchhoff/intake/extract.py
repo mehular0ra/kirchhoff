@@ -1,15 +1,20 @@
 """Gemini native PDF reading (spec §6.3). Output is untrusted until verify_quote accepts it."""
-from pydantic import BaseModel
+import logging
+from typing import Any
+
+from pydantic import BaseModel, ValidationError, field_validator
 
 from kirchhoff.agents.runner import AgentResult, AgentRunner, Attachment, run_json
 from kirchhoff.agents.specs import INTAKE, INTAKE_DRAWING
 
 from .drawing import DrawingRead
 
+log = logging.getLogger("kirchhoff.intake")
+
 
 class ExtractedRequirement(BaseModel):
     key: str
-    clause: str
+    clause: str | None = None  # untrusted free text; brief.py normalises it and checks it is printed on the page
     page: int
     verbatim_quote: str
     value: float | str | None = None
@@ -17,21 +22,48 @@ class ExtractedRequirement(BaseModel):
 
 
 class ExtractedContradiction(BaseModel):
-    topic: str
-    clause_a: str
+    # Only the pages and quotes are needed to verify a contradiction; every other field is free text that
+    # brief.py normalises or replaces, so a missing one never costs the pair.
+    topic: str = ""
+    clause_a: str | None = None
     page_a: int
     quote_a: str
-    value_a: str
-    clause_b: str
+    value_a: str | None = None
+    clause_b: str | None = None
     page_b: int
     quote_b: str
-    value_b: str
-    summary: str
+    value_b: str | None = None
+    summary: str | None = None
+
+
+def _valid_items(items: Any, model: type[BaseModel], field: str) -> Any:
+    """P2 final fix wave (Minor 6): one malformed item (say `"page": "four"`) is dropped on its own instead of
+    failing the whole extraction, which forced a lossy JSON repair. A field that is not a list still fails."""
+    if not isinstance(items, list):
+        return items
+    kept = []
+    for i, item in enumerate(items):
+        try:
+            kept.append(model.model_validate(item))
+        except ValidationError as exc:
+            log.warning("intake: dropped %s[%d]: %s", field, i, "; ".join(
+                f"{'.'.join(map(str, e['loc']))}: {e['type']}" for e in exc.errors()))
+    return kept
 
 
 class TenderExtraction(BaseModel):
     requirements: list[ExtractedRequirement]
     contradictions: list[ExtractedContradiction] = []
+
+    @field_validator("requirements", mode="before")
+    @classmethod
+    def _requirements(cls, v: Any) -> Any:
+        return _valid_items(v, ExtractedRequirement, "requirements")
+
+    @field_validator("contradictions", mode="before")
+    @classmethod
+    def _contradictions(cls, v: Any) -> Any:
+        return _valid_items(v, ExtractedContradiction, "contradictions")
 
 
 TENDER_PROMPT = """Read the attached tender PDF. Pages are numbered from 1 in PDF order.
