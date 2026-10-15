@@ -1943,7 +1943,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ### Task 6: Dedicated runtime service account, two-service deploy, sandbox seed, smoke test (Wed 14)
 
-P0 ruling R8 and final review M-12: both services run as `kirchhoff-runtime@ordinal-mep.iam.gserviceaccount.com` with only what they need — Firestore (`roles/datastore.user`), Vertex AI (`roles/aiplatform.user`), the Firebase bucket (`roles/storage.objectAdmin` on the bucket only), logs (`roles/logging.logWriter`), `roles/iam.serviceAccountTokenCreator` on itself (signed URLs through IAM `signBlob`, which needs the IAM Credentials API), and `roles/run.invoker` on kirchhoff-enterprise. Firebase ID-token and App Check verification use public keys and need no role. This replaces P2 Task 18 Step 5 (the compute-SA grant).
+P0 ruling R8 and final review M-12: both services run as `kirchhoff-runtime@ordinal-mep.iam.gserviceaccount.com` with only what they need — Firestore (`roles/datastore.user`), Vertex AI (`roles/aiplatform.user`), the Firebase bucket (`roles/storage.objectAdmin` on the bucket only), logs (`roles/logging.logWriter`), `roles/iam.serviceAccountTokenCreator` on itself (signed URLs through IAM `signBlob`, which needs the IAM Credentials API), and `roles/run.invoker` on kirchhoff-enterprise. Firebase ID-token and App Check verification use public keys and need no role. This replaces P2 Task 18 Step 5 (the compute-SA grant). **Added after the 15 Oct live dry run:** `roles/serviceusage.serviceUsageConsumer` on the project. Both env files pin `GOOGLE_CLOUD_QUOTA_PROJECT`, so google-auth sends `x-goog-user-project: ordinal-mep` on every call and the runtime account needs `serviceusage.services.use` there; without it the first Storage upload returned 403 and the run failed in p3. `test_a_pinned_quota_project_needs_the_runtime_account_to_be_allowed_to_bill_it` guards the pairing.
 
 **Files:**
 - Create: `infra/iam_setup.sh`, `infra/api.env.yaml`, `infra/enterprise.env.yaml`, `infra/live_runs.py`
@@ -2236,7 +2236,7 @@ gcloud storage buckets get-iam-policy gs://ordinal-mep.firebasestorage.app --pro
 gcloud iam service-accounts get-iam-policy kirchhoff-runtime@ordinal-mep.iam.gserviceaccount.com --project=ordinal-mep \
   --format='value(bindings.role)'
 ```
-Expected: `roles/aiplatform.user`, `roles/datastore.user`, `roles/logging.logWriter`; a `serviceAccount:kirchhoff-runtime@…` member under `roles/storage.objectAdmin`; `roles/iam.serviceAccountTokenCreator`.
+Expected: `roles/aiplatform.user`, `roles/datastore.user`, `roles/logging.logWriter`; `roles/serviceusage.serviceUsageConsumer`; a `serviceAccount:kirchhoff-runtime@…` member under `roles/storage.objectAdmin`; `roles/iam.serviceAccountTokenCreator`.
 
 - [ ] **Step 7: Load the sandbox seed into Firestore**
 
