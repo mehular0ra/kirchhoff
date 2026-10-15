@@ -69,7 +69,7 @@ def test_no_leak_reaches_narration_fix_reasons_docs_summary_or_the_pdf(p123, mak
                                                       "default pitch.")
     assert _message(p123, rid, "p2.power_options") == ("Power compared 3 topology options (2N, BLOCK, DR) "
                                                         "and offered 3 to the engineer.")
-    assert _message(p123, rid, "p2.annotate_options") == ("Procurement checked lead times for 3 catalogue "
+    assert _message(p123, rid, "p2.annotate_options") == ("Procurement checked lead times for 4 catalogue "
                                                            "items across 3 options.")
     assert _message(p123, rid, "p3.route") == ("Layout routed 2 connections, including 2 feeder busways, "
                                                "with the engine's default candidate routes.")

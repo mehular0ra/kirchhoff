@@ -158,9 +158,9 @@ def test_cooling_narration_falls_back_to_the_engine_record_template(p12, make_ru
 
 def test_procurement_narration_falls_back_to_the_engine_record_template(p12, make_run):
     """Procurement's own narration slips a number word ("all three options"); the fallback must come from
-    the engine's annotate_options output -- the DISTINCT catalogue ids across the 3 options' equipment
-    (TX-3150, UPS-500, BW-1600 in the fake; shared ids like BW-1600 on two busways count once), which is
-    the field R15 and boq_quantities key lead times on -- not a count of equipment instances."""
+    the engine's own boq_quantities keys -- the SAME keys R15 itself iterates -- unioned across the 3
+    annotated options (TX-3150, UPS-500, BW-1600, CDU-1200 in the fake; shared ids like BW-1600 on two
+    busways count once), not a hand-rolled count of equipment ids (which misses the CDU catalogue id)."""
     p12.runner.replies["procurement:p2.annotate_options"] = {
         "tool_calls": [{"name": "annotate_options", "args": {}}],
         "text": "All three options now ship within the tender's lead-time limit."}
@@ -168,7 +168,7 @@ def test_procurement_narration_falls_back_to_the_engine_record_template(p12, mak
     start_phase(p12, "u1", rid, "p1")
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "procurement"]
-    assert msgs == ["Procurement checked lead times for 3 catalogue items across 3 options."]
+    assert msgs == ["Procurement checked lead times for 4 catalogue items across 3 options."]
 
 
 def test_power_recheck_narration_falls_back_to_the_engine_record_template(p12, make_run):
