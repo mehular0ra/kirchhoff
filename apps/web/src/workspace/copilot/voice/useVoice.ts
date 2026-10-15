@@ -10,9 +10,11 @@ export type VoiceMode = 'off' | 'connecting' | 'live' | 'ptt' | 'recording' | 't
 const LIVE_TIMEOUT_MS = 8000
 
 export function useVoice(opts: {
+  /** What push-to-talk sends as revision_ref: the what-if revision (head unless picked in the revision bar, #37). */
   revisionRef: string | null
   onToolCall: (call: LiveVoiceCall) => Promise<Record<string, unknown>>
-  onPushToTalk: (res: VoiceResponse) => void
+  /** `revisionRef` is the one this answer was asked on, so the answer can name that revision. */
+  onPushToTalk: (res: VoiceResponse, revisionRef: string) => void
 }) {
   const { api, startLiveVoice } = useServices()
   const [mode, setMode] = useState<VoiceMode>('off')
@@ -83,8 +85,9 @@ export function useVoice(opts: {
     setMode('thinking')
     try {
       const blob = await r.stop()
-      if (!optsRef.current.revisionRef) throw new Error('no revision')
-      optsRef.current.onPushToTalk(await api.voice(blob, optsRef.current.revisionRef))
+      const ref = optsRef.current.revisionRef
+      if (!ref) throw new Error('no revision')
+      optsRef.current.onPushToTalk(await api.voice(blob, ref), ref)
     } catch (e) {
       // A transient model error (503 voice_unavailable, issue #36) is worth retrying; say so.
       setNote(

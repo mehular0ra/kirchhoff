@@ -1,13 +1,14 @@
 // What-if (spec §6.4): precomputed results from the static bundle first (works with the backend
-// down), then POST /api/what-if. Results are shown, never saved.
+// down), then POST /api/what-if. Results are shown, never saved. Every what-if (typed, chip or voice)
+// runs on the head revision unless the visitor picked one in the revision bar (#37).
 import { useState } from 'react'
 import { fmtQty } from '@/lib/format'
-import { findWhatIf, sameInput } from '@/lib/select'
-import type { WhatIfParam, WhatIfResult } from '@/lib/types'
+import { findWhatIf, latestRevision, revisionById, revisionRef, sameInput, whatIfRevision } from '@/lib/select'
+import type { Revision, WhatIfParam, WhatIfResult } from '@/lib/types'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { ApiError, describeApiError } from '@/services/apiClient'
 import { useServices } from '@/services/services'
-import { useUi } from '@/store/ui'
+import { useUi, type WhatIfView } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
 
 export interface WhatIfChip {
@@ -61,15 +62,42 @@ export function chipsFor(precomputed: WhatIfResult[]): WhatIfChip[] {
 
 const UNREACHABLE_TEXT = 'The engine is unreachable right now; the sample hall’s precomputed chips still work.'
 
+/** A what-if result and the revision it was computed on (the answer names it, #37). */
+export interface WhatIfRun {
+  result: WhatIfResult
+  rev: Revision
+}
+
 export function useWhatIf() {
   const view = useWorkspace()
   const { api } = useServices()
   const setWhatIf = useUi((s) => s.setWhatIf)
+  const picked = useUi((s) => s.viewRevSource === 'user')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const rev = whatIfRevision(view.bundle, view.rev, picked)
+  /** The revision_ref every what-if request (and push-to-talk) sends; precomputed seed results are keyed by it. */
+  const revRef = rev ? revisionRef(view.bundle, rev.id, view.source) : null
 
-  const run = async (param: WhatIfParam, value: number): Promise<WhatIfResult | null> => {
-    if (!view.revRef) return null
+  /**
+   * Puts `on` on screen, so the overlay is drawn on the revision it was computed for (M13). After an automatic
+   * switch (D1 moved to r1) that is a move back to the head: automatic too, so it never counts as a pick.
+   */
+  const bringOnScreen = (on: Revision) => {
+    const ui = useUi.getState()
+    const shown = revisionById(view.bundle, ui.viewRev) ?? latestRevision(view.bundle)
+    if (shown?.id === on.id) return
+    ui.setViewRev(on.id === latestRevision(view.bundle)?.id ? null : on.id, { source: 'auto' })
+  }
+
+  /** Shows a result computed elsewhere (push-to-talk's /api/voice) on the revision it was computed for. */
+  const show = (on: Revision, w: WhatIfView) => {
+    bringOnScreen(on)
+    setWhatIf(w)
+  }
+
+  const run = async (param: WhatIfParam, value: number): Promise<WhatIfRun | null> => {
+    if (!rev || !revRef) return null
     setError(null)
     if (paramOutOfRange(param, value)) {
       const [lo, hi] = PARAM_BOUNDS[param]
@@ -79,18 +107,21 @@ export function useWhatIf() {
     }
     const ui = useUi.getState()
     if (ui.tab === 'options' || ui.tab === 'docs') ui.setTab('sld')
-    const pre = findWhatIf(view.bundle, view.revRef, param, value)
+    bringOnScreen(rev)
+    // Seed what-ifs are matched on the exact revision_ref (Hall A's are all seed:hall-a@r2, the head), so a
+    // revision picked in the revision bar never borrows the head's numbers: it asks the engine.
+    const pre = findWhatIf(view.bundle, revRef, param, value)
     if (pre) {
       setWhatIf({ result: pre, origin: 'precomputed' })
       completeItem('run_whatif')
-      return pre
+      return { result: pre, rev }
     }
     setLoading(true)
     try {
-      const result = await api.whatIf(view.revRef, param, value)
+      const result = await api.whatIf(revRef, param, value)
       setWhatIf({ result, origin: 'engine' })
       completeItem('run_whatif')
-      return result
+      return { result, rev }
     } catch (e) {
       setError(e instanceof ApiError && e.status === 422 ? describeApiError(e) : UNREACHABLE_TEXT)
       return null
@@ -98,5 +129,5 @@ export function useWhatIf() {
       setLoading(false)
     }
   }
-  return { run, loading, error, clear: () => setWhatIf(null) }
+  return { run, show, rev, revRef, loading, error, clear: () => setWhatIf(null) }
 }

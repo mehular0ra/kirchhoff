@@ -4,22 +4,28 @@
 // (the engine's own explanation, or /api/explain's answer) is passed through fillPlaceholders,
 // the same digit-insertion mechanism FindingDrawer.tsx already uses for displaying finding text.
 import { fillPlaceholders, fmtKeyValue, fmtQty } from '@/lib/format'
-import { findingsFor, parentRevision, revisionRef } from '@/lib/select'
+import { findingsFor, parentRevision, revisionLabel, revisionRef } from '@/lib/select'
 import { statusRank } from '@/lib/status'
-import type { Finding, Revision, WhatIfParam, WhatIfResult } from '@/lib/types'
+import type { Finding, Revision, WhatIfParam } from '@/lib/types'
 import type { ApiClient } from '@/services/apiClient'
+import type { ViewRevSource } from '@/store/ui'
 import { readFix } from '../finding/fixView'
 import type { WorkspaceView } from '../WorkspaceContext'
+import type { WhatIfRun } from './useWhatIf'
 
 export interface ToolContext {
   view: WorkspaceView
   api: ApiClient
-  runWhatIf: (param: WhatIfParam, value: number) => Promise<WhatIfResult | null>
+  /** Runs on the head revision unless one was picked in the revision bar (#37); says which it ran on. */
+  runWhatIf: (param: WhatIfParam, value: number) => Promise<WhatIfRun | null>
   /** Focuses the element; false when no canvas draws it (R12 "BOQ"), so the answer says so. */
   focus: (id: string) => boolean
   openFinding: (id: string) => void
-  /** Switches the workspace to another revision (the "why" answer opens the revision where the check failed, D1). */
-  setViewRev: (rev: string) => void
+  /**
+   * Switches the workspace to another revision (the "why" answer opens the revision where the check failed, D1).
+   * Always an automatic switch: it is not a revision-bar pick, so later what-ifs stay on the head (#37).
+   */
+  setViewRev: (rev: string, opts: { source: ViewRevSource }) => void
 }
 
 export interface ToolOutcome {
@@ -83,18 +89,24 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     const param = String(args.param) as WhatIfParam
     const value = Number(args.value)
     if (!WHAT_IF_PARAMS.includes(param) || !Number.isFinite(value)) return { summary: 'That what-if is not supported.', data: { error: 'unsupported' } }
-    const r = await ctx.runWhatIf(param, value)
-    if (!r) return { summary: 'The engine is unreachable for that what-if.', data: { error: 'unavailable' } }
+    const ran = await ctx.runWhatIf(param, value)
+    if (!ran) return { summary: 'The engine is unreachable for that what-if.', data: { error: 'unavailable' } }
+    const { result: r, rev } = ran
     const fails = r.findings.filter((f) => f.status === 'fail')
-    const summary = fails.length
-      ? `${fails.length} checks fail: ${fails
-          .slice(0, 4)
-          .map((f) => `${f.rule_id} ${f.element_id} ${fmtQty(f.value ?? null, f.unit)} vs ${fmtQty(f.limit ?? null, f.unit)}`)
-          .join('; ')}`
-      : 'No check fails.'
+    // Names the revision it ran on (#37): "On r2 (signed): 60 checks fail: …", id and status from the bundle.
+    const summary = `On ${revisionLabel(rev)}: ${
+      fails.length
+        ? `${fails.length} checks fail: ${fails
+            .slice(0, 4)
+            .map((f) => `${f.rule_id} ${f.element_id} ${fmtQty(f.value ?? null, f.unit)} vs ${fmtQty(f.limit ?? null, f.unit)}`)
+            .join('; ')}`
+        : 'no check fails.'
+    }`
     return {
       summary,
       data: {
+        revision: rev.id,
+        revision_status: rev.status,
         failing: fails.map((f) => ({ rule: f.rule_id, element: f.element_id, value: f.value, limit: f.limit, unit: f.unit })),
         impact_chain: r.impact_chain,
       },
@@ -108,7 +120,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     if (!located) return { summary: `No finding for ${id || element} in this revision.`, data: { error: 'not_found' } }
     const { finding, rev } = located
     const elsewhere = !!rev && rev.id !== ctx.view.rev?.id
-    if (elsewhere) ctx.setViewRev(rev.id)
+    if (elsewhere) ctx.setViewRev(rev.id, { source: 'auto' })
     ctx.openFinding(finding.id)
     let text = fillPlaceholders(finding.explanation || finding.title, finding)
     const ref = rev ? revisionRef(ctx.view.bundle, rev.id, ctx.view.source) : ctx.view.revRef

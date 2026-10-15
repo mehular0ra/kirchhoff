@@ -46,3 +46,19 @@ test('residual: focus() with no canvas that draws the element leaves the tab alo
   useUi.getState().focus('BOQ', [])
   expect(useUi.getState().tab).toBe('matrix')
 })
+
+test('#37: only a revision-bar pick ("user") is explicit; automatic switches stay "auto" and keep a same-revision pick', () => {
+  const ui = useUi.getState()
+  expect(useUi.getState().viewRevSource).toBe('auto')
+  ui.setViewRev('r1') // D1, a deep link, a lane event, the cold-open shot
+  expect(useUi.getState()).toMatchObject({ viewRev: 'r1', viewRevSource: 'auto' })
+  ui.setViewRev('r1', { source: 'user' }) // the visitor then clicks r1 in the revision bar: now it is a pick
+  expect(useUi.getState()).toMatchObject({ viewRev: 'r1', viewRevSource: 'user' })
+  ui.setViewRev('r1', { source: 'auto' }) // an automatic move to the revision already picked keeps the pick
+  expect(useUi.getState().viewRevSource).toBe('user')
+  ui.setViewRev('r2', { source: 'auto' }) // an automatic move elsewhere is not a pick
+  expect(useUi.getState()).toMatchObject({ viewRev: 'r2', viewRevSource: 'auto' })
+  ui.setViewRev('r1', { source: 'user' })
+  ui.resetWorkspaceUi()
+  expect(useUi.getState()).toMatchObject({ viewRev: null, viewRevSource: 'auto' })
+})

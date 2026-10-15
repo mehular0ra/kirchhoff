@@ -9,7 +9,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: 'what_if',
     description:
-      'Re-check the current revision with a changed load or limit (engine only, not saved). Returns failing checks and the impact chain.',
+      'Re-check the design with a changed load or limit: the latest revision, or the one the engineer picked (engine only, not saved). Returns the revision, failing checks and the impact chain.',
     parameters: Schema.object({
       properties: {
         param: Schema.enumString({ enum: ['rack_kw', 'liquid_fraction', 'dv_limit_pct', 'tx_loading_cap_pct'] }),
