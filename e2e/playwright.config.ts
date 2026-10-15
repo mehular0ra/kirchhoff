@@ -32,5 +32,9 @@ export default defineConfig({
     { name: 'static', testMatch: /(static|replay-offline|inbox)\.spec\.ts$/, use: desktop },
     { name: 'phone', testMatch: /phone\.spec\.ts$/, use: { ...devices['Pixel 7'] } },
     { name: 'live', testMatch: /live\.spec\.ts$/, use: desktop },
+    // Deck screenshots (issue #17): opt-in, never part of a normal run. See shots/capture.spec.ts.
+    ...(process.env.E2E_SHOTS === '1'
+      ? [{ name: 'shots', testDir: './shots', testMatch: /capture\.spec\.ts$/, use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } } }]
+      : []),
   ],
 })
