@@ -98,7 +98,7 @@ test('Hall B live run through every gate → sign-off → PRs and CRM stage visi
   save()
   await page.goto('/app/integrations')
   const latest = page.getByRole('region', { name: 'Latest handoff' })
-  await expect(latest).toContainText('hall-b · revision')
+  await expect(latest).toContainText(`Hall B · ${runId}-r2`) // the page shows the project name and the revision id (UX-2)
   await expect(latest).toContainText('Hall B design-build')
   await expect(page.getByRole('status').filter({ hasText: 'showing cached snapshot' })).toHaveCount(0)
 })
