@@ -135,3 +135,10 @@ test('D10: with a recorded run in Hall A, the Hall B card keeps Replay', async (
   renderWithProviders(<Dashboard />)
   expect(await screen.findByRole('link', { name: /^Replay$/ })).toHaveAttribute('href', '/app/p/hall-a?replay=1')
 })
+
+test('D11: when the demo world cannot load, the dashboard offers Try again instead of a raw error', async () => {
+  renderWithProviders(<Dashboard />, { services: fakeServices({ getJson: vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))) }) })
+  expect(await screen.findByText("Couldn't load the projects")).toBeInTheDocument()
+  expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+})

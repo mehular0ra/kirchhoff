@@ -1,6 +1,7 @@
 import { CirclePlay, Factory, Inbox, Radio, SunMedium, UtilityPole, Zap, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { ProjectStateBadge } from '@/components/ProjectState'
 import { Button } from '@/components/ui/button'
 import { useRecordedRun } from '@/data/useRecordedRun'
@@ -91,7 +92,7 @@ export function Dashboard() {
   const { world, error } = useWorld()
   const startTour = useTour((s) => s.start)
   const recordedRun = useRecordedRun()
-  if (error) return <EmptyState tone="error" title="Could not load the demo world">{error}</EmptyState>
+  if (error) return <LoadError error={error} what="the projects" back={false} />
   if (!world) return <EmptyState title="Loading projects…" />
   const activity = [...world.activity].sort((a, b) => b.ts - a.ts)
   const nowMs = demoNowMs(world) // seed times read against the labelled demo clock (D2)

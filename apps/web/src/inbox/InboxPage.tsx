@@ -5,6 +5,7 @@ import { Handshake, Inbox, Mail, Paperclip } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, useParams } from 'react-router'
 import { EmptyState, SandboxLabel } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { demoClockLabel, demoNowMs, fmtRelative } from '@/lib/format'
 import type { InboxEmail } from '@/lib/types'
 import { EmailDetail, VerdictBadge } from './EmailDetail'
@@ -56,7 +57,7 @@ export function InboxPage() {
   useEffect(() => {
     if (emailId) markRead(emailId)
   }, [emailId])
-  if (error) return <EmptyState tone="error" title="Could not load the bids inbox">{error}</EmptyState>
+  if (error) return <LoadError error={error} what="the bids inbox" notFoundTitle="Bids inbox not found" />
   if (!data) return <EmptyState title="Loading the bids inbox…" />
   const selected = data.emails.find((e) => e.id === emailId) ?? null
   // Seed emails read against the snapshot's own "now" (D2), labelled in the header.

@@ -2,6 +2,7 @@ import { TriangleAlert } from 'lucide-react'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { useProjectData } from '@/data/useProjectData'
 import { useWorldProject } from '@/data/useWorld'
 import type { Project } from '@/lib/types'
@@ -9,6 +10,7 @@ import { Checklist } from '@/onboarding/checklist/Checklist'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
+import { ArchivedSummary } from './ArchivedSummary'
 import { CanvasTabs } from './CanvasTabs'
 import { CoPilotPanel } from './copilot/CoPilotPanel'
 import { DocsTab } from './docs/DocsTab'
@@ -64,14 +66,11 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
     if (signed) completeItem('open_signed')
   }, [signed])
 
-  if (data.status === 'error' && !data.bundle) {
-    return (
-      <EmptyState tone="error" title="This project's data is not available">
-        {data.error}. Seed projects load from static files; live runs need the backend.
-      </EmptyState>
-    )
-  }
+  if (data.status === 'error' && !data.bundle) return <LoadError error={data.error} notFoundTitle={runId ? 'Run not found' : 'Project not found'} />
   if (!data.bundle) return <EmptyState title="Loading workspace…" />
+  // An archived project with no design revisions is read-only history, not an empty workspace (D12).
+  if (data.source === 'static' && data.bundle.project.state === 'archived' && !data.bundle.revisions.length)
+    return <ArchivedSummary bundle={data.bundle} />
 
   const panes: Record<CanvasTab, ReactNode> = {
     hall: (

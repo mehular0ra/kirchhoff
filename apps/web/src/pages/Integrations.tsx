@@ -3,6 +3,7 @@
 import { Bell, Boxes, Cloud, CloudOff, Handshake, LoaderCircle, Puzzle, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { EmptyState, Num, SandboxLabel } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { loadIntegrationsSnapshot } from '@/data/staticData'
@@ -120,7 +121,7 @@ export function IntegrationsPage() {
   const { data, live, connecting, syncedAt, error } = useIntegrations()
   const { world } = useWorld()
   const projectName = (id: string) => world?.projects.find((p) => p.id === id)?.name ?? id
-  if (error && !data) return <EmptyState tone="error" title="Integrations snapshot unavailable">{error}</EmptyState>
+  if (error && !data) return <LoadError error={error} what="the integrations" notFoundTitle="Integrations snapshot not found" />
   if (!data) return <EmptyState title="Loading integrations…" />
   const status = live
     ? `Connected · last sync ${syncedAt ? fmtRelative(syncedAt) : 'now'}`
