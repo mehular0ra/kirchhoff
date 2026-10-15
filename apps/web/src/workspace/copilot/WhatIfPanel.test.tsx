@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useChecklist } from '@/onboarding/checklist/checklistStore'
@@ -102,6 +102,9 @@ test('a 422 from the engine is described through describeApiError, with an icon'
 })
 
 test('real Hall A bundle: the 200 kW chip resolves from the bundle, shows failing rules and enters the what-if matrix view', async () => {
+  // Queries are scoped to the what-if panel: an unscoped getByRole walks (and computes accessible
+  // names for) every node of the full Hall A matrix, which is what made this test time out under
+  // full-suite load. The full matrix is still rendered, as in the app.
   const user = userEvent.setup()
   resetStores()
   useChecklist.getState().reload()
@@ -116,14 +119,39 @@ test('real Hall A bundle: the 200 kW chip resolves from the bundle, shows failin
       </TooltipProvider>
     </ServicesProvider>,
   )
-  await user.click(screen.getByRole('button', { name: 'Racks → 200 kW' }))
+  const panel = screen.getByLabelText('What-if', { selector: 'section' })
+  await user.click(within(panel).getByRole('button', { name: 'Racks → 200 kW' }))
   expect(useUi.getState().whatIf?.origin).toBe('precomputed')
-  const failures = screen.getByRole('list', { name: 'What-if failures' })
+  expect(screen.getByText('What-if view (not saved)')).toBeInTheDocument()
+  const chain = within(panel).getByRole('list', { name: 'Impact chain' })
+  expect(within(chain).getAllByText('Electrical:').length).toBeGreaterThan(0)
+  expect(within(chain).getAllByText('Cooling:').length).toBeGreaterThan(0)
+  await user.click(within(panel).getByRole('button', { name: /^Show all \d+ findings$/ }))
+  const failures = within(panel).getByRole('list', { name: 'What-if failures' })
   for (const ruleId of ['R01', 'R02', 'R03', 'R05', 'R07', 'R08', 'R09']) {
     expect(within(failures).getAllByText(new RegExp(`^${ruleId} ·`)).length).toBeGreaterThan(0)
   }
-  expect(screen.getByText('What-if view (not saved)')).toBeInTheDocument()
+  // ~0.3 s alone after the fixes above (was 0.56 s); the margin covers a loaded machine running
+  // the suite's workers in parallel with other jobs (it hit 5.3 s at load average 18 on 8 cores).
+}, 15_000)
+
+test('M13: the impact chain comes first and long failure lists are collapsed', async () => {
+  const user = userEvent.setup()
+  renderPanel()
+  const base = fixtureBundle().what_ifs[0]
+  const many = { ...base, findings: Array.from({ length: 12 }, (_, i) => ({ ...base.findings[1], id: `R02:B-${i}`, element_id: `B-${i}` })) }
+  act(() => useUi.getState().setWhatIf({ result: many, origin: 'precomputed' }))
   const chain = screen.getByRole('list', { name: 'Impact chain' })
-  expect(within(chain).getAllByText('Electrical:').length).toBeGreaterThan(0)
-  expect(within(chain).getAllByText('Cooling:').length).toBeGreaterThan(0)
+  const failures = screen.getByRole('list', { name: 'What-if failures' })
+  expect(chain.compareDocumentPosition(failures) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(failures).getAllByRole('listitem')).toHaveLength(6)
+  await user.click(screen.getByRole('button', { name: 'Show all 12 findings' }))
+  expect(within(screen.getByRole('list', { name: 'What-if failures' })).getAllByRole('listitem')).toHaveLength(12)
+})
+
+test('M13: switching revision clears the what-if overlay (it was computed for another revision)', () => {
+  renderPanel()
+  act(() => useUi.getState().setWhatIf({ result: fixtureBundle().what_ifs[0], origin: 'precomputed' }))
+  act(() => useUi.getState().setViewRev('r1'))
+  expect(useUi.getState().whatIf).toBeNull()
 })

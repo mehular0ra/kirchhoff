@@ -1,8 +1,10 @@
 import { Download, FileText } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { EmptyState, IllustrativeLabel } from '@/components/Labels'
 import { Button } from '@/components/ui/button'
+import { loadIntegrationsSnapshot } from '@/data/staticData'
 import { exportsOf } from '@/lib/select'
-import type { LedgerEntry } from '@/lib/types'
+import type { DocumentRecord, LedgerEntry } from '@/lib/types'
 import { useServices } from '@/services/services'
 import { useUi } from '@/store/ui'
 import { PlanGate } from '../gates/PlanGate'
@@ -48,12 +50,39 @@ export function useOpenExport() {
   }
 }
 
+/** The project's files in the static integrations snapshot (recorded designs carry no brief or export events, M9). */
+function useSnapshotDocuments(projectId: string, enabled: boolean): DocumentRecord[] {
+  const { getJson } = useServices()
+  const [docs, setDocs] = useState<DocumentRecord[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    loadIntegrationsSnapshot(getJson)
+      .then((s) => alive && setDocs(s.documents.filter((d) => d.project_id === projectId)))
+      .catch(() => undefined) // no snapshot: the tab simply shows less
+    return () => {
+      alive = false
+    }
+  }, [projectId, enabled, getJson])
+  return docs
+}
+
+const PDF_STEM = /^\/demo\/docs\/([^/]+)\.pdf$/
+
 export function DocsTab() {
   const { bundle, rev, run, source } = useWorkspace()
   const openCitation = useUi((s) => s.openCitation)
   const openExport = useOpenExport()
-  const docs = [...new Set((bundle.brief?.requirements ?? []).map((r) => r.citation.doc_id))]
-  const exports = exportsOf(bundle)
+  const briefDocs = [...new Set((bundle.brief?.requirements ?? []).map((r) => r.citation.doc_id))]
+  const recorded = exportsOf(bundle)
+  const snapshot = useSnapshotDocuments(bundle.project.id, source !== 'live' && (!briefDocs.length || !recorded.length))
+  // Inputs open in the citation viewer (served from /demo/docs); outputs are plain links.
+  const docs = briefDocs.length
+    ? briefDocs
+    : snapshot.flatMap((d) => (d.kind === 'tender' || d.kind === 'drawing' ? [PDF_STEM.exec(d.url)?.[1]].filter((x): x is string => !!x) : []))
+  const exports = recorded.length
+    ? recorded
+    : snapshot.filter((d) => d.kind !== 'tender' && d.kind !== 'drawing').map((d) => ({ title: d.name, ref: d.url }))
   if (!docs.length && !exports.length && !rev) return <EmptyState title="No documents yet">The tender, drawings and exports appear as the run progresses.</EmptyState>
   // The interactive plan gate already appears in GateBanner above the canvas; here it is always
   // read-only, so the engineer can still see how the open question was resolved after the gate passes.
@@ -63,6 +92,7 @@ export function DocsTab() {
       {run && !atLivePlanGate && <PlanGate run={run} interactive={false} />}
       <section aria-label="Inputs" className="flex flex-col gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Inputs</h3>
+        {!docs.length && <p className="text-xs text-zinc-400">The tender and drawing appear here once Intake has read them.</p>}
         {docs.map((d) => (
           <Button key={d} variant="outline" size="sm" className="self-start" onClick={() => openCitation({ doc_id: d, page: 1, quote: '', bbox: null, clause: null })}>
             <FileText aria-hidden /> {d}.pdf
@@ -72,13 +102,23 @@ export function DocsTab() {
       <section aria-label="Exports" className="flex flex-col gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Exports</h3>
         {exports.length ? (
-          exports.map((x) => (
-            <Button key={x.ref} variant="outline" size="sm" className="self-start" onClick={() => void openExport(x.ref).catch(() => undefined)}>
-              <Download aria-hidden /> {x.title}
-            </Button>
-          ))
+          exports.map((x) =>
+            x.ref.startsWith('/') || x.ref.startsWith('http') ? (
+              <Button key={x.ref} asChild variant="outline" size="sm" className="self-start">
+                <a href={x.ref} target="_blank" rel="noreferrer">
+                  <Download aria-hidden /> {x.title}
+                </a>
+              </Button>
+            ) : (
+              <Button key={x.ref} variant="outline" size="sm" className="self-start" onClick={() => void openExport(x.ref).catch(() => undefined)}>
+                <Download aria-hidden /> {x.title}
+              </Button>
+            ),
+          )
         ) : (
-          <p className="text-xs text-zinc-500">The Docs agent publishes the calc report and BOQ before the review gate.</p>
+          <p className="text-xs text-zinc-400">
+            {source === 'live' ? 'The Docs agent publishes the calc report and BOQ before the review gate.' : 'No exports are recorded for this design.'}
+          </p>
         )}
       </section>
       {rev && (

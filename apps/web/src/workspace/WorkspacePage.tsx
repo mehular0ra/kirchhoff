@@ -1,9 +1,11 @@
+import { TriangleAlert } from 'lucide-react'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { useProjectData } from '@/data/useProjectData'
 import { useWorldProject } from '@/data/useWorld'
 import type { Project } from '@/lib/types'
+import { Checklist } from '@/onboarding/checklist/Checklist'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
@@ -63,7 +65,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
 
   if (data.status === 'error' && !data.bundle) {
     return (
-      <EmptyState title="This project's data is not available">
+      <EmptyState tone="error" title="This project's data is not available">
         {data.error}. Seed projects load from static files; live runs need the backend.
       </EmptyState>
     )
@@ -87,11 +89,23 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
       <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto]">
         <WorkspaceHeader actions={<HeaderActions />} />
         <div className="grid min-h-0 grid-cols-[16rem_minmax(0,1fr)_20rem]">
-          <aside className="min-h-0 border-r">
-            <AgentLanes />
+          <aside className="flex min-h-0 flex-col border-r">
+            <div className="min-h-0 flex-1">
+              <AgentLanes />
+            </div>
+            {/* Docked in the lanes column so it never covers matrix ids or the canvas legend (M4). */}
+            <div className="shrink-0 p-2">
+              <Checklist docked />
+            </div>
           </aside>
           <section aria-label="Canvas" className="flex min-h-0 flex-col">
             <RunBar replay={data.replay} controls={data.controls} />
+            {data.status === 'error' && data.error && (
+              // M2: a live listener that fails after the first snapshot is no longer silent.
+              <p role="alert" className="flex items-center gap-1.5 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
+                <TriangleAlert aria-hidden className="size-3.5 shrink-0" /> Live updates stopped ({data.error}). Reload to reconnect; what is shown is the last state received.
+              </p>
+            )}
             <GateBanner />
             <div className="min-h-0 flex-1">
               <CanvasTabs panes={panes} />

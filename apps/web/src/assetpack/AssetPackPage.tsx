@@ -64,7 +64,7 @@ function SolarYield({ geometry }: { geometry: Record<string, unknown> }) {
   return (
     <p className="text-xs text-zinc-400">
       Specific yield <Num>{fmtNum(Math.round(v))} kWh/kWp</Num>{' '}
-      <span className="text-zinc-500">· clear-sky (no weather data)</span>
+      <span className="text-zinc-400">· clear-sky (no weather data)</span>
     </p>
   )
 }
@@ -82,7 +82,9 @@ export function AssetPackView({
   rerunning: boolean
   narration: string | null
 }) {
-  const cols = optionColumns(result.options)
+  // Boolean verdict columns (*_ok, passes) duplicate the Checker section below (backlog [7]);
+  // an option the engine marks as not passing gets a Fail tag beside its name instead.
+  const cols = optionColumns(result.options).filter((c) => !result.options.every((o) => typeof o[c] === 'boolean' || o[c] == null))
   const sld = miniSld(result)
   const chosen = chosenOption(result)
   return (
@@ -115,6 +117,7 @@ export function AssetPackView({
                   <td className="border-b border-zinc-800 px-2 py-1 text-zinc-100">
                     {optionName(o)}
                     {rec && <span className="ml-2 rounded border border-teal-400/60 px-1 text-[10px] text-teal-200">Recommended</span>}
+                    {o.passes === false && <StatusBadge status="fail" compact className="ml-2" />}
                   </td>
                   {cols.map((c) => (
                     <td key={c} className="border-b border-zinc-800 px-2 py-1 font-mono tabular-nums">
@@ -148,7 +151,7 @@ export function AssetPackView({
                   <Num>{fmtQty(f.value, f.unit)}</Num> vs <Num>{fmtQty(f.limit ?? null, f.unit)}</Num>
                 </span>
               )}
-              {f.explanation && <span className="w-full pl-6 text-xs text-zinc-500">{fillPlaceholders(f.explanation, f)}</span>}
+              {f.explanation && <span className="w-full pl-6 text-xs text-zinc-400">{fillPlaceholders(f.explanation, f)}</span>}
             </li>
           ))}
         </ul>
@@ -164,7 +167,7 @@ export function AssetPackView({
               return (
                 <div key={n.id} className="flex flex-col items-start">
                   {i > 0 && (
-                    <span className="ml-4 border-l border-zinc-600 py-1 pl-2 font-mono text-[10px] text-zinc-500">{edge?.label ?? ''}</span>
+                    <span className="ml-4 border-l border-zinc-600 py-1 pl-2 font-mono text-[10px] text-zinc-400">{edge?.label ?? ''}</span>
                   )}
                   <span className="rounded border bg-card px-2 py-1">
                     <span className="font-mono text-zinc-100">{n.id}</span> <span className="text-zinc-400">{n.label}</span>

@@ -4,6 +4,8 @@ import type { V3 } from './hallScene'
 
 const EASE_MS = 900
 const ease = (k: number): number => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2)
+const samePoints = (a: V3[], b: V3[]): boolean =>
+  a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1] && p[2] === b[i][2])
 const lerpPoints = (from: V3[], to: V3[], e: number): V3[] =>
   to.map((p, i) => [from[i][0] + (p[0] - from[i][0]) * e, from[i][1] + (p[1] - from[i][1]) * e, from[i][2] + (p[2] - from[i][2]) * e] as V3)
 
@@ -44,6 +46,9 @@ export function useTubeGeometry<G extends Disposable>({ meshRef, target, reduce,
   const t0 = useRef(0) // animation start time; 0 means "not animating"
 
   useLayoutEffect(() => {
+    // A revision switch rebuilds every route array even where the route did not move (M16): keep
+    // the live geometry instead of rebuilding a TubeGeometry per frame for nothing.
+    if (liveGeom.current && !t0.current && displayed.current && samePoints(displayed.current, target)) return
     if (!liveGeom.current || reduce) {
       swap(build(target))
       displayed.current = target

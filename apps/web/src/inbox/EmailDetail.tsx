@@ -30,7 +30,7 @@ export function VerdictBadge({ triage, className }: { triage: TriageResult; clas
 }
 
 function AttachmentChips({ email, triage }: { email: InboxEmail; triage: TriageResult | null }) {
-  if (!email.attachments.length) return <p className="text-xs text-zinc-500">No attachments.</p>
+  if (!email.attachments.length) return <p className="text-xs text-zinc-400">No attachments.</p>
   const byId = new Map((triage?.attachments ?? []).map((a) => [a.attachment_id, a]))
   const rank = (id: string) => KIND_ORDER.indexOf(byId.get(id)?.kind ?? 'other')
   const sorted = [...email.attachments].sort((a, b) => rank(a.id) - rank(b.id))
@@ -143,7 +143,7 @@ function FitCard({ triage }: { triage: TriageResult }) {
           </li>
         ))}
       </ul>
-      <p className="text-[11px] text-zinc-500">Deterministic rules from the firm's appetite, the engine and the ERP; no AI in the verdict.</p>
+      <p className="text-[11px] text-zinc-400">Deterministic rules from the firm's appetite, the engine and the ERP; no AI in the verdict.</p>
     </section>
   )
 }
@@ -187,7 +187,7 @@ function PursueAction({ email, triage }: { email: InboxEmail; triage: TriageResu
   const pursuable = (triage.fit.verdict === 'pursue' || triage.fit.verdict === 'clarify') && PACKS.includes(String(asset?.value))
   if (!pursuable)
     return (
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-zinc-400">
         {triage.fit.verdict === null ? 'Not a bid: nothing to pursue.' : triage.fit.verdict === 'decline' ? 'Declined by the fit rules.' : 'Pursue needs a verified asset type in one of our packs.'}
       </p>
     )
@@ -237,7 +237,7 @@ export function EmailDetail({ email }: { email: InboxEmail }) {
         <p className="text-sm text-zinc-300">
           {email.from_name} &lt;{email.from_addr}&gt; · {email.from_org}
         </p>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-400">
           To {email.to} · {fmtTs(email.received_at)}
         </p>
       </header>

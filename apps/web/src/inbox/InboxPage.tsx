@@ -27,7 +27,7 @@ function EmailRow({ email, unread, active }: { email: InboxEmail; unread: boolea
             </span>
           )}
           <span className={cn('truncate', unread ? 'font-semibold text-zinc-100' : 'text-zinc-300')}>{email.from_org}</span>
-          <span className="ml-auto shrink-0 text-xs text-zinc-500">{fmtRelative(email.received_at)}</span>
+          <span className="ml-auto shrink-0 text-xs text-zinc-400">{fmtRelative(email.received_at)}</span>
         </span>
         <span className="truncate text-sm text-zinc-300">{email.subject}</span>
         <span className="flex items-center gap-2 text-xs text-zinc-400">
@@ -56,7 +56,7 @@ export function InboxPage() {
   useEffect(() => {
     if (emailId) markRead(emailId)
   }, [emailId])
-  if (error) return <EmptyState title="Could not load the bids inbox">{error}</EmptyState>
+  if (error) return <EmptyState tone="error" title="Could not load the bids inbox">{error}</EmptyState>
   if (!data) return <EmptyState title="Loading the bids inbox…" />
   const selected = data.emails.find((e) => e.id === emailId) ?? null
   return (
@@ -71,8 +71,8 @@ export function InboxPage() {
             <SandboxLabel className="ml-auto" />
           </div>
           <p className="font-mono text-xs text-zinc-400">{data.mailbox}</p>
-          <p className="text-xs text-zinc-500">{live ? 'Live · your workspace' : 'Recorded triage (static)'}</p>
-          <p className="text-xs text-zinc-500">{appetiteLine(data.appetite)}</p>
+          <p className="text-xs text-zinc-400">{live ? 'Live · your workspace' : 'Recorded triage (static)'}</p>
+          <p className="text-xs text-zinc-400">{appetiteLine(data.appetite)}</p>
         </header>
         <ol aria-label="Emails" className="min-h-0 flex-1 overflow-auto">
           {data.emails.map((e) => (

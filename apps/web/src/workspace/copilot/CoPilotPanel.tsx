@@ -1,11 +1,12 @@
 import { LoaderCircle, Mic, MicOff, Send } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { WhatIfResult } from '@/lib/types'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import type { VoiceResponse } from '@/services/apiClient'
 import { useServices, type LiveVoiceCall } from '@/services/services'
+import { canvasesFor } from '@/lib/model'
 import { useUi } from '@/store/ui'
 import { PlanGate } from '../gates/PlanGate'
 import { RequirementsPanel } from '../RequirementsPanel'
@@ -28,7 +29,9 @@ export function CoPilotPanel() {
   const view = useWorkspace()
   const { api } = useServices()
   const { run: runWhatIf } = useWhatIf()
-  const focus = useUi((s) => s.focus)
+  const focusUi = useUi((s) => s.focus)
+  // Co-pilot "show H-Z2" switches to a canvas that draws the element (I5).
+  const focus = useCallback((id: string) => focusUi(id, canvasesFor(view.model, id)), [focusUi, view.model])
   const openFinding = useUi((s) => s.openFinding)
   const setWhatIf = useUi((s) => s.setWhatIf)
   const [text, setText] = useState('')
@@ -89,7 +92,7 @@ export function CoPilotPanel() {
   return (
     <div className="flex flex-col">
       <section aria-label="Ask the co-pilot" className="flex flex-col gap-2 border-b p-3">
-        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
           <span aria-hidden className="size-2 rounded-full bg-[linear-gradient(135deg,#e879f9,#38bdf8)]" /> Co-pilot
         </h3>
         <form
@@ -153,7 +156,7 @@ export function CoPilotPanel() {
             )}
           </div>
         ) : (
-          <p className="text-xs text-zinc-500">This browser or device has no microphone access; use the typed box above.</p>
+          <p className="text-xs text-zinc-400">This browser or device has no microphone access; use the typed box above.</p>
         )}
         {voice.note && <p className="text-xs text-zinc-400">{voice.note}</p>}
         {log.length > 0 && (

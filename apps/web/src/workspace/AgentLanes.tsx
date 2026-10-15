@@ -27,7 +27,7 @@ import { useUi } from '@/store/ui'
 import { useWorkspace } from './WorkspaceContext'
 
 const LANE_STATUS: Record<LaneStatus, { label: string; icon: LucideIcon; cls: string }> = {
-  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-zinc-500' },
+  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-zinc-400' },
   running: { label: 'Working', icon: LoaderCircle, cls: 'text-sky-300' },
   waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-300' },
   done: { label: 'Done', icon: CircleCheck, cls: 'text-emerald-400' },
@@ -85,13 +85,13 @@ function EventLine({ ev }: { ev: RunEvent }) {
       <Icon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-zinc-500" />
       <span className="min-w-0">
         <span className="break-words">{text}</span>
-        {ev.detail && <span className="block truncate text-zinc-500">{ev.detail}</span>}
+        {ev.detail && <span className="block truncate text-zinc-400">{ev.detail}</span>}
       </span>
     </div>
   )
 }
 
-function LaneView({ lane }: { lane: Lane }) {
+function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean }) {
   const [open, setOpen] = useState(lane.status === 'running' || lane.status === 'waiting')
   const [all, setAll] = useState(false)
   const meta = AGENTS[lane.agent]
@@ -108,11 +108,14 @@ function LaneView({ lane }: { lane: Lane }) {
       >
         <AgentDot agent={lane.agent} />
         <span className="font-medium text-zinc-100">{meta.label}</span>
-        <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
-          <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
-          {st.label}
-        </span>
-        <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-500 transition-transform', open && 'rotate-180')} />
+        {/* A recorded design without agent events has no lane activity to report (M3): no status chip. */}
+        {!(recordedOnly && lane.status === 'idle') && (
+          <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
+            <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
+            {st.label}
+          </span>
+        )}
+        <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-400 transition-transform', recordedOnly && lane.status === 'idle' && 'ml-auto', open && 'rotate-180')} />
       </button>
       {lane.counters.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-1" aria-label={`${meta.label} summary`}>
@@ -138,7 +141,7 @@ function LaneView({ lane }: { lane: Lane }) {
             ))}
             {lane.events.length > 5 && (
               <li>
-                <button type="button" className="text-zinc-500 underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
+                <button type="button" className="text-zinc-400 underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
                   {all ? 'Show recent' : `Show all ${lane.events.length}`}
                 </button>
               </li>
@@ -153,16 +156,23 @@ function LaneView({ lane }: { lane: Lane }) {
 export function AgentLanes() {
   const { bundle } = useWorkspace()
   const lanes = buildLanes(bundle)
+  const recordedOnly = bundle.events.length === 0
   return (
     <nav aria-label="Agent lanes" data-tour="lanes" className="h-full overflow-y-auto">
       <Hint id="lanes" text="One lane per agent: its tool calls, results, findings and logged assumptions. Click a finding to open it.">
-        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
           Agents
         </h2>
       </Hint>
+      {recordedOnly && (
+        <p className="px-3 pb-2 text-xs text-zinc-400">
+          This sample shows the recorded result. Each agent&rsquo;s tool calls and findings appear here during a live run or a
+          replay of one.
+        </p>
+      )}
       <ul>
         {lanes.map((l) => (
-          <LaneView key={l.agent} lane={l} />
+          <LaneView key={l.agent} lane={l} recordedOnly={recordedOnly} />
         ))}
       </ul>
     </nav>

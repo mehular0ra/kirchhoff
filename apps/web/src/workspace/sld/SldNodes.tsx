@@ -20,6 +20,8 @@ export interface SldNodeData extends Record<string, unknown> {
   whatIfStatus: FindingStatus | null
   dim: boolean
   focused: boolean
+  /** Accessible name including status (falls back to the label). */
+  ariaLabel?: string
   /** Opens the node's worst non-pass finding (falling back to focus) — shared by click and keyboard. */
   activate: () => void
 }
@@ -107,7 +109,7 @@ function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
     <div
       role="button"
       tabIndex={0}
-      aria-label={data.label}
+      aria-label={data.ariaLabel ?? data.label}
       onKeyDown={(e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return
         e.preventDefault() // Space must not scroll the canvas (global constraint: keyboard-reachable controls).

@@ -133,3 +133,52 @@ test('a what-if introducing an element absent from the base revision shows its r
   expect(screen.queryByRole('button', { name: /CDU-1/ })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'R05 FA-01: Pass' })).toBeInTheDocument()
 })
+
+test('I7: the header counts add up — n/a is shown when present, and each count carries its status icon', () => {
+  resetStores()
+  const bundle = fixtureBundle()
+  bundle.findings.r1 = [...bundle.findings.r1, { id: 'R06:X-01', rule_id: 'R06', element_id: 'X-01', status: 'n/a', title: 'Single points of failure' }]
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={bundle} source="static">
+        <ComplianceMatrix />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  act(() => useUi.getState().setViewRev('r1'))
+  expect(screen.getByText('7 checks')).toBeInTheDocument()
+  for (const t of ['2 fail', '1 warn', '3 pass', '1 n/a']) expect(screen.getByText(t).querySelector('svg')).not.toBeNull()
+  act(() => useUi.getState().setViewRev('r2'))
+  expect(screen.queryByText(/n\/a$/)).not.toBeInTheDocument()
+})
+
+test('backlog [3]: the matrix is one tab stop; arrow keys move between cells (roving tabindex)', async () => {
+  const user = userEvent.setup()
+  renderMatrix()
+  act(() => useUi.getState().setViewRev('r1'))
+  const table = screen.getByRole('table', { name: 'Compliance matrix' })
+  const tabbable = [...table.querySelectorAll<HTMLElement>('button')].filter((b) => b.tabIndex === 0)
+  expect(tabbable).toHaveLength(1)
+  expect(tabbable[0]).toHaveTextContent('FA-01') // first row's element name
+  tabbable[0].focus()
+  await user.keyboard('{ArrowRight}')
+  expect(document.activeElement).toBe(within(table).getByRole('button', { name: 'R05 FA-01: Fail' }))
+  await user.keyboard('{ArrowLeft}')
+  expect(document.activeElement).toHaveTextContent('FA-01')
+  await user.keyboard('{End}')
+  expect(document.activeElement).toBe(within(table).getByRole('button', { name: 'R05 FA-01: Fail' }))
+  await user.keyboard('{ArrowDown}') // H-Z2 has no R05 cell: the nearest cell in that row
+  expect(document.activeElement?.closest('tr')).toHaveTextContent('H-Z2')
+  await user.keyboard('{Home}')
+  expect(document.activeElement).toHaveTextContent('H-Z2')
+  expect([...table.querySelectorAll<HTMLElement>('button')].filter((b) => b.tabIndex === 0)).toEqual([document.activeElement])
+  await user.keyboard('{Enter}')
+  expect(useUi.getState().focusId).toBe('H-Z2')
+})
+
+test('M13: in what-if view the header counts what-if findings, not "checks"', () => {
+  renderMatrix()
+  act(() => useUi.getState().setWhatIf({ result: fixtureBundle().what_ifs[0], origin: 'precomputed' }))
+  expect(screen.getByText('3 what-if findings')).toBeInTheDocument()
+  expect(screen.queryByText(/^\d+ checks$/)).not.toBeInTheDocument()
+})

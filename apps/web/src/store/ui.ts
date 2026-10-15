@@ -31,7 +31,11 @@ interface UiState {
   setCompare(on: boolean): void
   openFinding(id: string): void
   closeFinding(): void
-  focus(id: string | null): void
+  /**
+   * Focuses an element on a canvas. From Matrix/Options/Docs (or a canvas that does not draw it, per
+   * `drawnOn`) the tab switches to one that does, so "Show on canvas" always shows something (I5).
+   */
+  focus(id: string | null, drawnOn?: ('hall' | 'sld')[]): void
   openCitation(c: Citation): void
   closeCitation(): void
   setWhatIf(w: WhatIfView | null): void
@@ -53,11 +57,17 @@ export const useUi = create<UiState>()((set) => ({
   ...initial,
   autonomy: 'ask',
   setTab: (tab) => set({ tab }),
-  setViewRev: (viewRev) => set({ viewRev }),
+  // A what-if was computed for the revision on screen; switching revision drops it (M13).
+  setViewRev: (viewRev) => set((s) => (viewRev === s.viewRev ? s : { viewRev, whatIf: null })),
   setCompare: (compare) => set({ compare }),
   openFinding: (findingId) => set({ findingId }),
   closeFinding: () => set({ findingId: null }),
-  focus: (focusId) => set({ focusId }),
+  focus: (focusId, drawnOn = ['hall', 'sld']) =>
+    set((s) => {
+      if (!focusId) return { focusId }
+      const shows = (t: CanvasTab) => (t === 'hall' || t === 'sld') && drawnOn.includes(t)
+      return { focusId, tab: shows(s.tab) ? s.tab : (drawnOn[0] ?? 'hall') }
+    }),
   openCitation: (citation) => set({ citation }),
   closeCitation: () => set({ citation: null }),
   setWhatIf: (whatIf) => set({ whatIf }),

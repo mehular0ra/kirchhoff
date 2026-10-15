@@ -109,7 +109,8 @@ test('a recorded plan is read-only and shows how the question was resolved', () 
 test('docs tab lists inputs, exports and the assumptions ledger', () => {
   wrap(<DocsTab />)
   expect(screen.getByRole('button', { name: /tender-hall-a\.pdf/ })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /Calc report/ })).toBeInTheDocument()
+  // A public export URL is a plain link (opens without a popup blocker getting in the way).
+  expect(screen.getByRole('link', { name: /Calc report/ })).toHaveAttribute('href', '/demo/files/hall-a/calc-report.pdf')
   const notChecked = screen.getByRole('region', { name: 'Not checked in v0.1' })
   expect(notChecked).toHaveTextContent('Earth-fault loop impedance')
 })

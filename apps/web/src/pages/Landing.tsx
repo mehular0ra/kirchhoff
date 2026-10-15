@@ -1,31 +1,57 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { ArrowRight, CirclePlay, Zap } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { KirchhoffMark } from '@/components/KirchhoffMark'
 import { FICTIONAL_TEXT } from '@/components/Labels'
 
 // Effects live only here (spec §12). The background traces are decorative and static under reduced motion.
+const TRACES = ['M 0 40 H 140 V 120 H 240', 'M 0 150 H 90 V 260 H 220', 'M 0 300 H 170 V 380 H 260', 'M 40 0 V 70 H 120']
+const NODES: [number, number][] = [
+  [240, 120],
+  [220, 260],
+  [260, 380],
+  [120, 70],
+]
+
 export function Landing() {
+  const reduce = useReducedMotion()
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,189,248,0.14),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(251,191,36,0.10),transparent_50%)]"
       />
-      <svg aria-hidden className="pointer-events-none absolute inset-x-0 top-24 mx-auto h-64 w-[56rem] max-w-full opacity-40">
-        {[0, 1, 2, 3].map((i) => (
-          <motion.path
-            key={i}
-            d={`M ${40 + i * 220} 10 V 90 H ${150 + i * 200} V 240`}
-            fill="none"
-            stroke={i % 2 ? '#60a5fa' : '#fbbf24'}
-            strokeWidth={1.5}
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 2.2, delay: i * 0.25, ease: 'easeInOut' }}
-          />
-        ))}
-      </svg>
+      {/* Decorative feeder traces in the side margins only — never across the text (M5) — drawn once,
+          and static under reduced motion (MotionConfig alone does not stop a pathLength draw). */}
+      {(['left', 'right'] as const).map((edge) => (
+        <svg
+          key={edge}
+          aria-hidden
+          viewBox="0 0 300 420"
+          className={`pointer-events-none absolute top-28 hidden h-[420px] w-[300px] opacity-50 xl:block ${edge === 'left' ? 'left-6' : 'right-6 -scale-x-100'}`}
+        >
+          {TRACES.map((d, i) => (
+            <motion.path
+              key={d}
+              d={d}
+              fill="none"
+              stroke={i % 2 ? '#60a5fa' : '#fbbf24'}
+              strokeWidth={1.5}
+              initial={reduce ? false : { pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 2.2, delay: i * 0.25, ease: 'easeInOut' }}
+            />
+          ))}
+          {NODES.map(([cx, cy], i) => (
+            <circle key={i} cx={cx} cy={cy} r={3.5} fill={i % 2 ? '#60a5fa' : '#fbbf24'} />
+          ))}
+        </svg>
+      ))}
+      <header className="relative z-10 flex items-center gap-2 px-6 pt-5 text-sm font-semibold tracking-tight">
+        <KirchhoffMark />
+        Kirchhoff <span className="font-normal text-zinc-400">by Ordinal</span>
+      </header>
       <main className="relative z-10 mx-auto flex max-w-3xl flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
         <p className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400">
           AI designs. Physics checks. An engineer signs.
@@ -61,14 +87,14 @@ export function Landing() {
             ['An engineer signs', 'You decide at each gate, sign the revision, and PRs and the CRM update follow.'],
           ].map(([t, d], i) => (
             <li key={t} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
-              <span className="font-mono text-xs text-zinc-500">0{i + 1}</span>
+              <span className="font-mono text-xs text-zinc-400">0{i + 1}</span>
               <p className="font-medium text-zinc-100">{t}</p>
               <p className="text-xs text-zinc-400">{d}</p>
             </li>
           ))}
         </ol>
       </main>
-      <footer className="relative z-10 p-4 text-center text-xs text-zinc-500">{FICTIONAL_TEXT}</footer>
+      <footer className="relative z-10 p-4 text-center text-xs text-zinc-400">{FICTIONAL_TEXT}</footer>
     </div>
   )
 }

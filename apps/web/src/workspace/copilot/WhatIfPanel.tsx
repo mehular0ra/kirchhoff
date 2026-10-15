@@ -1,5 +1,5 @@
 import { LoaderCircle, TriangleAlert, X } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Num } from '@/components/Labels'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input'
 import { CHAIN_COLORS } from '@/lib/agents'
 import { fmtQty } from '@/lib/format'
 import { classifyChain } from '@/lib/impact'
+import { statusRank } from '@/lib/status'
 import type { WhatIfParam } from '@/lib/types'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
 import { chipLabel, chipsFor, paramLabel, useWhatIf, WHAT_IF_PRESETS } from './useWhatIf'
 
+const COLLAPSED = 6
 const PARAMS: WhatIfParam[] = ['rack_kw', 'liquid_fraction', 'dv_limit_pct', 'tx_loading_cap_pct']
 
 /** What-if chips + custom input + result with the two-colour impact chain (spec §3 1:40–1:58). */
@@ -22,11 +24,31 @@ export function WhatIfPanel() {
   const [param, setParam] = useState<WhatIfParam>('rack_kw')
   const [value, setValue] = useState('')
   const chips = chipsFor(view.bundle.what_ifs.filter((w) => w.revision_ref === view.revRef))
+  // "Show all" belongs to one what-if result; a new result starts collapsed again.
+  const [expanded, setExpanded] = useState<object | null>(null)
+  const showAll = !!active && expanded === active.result
+  const setShowAll = (on: boolean) => setExpanded(on && active ? active.result : null)
+  const [expandedChains, setExpandedChains] = useState<object | null>(null)
+  const showAllChains = !!active && expandedChains === active.result
+  const setShowAllChains = (on: boolean) => setExpandedChains(on && active ? active.result : null)
+  // Up to three chains per discipline first, so both colours of the story are visible at once.
+  const chains = useMemo(
+    () => (active?.result.impact_chain ?? []).map((chain) => ({ chain, d: classifyChain(chain, view.model) })),
+    [active, view.model],
+  )
+  const shortChains = useMemo(
+    () => [...chains.filter((c) => c.d === 'electrical').slice(0, 3), ...chains.filter((c) => c.d !== 'electrical').slice(0, 3)],
+    [chains],
+  )
+  const sorted = useMemo(
+    () => [...(active?.result.findings ?? [])].sort((a, b) => statusRank(b.status) - statusRank(a.status)),
+    [active],
+  )
   if (!view.rev) return null
 
   return (
     <section aria-label="What-if" className="flex flex-col gap-2 border-b p-3">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">What if…</h3>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">What if…</h3>
       <div className="flex flex-wrap gap-1.5">
         {chips.map((c, i) => (
           <Button
@@ -82,15 +104,32 @@ export function WhatIfPanel() {
       {active && (
         <div className="flex flex-col gap-2 rounded border border-amber-400/40 bg-amber-500/5 p-2 text-xs" aria-live="polite">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-amber-100">{chipLabel(active.result)}</span>
+            <span className="whitespace-nowrap font-medium text-amber-100">{chipLabel(active.result)}</span>
             <span className="text-zinc-400">not saved · {active.origin === 'precomputed' ? 'precomputed by the engine' : 'engine, just now'}</span>
             <Button size="icon-xs" variant="ghost" className="ml-auto" aria-label="Clear what-if" onClick={clear}>
               <X aria-hidden />
             </Button>
           </div>
+          {/* The chain first: it is the story ("lights up across power and cooling"); the list follows (M13). */}
+          <ol className="flex flex-col gap-1" aria-label="Impact chain">
+            {(showAllChains ? chains : shortChains).map(({ chain, d }) => {
+              return (
+                <li key={chain.join('>')} className="flex items-center gap-1.5">
+                  <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: CHAIN_COLORS[d] }} />
+                  <span className="text-zinc-400">{d === 'electrical' ? 'Electrical' : 'Cooling'}:</span>
+                  <span className="font-mono text-zinc-200">{chain.join(' → ')}</span>
+                </li>
+              )
+            })}
+          </ol>
+          {chains.length > shortChains.length && (
+            <Button size="xs" variant="ghost" className="self-start" onClick={() => setShowAllChains(!showAllChains)}>
+              {showAllChains ? 'Show fewer chains' : `Show all ${chains.length} impact chains`}
+            </Button>
+          )}
           <ul className="flex flex-col gap-1" aria-label="What-if failures">
-            {active.result.findings.map((f) => (
-              <li key={f.id} className="flex flex-wrap items-center gap-1.5">
+            {(showAll ? sorted : sorted.slice(0, COLLAPSED)).map((f) => (
+              <li key={f.id} className="flex flex-wrap items-center gap-x-1.5">
                 <StatusBadge status={f.status} compact />
                 <span className="font-mono text-zinc-100">
                   {f.rule_id} · {f.element_id}
@@ -103,18 +142,11 @@ export function WhatIfPanel() {
               </li>
             ))}
           </ul>
-          <ol className="flex flex-col gap-1" aria-label="Impact chain">
-            {active.result.impact_chain.map((chain) => {
-              const d = classifyChain(chain, view.model)
-              return (
-                <li key={chain.join('>')} className="flex items-center gap-1.5">
-                  <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: CHAIN_COLORS[d] }} />
-                  <span className="text-zinc-400">{d === 'electrical' ? 'Electrical' : 'Cooling'}:</span>
-                  <span className="font-mono text-zinc-200">{chain.join(' → ')}</span>
-                </li>
-              )
-            })}
-          </ol>
+          {sorted.length > COLLAPSED && (
+            <Button size="xs" variant="ghost" className="self-start" onClick={() => setShowAll(!showAll)}>
+              {showAll ? 'Show fewer' : `Show all ${sorted.length} findings`}
+            </Button>
+          )}
         </div>
       )}
     </section>

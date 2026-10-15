@@ -36,8 +36,8 @@ test('replay: starts at frame 0 and exposes controls', async () => {
   act(() => result.current.controls!.pause())
   act(() => result.current.controls!.seek(0))
   expect(result.current.bundle?.events).toEqual([])
-  expect(result.current.replay?.total).toBe(25)
-  act(() => result.current.controls!.seek(25))
+  expect(result.current.replay?.total).toBe(24) // 25 recorded events minus the stale attempt (visibility rule, I12)
+  act(() => result.current.controls!.seek(24))
   expect(result.current.bundle?.revisions).toHaveLength(2)
 })
 

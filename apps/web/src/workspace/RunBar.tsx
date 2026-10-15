@@ -11,6 +11,14 @@ import type { ReplayState } from '@/store/bundles'
 import { useWorkspace } from './WorkspaceContext'
 
 const SPEEDS = [1, 4, 8, 16]
+const RUN_WAIT_MS = 10_000
+/** Run phases (spec §5) in words, instead of the raw "phase p2" (M19). */
+const PHASE_LABEL: Record<string, string> = {
+  p1: 'reading the tender and planning',
+  p2: 'placing racks and weighing options',
+  p3: 'routing, checking and fixing',
+  p4: 'handing off to ERP and CRM',
+}
 
 function ReplayBar({ replay, controls }: { replay: ReplayState; controls: ReplayControls | null }) {
   return (
@@ -26,8 +34,8 @@ function ReplayBar({ replay, controls }: { replay: ReplayState; controls: Replay
       <span className="inline-flex items-center gap-1 text-zinc-300">
         <Clock aria-hidden className="size-3.5" /> Elapsed (recorded) <Num>{fmtElapsed(replay.elapsedS)}</Num>
       </span>
-      <span className="text-zinc-500">Time-compressed replay of a recorded run</span>
-      <span className="text-zinc-500" data-dev>
+      <span className="text-zinc-400">Time-compressed replay of a recorded run</span>
+      <span className="text-zinc-400" data-dev>
         event <Num>{replay.cursor}</Num>/<Num>{replay.total}</Num>
       </span>
       <span className="ml-auto flex items-center gap-1" data-dev>
@@ -48,16 +56,43 @@ function LiveBar() {
   const { run } = useWorkspace()
   const { api } = useServices()
   const [now, setNow] = useState(() => Date.now() / 1000)
+  const [gaveUp, setGaveUp] = useState(false)
   useLeaseWatchdog(run, api.resume)
+  useEffect(() => {
+    if (run) return
+    const t = setTimeout(() => setGaveUp(true), RUN_WAIT_MS)
+    return () => clearTimeout(t)
+  }, [run])
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now() / 1000), 1000)
     return () => clearInterval(id)
   }, [])
-  if (!run) return <div className="border-b px-3 py-1.5 text-xs text-zinc-400">Connecting to your run…</div>
+  if (!run) {
+    if (!gaveUp)
+      return (
+        <div role="status" className="flex items-center gap-1.5 border-b px-3 py-1.5 text-xs text-zinc-400">
+          <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> Connecting to your run…
+        </div>
+      )
+    // M2: a stale ?run= link, a reset workspace or another visitor's run never appears.
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
+        <span className="inline-flex items-center gap-1.5">
+          <CircleX aria-hidden className="size-3.5" /> This run is not in your workspace: it may have been reset, or belong to another visitor.
+        </span>
+        <Link to="/app/p/hall-b" className="underline underline-offset-2">
+          Start a new run
+        </Link>
+        <Link to="/app/p/hall-a?replay=1" className="underline underline-offset-2">
+          Watch the recorded run
+        </Link>
+      </div>
+    )
+  }
   const end = run.finished_at ?? now
   const st =
     run.status === 'running'
-      ? { icon: LoaderCircle, text: `Running · phase ${run.phase ?? ''}`, cls: 'text-sky-300', spin: true }
+      ? { icon: LoaderCircle, text: `Running · ${PHASE_LABEL[run.phase ?? ''] ?? 'starting'}`, cls: 'text-sky-300', spin: true }
       : run.status === 'at_gate'
         ? { icon: Hand, text: `Waiting for you · ${run.gate} gate`, cls: 'text-amber-300', spin: false }
         : run.status === 'done'
@@ -73,7 +108,7 @@ function LiveBar() {
       <span className="inline-flex items-center gap-1 text-zinc-400">
         <Clock aria-hidden className="size-3.5" /> Elapsed <Num>{fmtElapsed(end - run.started_at)}</Num>
       </span>
-      <span className="text-zinc-500">Autonomy: {run.autonomy === 'ask' ? 'Ask' : 'Auto'}</span>
+      <span className="text-zinc-400">Autonomy: {run.autonomy === 'ask' ? 'Ask' : 'Auto'}</span>
       {run.status === 'failed' && (
         <Button size="xs" variant="outline" className="ml-auto" onClick={() => void api.resume(run.id).catch(() => undefined)}>
           <RotateCcw aria-hidden /> Resume

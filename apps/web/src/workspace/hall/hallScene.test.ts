@@ -13,6 +13,25 @@ test('scene has one instanced rack per model rack, columns, keep-out and rooms',
   expect(s.bays).toHaveLength(1)
 })
 
+test('rooms are labelled by kind: CDU gallery, LV rooms; bay-* rooms become the CDU bays (no duplicate labels)', () => {
+  const m = r1()
+  const model = {
+    ...m,
+    geometry: {
+      ...m.geometry,
+      rooms: { ...m.geometry.rooms, gallery: [0, 28, 60, 33], 'bay-Z2': [5, 28, 11, 33] } as typeof m.geometry.rooms,
+    },
+  }
+  const s = buildHallScene(model)
+  expect(s.rooms.map((r) => r.label)).toEqual(['LV room A', 'LV room B', 'CDU gallery'])
+  expect(s.rooms.some((r) => r.id.startsWith('room-bay'))).toBe(false)
+  // The model's own bay rectangle wins over the one synthesised from CDU positions.
+  expect(s.bays).toEqual([{ id: 'bay-Z2', zone: 'Z2', center: [8, 30.5, 0.01], size: [6, 5, 0.02] }])
+  // The gallery label sits at its west end so it never lands on a bay label.
+  const gallery = s.rooms.find((r) => r.label === 'CDU gallery')!
+  expect(gallery.labelAt[0]).toBeLessThan(5)
+})
+
 test('feeders, row busways and pipes become tubes on their tiers', () => {
   const s = buildHallScene(r1())
   const byId = new Map(s.tubes.map((t) => [t.id, t]))

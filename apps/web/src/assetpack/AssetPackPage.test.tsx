@@ -127,3 +127,15 @@ test('real solar bundle: STR-28 is recommended with Voc, table count, DC/AC and 
   expect(screen.getByText(/2,639 kWh\/kWp/)).toBeInTheDocument()
   expect(screen.getByText(/clear-sky \(no weather data\)/i)).toBeInTheDocument()
 })
+
+test('backlog [7]: boolean *_ok/passes columns are hidden (the Checker section covers them); passes reads as a status', async () => {
+  renderWithProviders(<AssetPackPage pack="solar" pid="solar-5mwp" />, { services: services() })
+  const table = await screen.findByRole('table', { name: 'Asset options' })
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(9)
+  expect(within(table).queryByText('true')).not.toBeInTheDocument()
+  expect(within(table).queryByText('false')).not.toBeInTheDocument()
+  expect(within(table).getByText('DC capacity (kWp)')).toBeInTheDocument()
+  expect(within(table).getByText('DC/AC ratio')).toBeInTheDocument()
+  // STR-30 fails Voc in the engine's option dict: icon + text next to the option name.
+  expect(within(within(table).getAllByText('STR-30')[0].closest('tr')!).getByText('Fail')).toBeInTheDocument()
+})

@@ -40,11 +40,19 @@ export function frameAt(full: Bundle, cursor: number): Bundle {
       shown.set(rev, (shown.get(rev) ?? new Set()).add(f.finding_id))
     }
   }
-  const revsWithEvents = new Set(attr.values())
+  // A finding with its own event appears when that event plays; every other check of a revealed
+  // revision shows with the revision. WS2 emits finding events for failures only, so gating all
+  // findings on events left r1's matrix at "2 checks" until the last frame (final review I8).
+  const gated = new Map<string, Set<string>>()
+  for (const e of full.events) {
+    const f = findingPayload(e)
+    const rev = attr.get(e.seq)
+    if (f && rev) gated.set(rev, (gated.get(rev) ?? new Set()).add(f.finding_id))
+  }
   const findings: Record<string, Finding[]> = {}
   for (const rev of revealed) {
     const all = full.findings[rev] ?? []
-    findings[rev] = revsWithEvents.has(rev) ? all.filter((f) => shown.get(rev)?.has(f.id)) : all
+    findings[rev] = all.filter((f) => !gated.get(rev)?.has(f.id) || shown.get(rev)?.has(f.id))
   }
 
   const isBrief = (e: Bundle['events'][number]) => artifactPayload(e)?.type === 'brief'

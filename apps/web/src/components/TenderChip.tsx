@@ -5,7 +5,7 @@ import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { useUi } from '@/store/ui'
 
 /** NotebookLM-style citation: hover previews the verified quote, click opens the PDF at the clause. */
-export function TenderChip({ citation, onOpen }: { citation: Citation; onOpen?: () => void }) {
+export function TenderChip({ citation, onOpen, verified = true }: { citation: Citation; onOpen?: () => void; verified?: boolean }) {
   const openCitation = useUi((s) => s.openCitation)
   const label = `${citation.clause ?? 'Tender'} · p.${citation.page}`
   return (
@@ -26,7 +26,9 @@ export function TenderChip({ citation, onOpen }: { citation: Citation; onOpen?: 
           {label}
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">"{citation.quote}"</TooltipContent>
+      <TooltipContent className="max-w-xs">
+        {verified && citation.quote ? `“${citation.quote}”` : 'Quote not found on the cited page'}
+      </TooltipContent>
     </Tooltip>
   )
 }

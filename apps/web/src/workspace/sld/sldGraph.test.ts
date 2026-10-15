@@ -28,3 +28,10 @@ test('ELK lays out every node, top-down by level', async () => {
   expect(y('CB-A1')).toBeLessThan(y('A-01'))
   expect(y('A-01')).toBeLessThan(y('RG:R1'))
 })
+
+test('backlog [1]: each node knows the feeders that end at it, so a feeder finding is reachable from a node by keyboard', () => {
+  const g = buildSldGraph(fixtureBundle().revisions[0].model!)
+  expect(g.nodes.find((n) => n.id === 'A-01')?.feeders).toEqual(['FA-01'])
+  expect(g.nodes.find((n) => n.id === 'A-01')?.members).toEqual(['A-01']) // status colouring unchanged
+  expect(g.nodes.find((n) => n.id === 'MV')?.feeders).toEqual([])
+})

@@ -1,6 +1,6 @@
 // Tender citation viewer: opens the PDF at the cited page with a highlight box from pdfplumber's bbox.
 import 'react-pdf/dist/Page/TextLayer.css'
-import { ChevronLeft, ChevronRight, CircleCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleCheck, CircleX, FileText } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -30,22 +30,34 @@ export default function PdfViewer() {
   const box = page === citation.page ? bboxToCss(citation.bbox, SCALE) : null
   return (
     <Dialog open onOpenChange={(o) => !o && close()}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-3 sm:max-w-3xl">
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-3 sm:max-w-[min(62rem,94vw)]">
         <DialogHeader>
           <DialogTitle>
-            Tender {citation.clause ?? ''} · page {citation.page}
+            {citation.clause ? `Tender ${citation.clause} · page ${citation.page}` : `Tender · page ${citation.page}`}
           </DialogTitle>
-          <DialogDescription className="flex items-start gap-1.5">
-            <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-400" />
-            <span>Verified quote: “{citation.quote}”</span>
-          </DialogDescription>
+          {/* Only a citation that carries its quote is called verified (spec §6.3, final review I11). */}
+          {citation.quote ? (
+            <DialogDescription className="flex items-start gap-1.5">
+              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-400" />
+              <span>Verified quote: “{citation.quote}”</span>
+            </DialogDescription>
+          ) : (
+            <DialogDescription className="flex items-start gap-1.5">
+              <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+              <span>Tender PDF · page {citation.page}</span>
+            </DialogDescription>
+          )}
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-auto rounded border bg-zinc-200">
           <Document
             file={docUrl(citation.doc_id)}
             suspense={false}
             loading={<p className="p-6 text-sm text-zinc-700">Loading tender…</p>}
-            error={<p className="p-6 text-sm text-rose-700">Could not load {docUrl(citation.doc_id)}.</p>}
+            error={
+              <p className="flex items-center gap-1.5 p-6 text-sm text-rose-700">
+                <CircleX aria-hidden className="size-4" /> Could not load {docUrl(citation.doc_id)}.
+              </p>
+            }
             onLoadSuccess={(pdf: { numPages: number }) => setNumPages(pdf.numPages)}
           >
             <div className="relative mx-auto w-fit">

@@ -66,7 +66,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
           <li key={i.name} className="flex items-center gap-2 rounded border bg-card px-2 py-1.5">
             <FileText aria-hidden className="size-4 text-zinc-500" />
             <span className="text-zinc-200">{i.name}</span>
-            <span className="ml-auto truncate font-mono text-zinc-500">{i.file}</span>
+            <span className="ml-auto truncate font-mono text-zinc-400">{i.file}</span>
           </li>
         ))}
       </ul>
@@ -83,7 +83,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
       >
         <Upload aria-hidden className="size-5 text-zinc-400" />
         Drop the tender PDF and drawing here to start
-        <span className="text-xs text-zinc-500">The demo always uses the Hall B package above; dropped files are not uploaded.</span>
+        <span className="text-xs text-zinc-400">The demo always uses the Hall B package above; dropped files are not uploaded.</span>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <AutonomySwitch value={autonomy} onChange={setAutonomy} />

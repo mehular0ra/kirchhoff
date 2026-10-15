@@ -55,7 +55,7 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
         {plan.map((s, i) => (
           <li key={s.id} className="flex flex-col gap-1">
             <span className="flex items-center gap-2">
-              <span className="w-4 font-mono text-xs text-zinc-500">{i + 1}</span>
+              <span className="w-4 font-mono text-xs text-zinc-400">{i + 1}</span>
               <AgentDot agent={s.agent} />
               <span className="text-xs text-zinc-400">{AGENTS[s.agent].label}</span>
               <span className="text-zinc-200">{s.title}</span>

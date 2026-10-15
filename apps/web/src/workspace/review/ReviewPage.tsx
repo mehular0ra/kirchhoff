@@ -223,7 +223,7 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
           ))}
         </section>
       )}
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-zinc-400">
         <Num>{findings.length}</Num> deterministic checks by the rule pack; the AI cannot mark its own homework.
       </p>
     </div>
@@ -236,6 +236,6 @@ export function ReviewPage() {
   const runId = params.get('run')
   const project = useWorldProject(pid)
   const data = useProjectData(pid, { runId, project })
-  if (!data.bundle) return <EmptyState title={data.status === 'error' ? 'This project is not available' : 'Loading review…'}>{data.error}</EmptyState>
+  if (!data.bundle) return <EmptyState tone={data.status === 'error' ? 'error' : 'loading'} title={data.status === 'error' ? 'This project is not available' : 'Loading review…'}>{data.error}</EmptyState>
   return <ReviewView bundle={data.bundle} source={data.source} revId={rev} runQuery={runId ? `?run=${runId}` : ''} />
 }
