@@ -19,8 +19,8 @@ team:
 photos:
   # Slide 15 headshots. Paths are relative to this folder, e.g. "photos/mehul.jpg".
   # Square crops work best; they are shown in a circle.
-  mehul: ""
-  jayadratha: ""
+  mehul: "photos/mehul.jpg"
+  jayadratha: "photos/jayadratha.jpg"
 
 metrics:
   # Slide 10, on-slide "Per design:" bullet: measured USD per full design run.
@@ -42,7 +42,7 @@ sources:
 
 links:
   # Slide 14: full URLs. A QR code is generated for each one that is filled.
-  github_repo: ""
+  github_repo: "https://github.com/mehular0ra/kirchhoff"
   demo_video: ""
 
 spec_verified:
