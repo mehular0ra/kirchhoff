@@ -1,4 +1,5 @@
 import io
+import re
 
 import pdfplumber
 
@@ -34,6 +35,25 @@ def test_latin1_maps_engineering_symbols():
     assert latin1("ΔU ≤ √3 · I") == "dU <= sqrt3 · I"
 
 
+def test_latin1_handles_r08_r10_cooling_formulas():
+    # Real engine formula strings (kirchhoff/engine/findings.py, R08-R10), which exercise symbols the
+    # original map missed: the minus sign "−" (U+2212, distinct from a hyphen), rho "ρ", pi "π" and a
+    # combining dot above "̇" (as in "V̇").
+    r08 = "Σ Q_CDU − spare units ≥ Σ P_rack·f_liquid per zone"
+    r09 = "q_rack ≥ max(q_OEM,min, Q/(ρ·c_p·ΔT))"
+    r10 = "v = 4·V̇/(π·D²) ≤ v_max"
+    for formula in (r08, r09, r10):
+        out = latin1(formula)
+        assert "?" not in out  # no latin-1 replacement-character fallback
+    assert latin1(r08) == "sum Q_CDU - spare units >= sum P_rack·f_liquid per zone"
+    assert "rho" in latin1(r09) and "dT" in latin1(r09)
+    assert "pi" in latin1(r10) and "V_dot" in latin1(r10)
+
+
+def test_latin1_maps_curly_quotes_and_ellipsis():
+    assert latin1("‘quoted’ “text” … done") == "'quoted' \"text\" ... done"
+
+
 def test_boq_csv_has_header_lines_and_total():
     rows = boq_csv(LINES).decode().strip().split("\n")
     assert rows[0] == "material_id,description,qty,unit_price_usd,line_total_usd,lead_time_weeks"
@@ -60,14 +80,47 @@ def test_calc_report_carries_trust_labels():
 
 
 def test_calc_report_numbers_come_from_engine_records():
+    summary = "The 2N design passes every check."
     data = calc_report_pdf(rev=REV, findings=[FIX], fixes=[FIX], brief=BRIEF, options=OPTS, pr_lines=LINES,
-                           order=SECTIONS, summary="The 2N design passes every check.")
+                           order=SECTIONS, summary=summary)
     text = _pdf_text(data)
-    # Every number in the report traces to an engine/verification record: the revision hash, check
-    # summary counts, the finding's value/limit, the option's installed MVA/cost, the BOQ qty/price and
-    # the verified requirement's cited value -- never a number typed into free LLM narration.
-    for n in ("40", "2.16", "2.0", "18.9", "6", "118,000.00"):
-        assert n in text
+    # Every number in the report traces to an engine/verification record: never a number typed into
+    # free LLM narration. Rather than checking that a few expected numbers are merely present (which
+    # would miss a stray number sneaking in from narration text), parse every number out of the
+    # rendered PDF and assert it is a SUBSET of every number present in the engine/verification
+    # records that fed the report.
+    NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+    def nums(s: str) -> set[float]:
+        return {float(t.replace(",", "")) for t in NUM.findall(s)}
+
+    records = nums(" ".join([summary, REV.model_dump_json(), FIX.model_dump_json(), BRIEF.model_dump_json(),
+                             *(o.model_dump_json() for o in OPTS), *(x.model_dump_json() for x in LINES)]))
+    assert nums(text) <= records
+
+
+def test_calc_report_wraps_a_finding_with_many_clauses():
+    many_refs = [Citation(doc_id="tender-hall-a", page=i, quote="x", clause=f"§{i}.1") for i in range(1, 21)]
+    fix_many = FIX.model_copy(update={"tender_refs": many_refs})
+    data = calc_report_pdf(rev=REV, findings=[fix_many], fixes=[fix_many], brief=BRIEF, options=OPTS,
+                           pr_lines=LINES, order=SECTIONS, summary="ok")
+    text = _pdf_text(data)
+    assert "§1.1" in text and "§20.1" in text
+
+
+def test_calc_report_omits_formula_sentence_when_empty():
+    fix_no_formula = FIX.model_copy(update={"formula": ""})
+    data = calc_report_pdf(rev=REV, findings=[fix_no_formula], fixes=[fix_no_formula], brief=BRIEF, options=OPTS,
+                           pr_lines=LINES, order=SECTIONS, summary="ok")
+    text = _pdf_text(data)
+    assert "Formula: ." not in text and "Formula:" not in text
+
+
+def test_requirements_heading_notes_verification_is_per_row():
+    data = calc_report_pdf(rev=REV, findings=[FIX], fixes=[FIX], brief=BRIEF, options=OPTS, pr_lines=LINES,
+                           order=SECTIONS, summary="ok")
+    text = _pdf_text(data)
+    assert "Requirements (tender citations; verification shown per row)" in text
 
 
 def test_blob_exporter_writes_both_files():

@@ -4,12 +4,14 @@ import io
 from typing import Protocol
 from xml.sax.saxutils import escape
 
+from kirchhoff.agents.trust import fmt_number
 from kirchhoff.contracts import DesignBrief, Finding, PRLine, Revision, TopologyOption
 
 SECTIONS = ["summary", "requirements", "options", "findings", "fixes", "ledger", "boq"]
 
 _SYMBOLS = {"√": "sqrt", "Δ": "d", "φ": "phi", "≤": "<=", "≥": ">=", "″": "''", "′": "'", "→": "->", "∥": "||",
-            "–": "-", "—": "-", "η": "eta", "μ": "u", "Σ": "sum", "ṁ": "m_dot", "≈": "~", "Ω": "Ohm"}
+            "–": "-", "—": "-", "η": "eta", "μ": "u", "Σ": "sum", "ṁ": "m_dot", "≈": "~", "Ω": "Ohm",
+            "−": "-", "ρ": "rho", "π": "pi", "̇": "_dot", "’": "'", "‘": "'", "“": '"', "”": '"', "…": "..."}
 
 
 class Exporter(Protocol):
@@ -56,44 +58,63 @@ def calc_report_pdf(*, rev: Revision, findings: list[Finding], fixes: list[Findi
     h2 = ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=11.5, leading=15, spaceBefore=10, spaceAfter=4)
     body = ParagraphStyle("b", fontName="Helvetica", fontSize=9, leading=12)
     trust = ParagraphStyle("t", fontName="Helvetica-Oblique", fontSize=8, leading=11, textColor=colors.grey)
+    cell = ParagraphStyle("c", fontName="Helvetica", fontSize=7.5, leading=9)
+    cell_h = ParagraphStyle("ch", fontName="Helvetica-Bold", fontSize=7.5, leading=9)
+    TOTAL_W = 178 * mm  # A4 width minus the 16mm left/right margins
 
     def para(s: object, style=body) -> Paragraph:
         return Paragraph(escape(latin1(s)), style)
 
-    def table(rows: list[list[object]]) -> Table:
-        t = Table([[latin1("" if c is None else c) for c in r] for r in rows], repeatRows=1)
-        t.setStyle(TableStyle([("FONT", (0, 0), (-1, -1), "Helvetica", 7.5),
-                               ("FONT", (0, 0), (-1, 0), "Helvetica-Bold", 7.5),
-                               ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    def table(rows: list[list[object]], widths_mm: list[float] | None = None) -> Table:
+        n = len(rows[0])
+        col_widths = [w * mm for w in widths_mm] if widths_mm else [TOTAL_W / n] * n
+        # Cells are Paragraphs (not bare strings) with explicit column widths, so long text (e.g. a
+        # finding with many cited clauses) wraps instead of overflowing or stretching the table.
+        data = [[Paragraph(escape(latin1("" if c is None else c)), cell_h if i == 0 else cell)
+                 for c in r] for i, r in enumerate(rows)]
+        t = Table(data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
                                ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
                                ("VALIGN", (0, 0), (-1, -1), "TOP")]))
         return t
 
     reqs = brief.requirements if brief else []
     ordered = sorted(findings, key=lambda f: (f.status != "fail", f.rule_id, f.element_id))
+
+    def fix_text(f: Finding) -> str:
+        s = f"{f.id}: {f.fix['label']} ({f.fix.get('agent', '')}). {f.fix.get('reason', '')}"
+        if f.formula:
+            s += f" Formula: {f.formula}."
+        if f.rejected_fix:
+            s += f" Rejected: {f.rejected_fix['label']}."
+        return s
+
     sections = {
         "summary": lambda: [para("Summary", h2), para(summary), para(
             f"Revision {rev.id} · hash {rev.hash} · " + ", ".join(f"{k} {v}" for k, v in rev.check_summary.items()))],
-        "requirements": lambda: [para("Requirements (verified tender citations)", h2), table(
+        "requirements": lambda: [para("Requirements (tender citations; verification shown per row)", h2), table(
             [["Id", "Clause", "Page", "Value", "Unit", "Verified"]]
-            + [[r.id, r.citation.clause, r.citation.page, r.value, r.unit, "yes" if r.verified else "no"]
-               for r in reqs])],
+            + [[r.id, r.citation.clause, r.citation.page,
+                fmt_number(r.value) if isinstance(r.value, float) else r.value, r.unit,
+                "yes" if r.verified else "no"]
+               for r in reqs], widths_mm=[40, 24, 16, 20, 16, 62])],
         "options": lambda: [para("Topology options", h2), table(
             [["Option", "Installed MVA", "Normal %", "Failover %", "Cost USD", "Losses kW", "Max lead (wk)", "SPOF"]]
-            + [[o.id, o.installed_mva, o.normal_loading_pct, o.failover_loading_pct, f"{o.cost:,.0f}", o.losses_kw,
-                o.max_lead_time_weeks, o.spof_count] for o in options])],
+            + [[o.id, fmt_number(o.installed_mva), fmt_number(o.normal_loading_pct),
+                fmt_number(o.failover_loading_pct), fmt_number(o.cost), fmt_number(o.losses_kw),
+                fmt_number(o.max_lead_time_weeks), fmt_number(o.spof_count)] for o in options])],
         "findings": lambda: [para("Checker findings", h2), table(
             [["Rule", "Element", "Status", "Value", "Limit", "Unit", "Clauses"]]
-            + [[f.rule_id, f.element_id, f.status, f.value, f.limit, f.unit,
-                ", ".join(c.clause for c in f.tender_refs if c.clause)] for f in ordered])],
-        "fixes": lambda: [para("Fixes", h2)] + ([para(
-            f"{f.id}: {f.fix['label']} ({f.fix.get('agent', '')}). {f.fix.get('reason', '')} Formula: {f.formula}."
-            + (f" Rejected: {f.rejected_fix['label']}." if f.rejected_fix else "")) for f in fixes]
+            + [[f.rule_id, f.element_id, f.status, fmt_number(f.value), fmt_number(f.limit), f.unit,
+                ", ".join(c.clause for c in f.tender_refs if c.clause)] for f in ordered],
+            widths_mm=[18, 20, 16, 16, 16, 12, 80])],
+        "fixes": lambda: [para("Fixes", h2)] + ([para(fix_text(f)) for f in fixes]
             or [para("No fixes were needed.")]),
         "ledger": lambda: [para("Assumptions ledger", h2)] + [para(f"[{e.kind}] {e.text}") for e in rev.ledger],
         "boq": lambda: [para("Bill of quantities", h2), table(
             [["Material", "Description", "Qty", "Unit price USD", "Lead (wk)"]]
-            + [[x.material_id, x.description, x.qty, f"{x.unit_price:,.2f}", x.lead_time_weeks] for x in pr_lines])],
+            + [[x.material_id, x.description, x.qty, f"{x.unit_price:,.2f}", x.lead_time_weeks] for x in pr_lines],
+            widths_mm=[26, 70, 20, 36, 26])],
     }
     story = [para("Kirchhoff calc report", h1),
              para("IEC-based, illustrative values, not for construction. Every number comes from the "

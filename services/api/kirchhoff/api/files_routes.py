@@ -4,6 +4,7 @@ import re
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse, Response
 
+from kirchhoff.runs.blobs import SigningUnavailable
 from kirchhoff.runs.deps import Deps
 
 from .errors import err
@@ -24,7 +25,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
             return err(404, "not_found")
         try:
             url = deps.blobs.signed_url(full, SIGNED_URL_TTL_S)
-        except NotImplementedError:  # local in-process blobs: serve the bytes
+        except SigningUnavailable:  # local in-process blobs: serve the bytes
             media = mimetypes.guess_type(path)[0] or "application/octet-stream"
             return Response(deps.blobs.get(full), media_type=media, headers={"X-Kirchhoff-Inline": "1"})
         if not redirect:  # web client: fetch the signed URL without auth headers (no CORS preflight)

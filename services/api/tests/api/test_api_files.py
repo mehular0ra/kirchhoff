@@ -2,8 +2,10 @@ from fastapi.testclient import TestClient
 
 from kirchhoff.agents.docs_export import BlobExporter
 from kirchhoff.api.app import create_app
-from kirchhoff.runs.blobs import MemoryBlobStore
+from kirchhoff.api.deps import build_production_deps
+from kirchhoff.runs.blobs import MemoryBlobStore, SigningUnavailable
 from kirchhoff.runs.revisions import latest_revision
+from kirchhoff.store.memory import MemoryStore
 
 
 def _to_review(client, auth) -> str:
@@ -43,6 +45,34 @@ def test_files_are_scoped_and_validated(client, deps, auth):
     assert other.get("/api/files/exports/x-r1/boq.csv", headers=auth, follow_redirects=False).status_code == 404
     for bad in ["exports/../u2/boq.csv", "secrets/x/y", "exports/x-r1"]:
         assert client.get(f"/api/files/{bad}", headers=auth, follow_redirects=False).status_code == 404
+
+
+def test_traversal_guard_rejects_dot_segments_and_backslashes(client, deps, auth):
+    # httpx normalises literal ".." path segments before they ever reach the server, so a naive test
+    # (asserting on "exports/../u2/boq.csv") can pass even with the `".." in path` guard removed. Plant
+    # a literal blob key containing "..", then exercise the raw, already-percent-encoded/backslash
+    # forms an attacker (or a buggy proxy) could actually deliver, which httpx does NOT normalise away.
+    deps.blobs.put("workspaces/u1/exports/../boq.csv", b"x", "text/csv")
+    for bad in ["exports/%2e%2e/boq.csv", "exports/..%2fx-r1/boq.csv", "/exports/x-r1/boq.csv",
+                "exports%5cx-r1%5cboq.csv", "exports/x-r1%5c..%5cboq.csv", "secrets/x/y", "exports/x-r1"]:
+        assert client.get(f"/api/files/{bad}", headers=auth, follow_redirects=False).status_code == 404
+
+
+def test_build_production_deps_wires_a_blob_exporter():
+    deps = build_production_deps(MemoryStore())
+    assert isinstance(deps.exporter, BlobExporter)
+
+
+def test_signing_unavailable_is_a_not_implemented_error():
+    assert issubclass(SigningUnavailable, NotImplementedError)
+    blobs = MemoryBlobStore(public_base=None)
+    blobs.put("workspaces/u1/x", b"a", "text/plain")
+    try:
+        blobs.signed_url("workspaces/u1/x")
+    except SigningUnavailable:
+        pass
+    else:
+        raise AssertionError("expected SigningUnavailable")
 
 
 def test_hello_route_is_gone_and_whoami_stays(client, auth):

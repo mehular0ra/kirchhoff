@@ -27,12 +27,11 @@ from kirchhoff.agents.ports import ErpSnapshot
 from kirchhoff.contracts import (Citation, ClauseRef, Connection, CoolingNode, CrmOverlay, DesignModel, Equipment,
                                  Finding, Geometry, Material, Pipe, Point3, PRLine, PurchaseRequisition, Rack,
                                  TopologyOption, WhatIfResult)
+from kirchhoff.contracts.extra import ClashReport, FixCandidate
 from kirchhoff.intake.render import load_geometry, render_drawing, render_tender_pdf
 from kirchhoff.intake.tender_schema import load_tender
 from kirchhoff.store.memory import MemoryStore
 from kirchhoff.store.validate import firestore_safe_problems
-
-from kirchhoff.contracts.extra import ClashReport, FixCandidate
 
 
 def _m(id, category, description, rating, unit, stock, lead, price, vendor):

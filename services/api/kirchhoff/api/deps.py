@@ -81,7 +81,8 @@ def build_production_deps(store=None) -> Deps:
         store = FirestoreStore()
     if os.environ.get("KIRCHHOFF_FAKES") == "1":  # local UI development before WS1/WS4/Vertex are wired
         from kirchhoff.runs.fakes import build_fake_deps
-        return build_fake_deps(store, scen, seed_dir=seed, blobs=MemoryBlobStore(public_base=None))
+        fake_blobs = MemoryBlobStore(public_base=None)
+        return build_fake_deps(store, scen, seed_dir=seed, blobs=fake_blobs, exporter=BlobExporter(fake_blobs))
     runner = GenaiRunner() if os.environ.get("KIRCHHOFF_AGENT_BACKEND") == "genai" else AdkRunner()
     if os.environ.get("KIRCHHOFF_RECORD_DIR"):
         runner = RecordingRunner(runner, Path(os.environ["KIRCHHOFF_RECORD_DIR"]))
