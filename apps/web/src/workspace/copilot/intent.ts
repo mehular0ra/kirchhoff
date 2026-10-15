@@ -11,6 +11,8 @@ const NUM = '(\\d+(?:\\.\\d+)?)'
 // Model ids (FA-01, H-Z2, R1-01, A1) plus the two whole-design check targets, R12's BOQ and R06's HALL.
 const ELEMENT = /\b([A-Z]{1,3}\d?-[A-Z]?\d{1,2}(?:-\d{2})?|[A-Z]\d|BOQ|HALL)\b/i
 const RULE = /\b(R\d{2}b?)\b/i
+// Paraphrases of "why" (N1): "What caused FA-01 to fail?", "what is wrong with H-Z2", "any issue on FA-01".
+const PROBLEM = /\b(fail\w*|wrong|caus\w*|issues?|problems?)\b/i
 
 export function parseIntent(text: string): Intent | null {
   const t = text.trim()
@@ -26,7 +28,8 @@ export function parseIntent(text: string): Intent | null {
     return null
   }
   const el = t.match(ELEMENT)?.[1]?.toUpperCase()
-  if (/^(why|explain)\b/i.test(t) && el) {
+  // An explain question either starts with why/explain or names an element together with a problem word.
+  if (el && (/^(why|explain)\b/i.test(t) || PROBLEM.test(t))) {
     const rule = t.match(RULE)?.[1]
     return { tool: 'explain_finding', element: el, rule: rule ? rule.toUpperCase().replace('B', 'b') : undefined }
   }

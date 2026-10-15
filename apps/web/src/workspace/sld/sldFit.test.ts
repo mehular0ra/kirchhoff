@@ -1,7 +1,7 @@
 import { normalizeBundle, type ProjectBundle } from '@/lib/types'
 import hallASigned from '@/test/fixtures/hall-a-signed.json'
 import { buildSldGraph, NODE_SIZE } from './sldGraph'
-import { edgeAppearance, initialFit } from './sldFit'
+import { edgeAppearance, initialFit, LEGIBLE_ZOOM, topAnchoredViewport } from './sldFit'
 
 const hallA = () => normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
 
@@ -18,6 +18,25 @@ test('D8: a clean revision fits the whole diagram but never below a legible zoom
   const plan = initialFit(buildSldGraph(b.revisions[1].model!), b.findings.r2)
   expect(plan.nodes).toBeUndefined()
   expect(plan.minZoom).toBeGreaterThanOrEqual(0.8)
+  expect(plan.anchorTop).toBe(true) // N3: at the zoom floor, start from the MV bus, not mid-diagram
+})
+
+test('N3: when the whole diagram would fit only below the legible zoom, the view starts at the top of the diagram', () => {
+  // A diagram much larger than the canvas (Hall A r2: six trains, seven levels)
+  const bounds = { x: 0, y: 0, width: 2400, height: 900 }
+  const canvas = { width: 880, height: 720 }
+  const v = topAnchoredViewport(bounds, canvas, LEGIBLE_ZOOM, 24)!
+  expect(v.zoom).toBe(LEGIBLE_ZOOM)
+  expect(v.y).toBe(24) // the diagram's top edge sits 24 px below the canvas top
+  expect(v.x).toBe(24) // and its left edge 24 px in: the MV bus starts the top row at the left, so it is on screen
+  // offset bounds are honoured
+  const shifted = topAnchoredViewport({ x: 100, y: 50, width: 2400, height: 900 }, canvas, LEGIBLE_ZOOM, 24)!
+  expect(shifted.y).toBeCloseTo(24 - 50 * LEGIBLE_ZOOM)
+  expect(shifted.x).toBeCloseTo(24 - 100 * LEGIBLE_ZOOM)
+})
+
+test('N3: a diagram that fits at a legible zoom keeps the usual whole-diagram fit', () => {
+  expect(topAnchoredViewport({ x: 0, y: 0, width: 600, height: 400 }, { width: 880, height: 720 }, LEGIBLE_ZOOM, 24)).toBeNull()
 })
 
 test('D8: a failing feeder is a thick rose line with a large "✕ Fail" label on a tinted pill; a passing one stays quiet', () => {

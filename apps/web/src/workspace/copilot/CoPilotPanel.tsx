@@ -113,7 +113,8 @@ export function CoPilotPanel() {
         >
           <Input
             aria-label="Ask the co-pilot"
-            placeholder="Ask, or “what if racks go to 200 kW”"
+            placeholder="Ask why, or “what if…”"
+            aria-describedby="copilot-hint"
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="h-8 text-xs"
@@ -122,6 +123,10 @@ export function CoPilotPanel() {
             <Send aria-hidden />
           </Button>
         </form>
+        {/* The examples in full (N1): too long for the input's placeholder at this width, so they get their own line. */}
+        <p id="copilot-hint" className="-mt-1 text-[11px] text-zinc-400">
+          Try “why FA-01” or “what if racks go to 200 kW”
+        </p>
         {micAvailable ? (
           <div className="flex flex-wrap items-center gap-2">
             {voice.mode === 'off' && (

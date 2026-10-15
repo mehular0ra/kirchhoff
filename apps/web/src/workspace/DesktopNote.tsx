@@ -14,7 +14,7 @@ export function DesktopNote({ reviewHref }: { reviewHref: string | null }) {
   const [hidden, setHidden] = useState(() => readJson<boolean>(KEY, false))
   if (hidden) return null
   return (
-    <div aria-label="Best on a desktop" className="flex items-start gap-2 border-b bg-zinc-900 px-3 py-2 text-xs text-zinc-300 md:hidden">
+    <div role="note" aria-label="Best on a desktop" className="flex items-start gap-2 border-b bg-zinc-900 px-3 py-2 text-xs text-zinc-300 md:hidden">
       <Monitor aria-hidden className="mt-0.5 size-3.5 shrink-0 text-sky-300" />
       <p className="min-w-0 flex-1">
         <span className="font-medium text-zinc-100">Best on a desktop.</span> This workspace is built for a large screen; swipe sideways to

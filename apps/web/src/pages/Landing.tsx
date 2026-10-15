@@ -85,7 +85,7 @@ export function Landing() {
             </Button>
           )}
         </div>
-        {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, lazy and ~90 kB. */}
+        {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, ~90 kB, fetched first (N4). */}
         <figure className="mt-6 w-full">
           <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-sky-950/40">
             <div aria-hidden className="flex items-center gap-1.5 border-b border-zinc-800 px-3 py-2">
@@ -97,7 +97,9 @@ export function Landing() {
               src="/landing/hall-a-r2.webp"
               width={1440}
               height={900}
-              loading="lazy"
+              // Above the fold on desktop (N4): lazy-loading left a grey box at ~2.6 s.
+              loading="eager"
+              fetchPriority="high"
               decoding="async"
               alt="Hall A (sample) in Kirchhoff's 3D view: the signed revision with each fixed check called out as resolved, the revision story, the agent lanes and the co-pilot's what-if chips."
               className="block aspect-[16/10] h-auto w-full bg-zinc-900"

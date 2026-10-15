@@ -16,6 +16,8 @@ export interface FitPlan {
   minZoom?: number
   maxZoom?: number
   padding: number
+  /** At the zoom floor, start at the top of the diagram (MV bus, transformers) instead of its middle (N3). */
+  anchorTop?: boolean
 }
 
 /**
@@ -31,7 +33,24 @@ export function initialFit(graph: SldGraph, findings: Finding[]): FitPlan {
     const edge = graph.edges.find((e) => e.id === f.element_id)
     if (edge) return { nodes: [edge.source, edge.target], maxZoom: 1, padding: 0.9 }
   }
-  return { minZoom: LEGIBLE_ZOOM, padding: 0.04 }
+  return { minZoom: LEGIBLE_ZOOM, padding: 0.04, anchorTop: true }
+}
+
+/**
+ * The viewport for a diagram too big to fit at `minZoom` (N3): zoom at the floor with the diagram's top-left corner
+ * `pad` px inside the canvas, so the first view reads top-down from the MV bus (ELK puts it at the left of the top
+ * row) and the transformers. Centring it horizontally put the MV bus off-screen. null when the whole diagram fits
+ * at or above `minZoom` (the caller then fits it whole). Viewport geometry only.
+ */
+export function topAnchoredViewport(
+  bounds: { x: number; y: number; width: number; height: number },
+  canvas: { width: number; height: number },
+  minZoom: number,
+  pad: number,
+): { x: number; y: number; zoom: number } | null {
+  const fit = Math.min((canvas.width - 2 * pad) / bounds.width, (canvas.height - 2 * pad) / bounds.height)
+  if (fit >= minZoom) return null
+  return { zoom: minZoom, x: pad - bounds.x * minZoom, y: pad - bounds.y * minZoom }
 }
 
 const GLYPH: Partial<Record<FindingStatus, string>> = { fail: '✕', warn: '⚠' }

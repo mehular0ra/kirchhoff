@@ -129,7 +129,7 @@ test('D12: an archived project without revisions opens a read-only summary with 
 test('D13: the workspace carries a dismissible "Best on a desktop" note for phones, pointing at the pages that read well there', async () => {
   const user = userEvent.setup()
   open()
-  const note = await screen.findByLabelText('Best on a desktop')
+  const note = await screen.findByRole('note', { name: 'Best on a desktop' }) // N8: announced as a note
   expect(note).toHaveClass('md:hidden') // phones only
   expect(within(note).getByRole('link', { name: 'review page' })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
   expect(within(note).getByRole('link', { name: 'Integrations' })).toHaveAttribute('href', '/app/integrations')
