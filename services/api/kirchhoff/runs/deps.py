@@ -1,3 +1,4 @@
+import logging
 import os
 import socket
 import threading
@@ -13,6 +14,9 @@ from kirchhoff.agents.runner import AgentRunner
 from kirchhoff.store import Store
 
 from .blobs import BlobStore
+
+log = logging.getLogger("kirchhoff.runs")
+ERP_RETRY_S = 30.0  # after a failed refresh, keep serving the last snapshot this long before trying again
 
 
 @dataclass(frozen=True)
@@ -51,10 +55,14 @@ class Deps:
     erp_ttl_s: float = 300.0
 
     def __post_init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()  # the scenario only
+        # P2 final fix wave (Important 4): the ERP refresh is an HTTP call (up to ~7 s with retries), so it has
+        # its own lock; /api/what-if and voice, which need only the scenario, never wait behind it.
+        self._erp_lock = threading.Lock()
         self._scenario = None
         self._erp: ErpSnapshot | None = None
         self._erp_at = 0.0
+        self._erp_retry_at = 0.0  # after a failed refresh: no new attempt before this (monotonic) time
 
     def scenario(self):
         with self._lock:
@@ -63,12 +71,24 @@ class Deps:
             return self._scenario
 
     def erp(self) -> ErpSnapshot:
-        with self._lock:
+        """The ERP catalogue, cached for `erp_ttl_s`. A failed refresh serves the last good snapshot (with a
+        warning) and retries only after ERP_RETRY_S, so one ERP blip during a human-gated run never fails a
+        step; with no snapshot yet, the failure propagates (nothing to fall back on)."""
+        with self._erp_lock:
             now = time.monotonic()
-            if self._erp is None or now - self._erp_at > self.erp_ttl_s:
-                self._erp = ErpSnapshot(self.enterprise.list_materials())
-                self._erp_at = now
-            return self._erp
+            if self._erp is not None and (now - self._erp_at <= self.erp_ttl_s or now < self._erp_retry_at):
+                return self._erp
+            try:
+                snapshot = ErpSnapshot(self.enterprise.list_materials())
+            except Exception as exc:
+                if self._erp is None:
+                    raise
+                log.warning("ERP refresh failed (%s); serving the snapshot from %.0f s ago, next try in %.0f s",
+                            type(exc).__name__, now - self._erp_at, ERP_RETRY_S)
+                self._erp_retry_at = now + ERP_RETRY_S
+                return self._erp
+            self._erp, self._erp_at, self._erp_retry_at = snapshot, now, 0.0
+            return snapshot
 
     def inputs(self) -> InputFiles:
         hall = Path(self.scenarios_dir) / "hall_a"

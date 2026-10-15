@@ -185,8 +185,9 @@ def engine_summary(results: list[dict]) -> str:
 
 
 def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
-    # Fix round 2, Minor: the deadline is taken before load_revision, and deps.scenario() -- which shares
-    # Deps._lock with deps.erp() -- is fetched lazily inside what_if (its only use), not eagerly up front.
+    # Fix round 2, Minor: the deadline is taken before load_revision, and deps.scenario() is fetched lazily
+    # inside what_if (its only use), not eagerly up front. (Since the P2 final fix wave the ERP refresh also has
+    # its own lock, Deps._erp_lock, so the scenario never waits behind it either.)
     # A focus_element-only voice call has no business waiting on another request's slow ERP refresh, which
     # holds the same lock: the reviewer measured a 1s-budget voice call waiting 2.91s behind one.
     deadline = time.monotonic() + VOICE_TIMEOUT_S

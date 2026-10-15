@@ -31,6 +31,9 @@ def run_p1(ctx: PhaseContext) -> PhaseOutcome:
 
 def _intake(ctx: PhaseContext) -> StepOutput:
     files = ctx.deps.inputs()
+    # P2 final fix wave (Important 4): the ERP ids are fetched BEFORE the 60-240 s intake call, so an ERP
+    # outage with no cached snapshot fails the step fast (resumable) instead of after the tokens are spent.
+    allowed = ctx.allowed()
     ctx.emit(S_INTAKE, "intake", "status", "Reading the tender and the hall drawing")
     with ThreadPoolExecutor(2) as pool:
         f_tender = pool.submit(extract_tender, ctx.deps.runner, files.tender_pdf.read_bytes())
@@ -42,7 +45,6 @@ def _intake(ctx: PhaseContext) -> StepOutput:
             drawing, r_drawing = None, None
             ctx.emit(S_INTAKE, "intake", "status", "Drawing could not be read", detail=type(exc).__name__)
     ctx.add_tokens(r_tender, r_drawing)
-    allowed = ctx.allowed()
     with PdfText(files.tender_pdf) as pdf:
         def verify(page, quote, value, unit=None):
             chk = verify_quote(pdf, page, quote, value, unit)

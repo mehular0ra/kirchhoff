@@ -101,7 +101,8 @@ def test_voice_keeps_a_clean_answer_and_reports_focus(client, seeded, auth):
 
 
 def test_voice_focus_element_does_not_wait_on_a_concurrent_slow_erp_refresh(client, seeded, auth):
-    """Fix round 2, Minor: deps.scenario() shares Deps._lock with deps.erp(). Previously scn was fetched
+    """Fix round 2, Minor: deps.scenario() shared Deps._lock with deps.erp() (separate locks since the P2
+    final fix wave; tests/runs/test_runs_deps.py covers that directly). Previously scn was fetched
     eagerly at the top of answer_voice for every call, so a focus_element-only voice call (which needs
     neither the scenario nor the ERP) could wait behind another request's slow ERP refresh holding that
     lock -- the reviewer measured a 1s-budget call waiting 2.91s this way. scn is now lazy, fetched only
@@ -124,7 +125,7 @@ def test_voice_focus_element_does_not_wait_on_a_concurrent_slow_erp_refresh(clie
     t = threading.Thread(target=hold_lock, daemon=True)
     t.start()
     held.wait(2)
-    time.sleep(0.05)  # let the background thread actually enter deps.erp()'s `with self._lock:` block
+    time.sleep(0.05)  # let the background thread actually enter deps.erp()'s locked refresh
 
     seeded.voice_runner = ReplayRunner({"copilot:voice": {
         "tool_calls": [{"name": "focus_element", "args": {"element_id": "FA-01"}}],
