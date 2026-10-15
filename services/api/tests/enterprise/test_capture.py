@@ -1,8 +1,10 @@
+import json
+
 import pytest
 from .ws4_fakes import RID, UID, make_hall_b_workspace
 
-from kirchhoff.enterprise.capture import (PUNE_EDGE, CaptureError, RawCapture, export_run, render_capture_docs,
-                                          to_hall_a, to_static)
+from kirchhoff.enterprise.capture import (PUNE_EDGE, CaptureError, RawCapture, check_golden, export_run,
+                                          render_capture_docs, to_hall_a, to_static)
 from kirchhoff.enterprise.world.enterprise_data import MaterialsErp
 
 SIGNED = 1791873600.0
@@ -31,6 +33,34 @@ def test_export_refuses_an_unfinished_run(workspace):
         export_run(store, blobs, UID, RID)
 
 
+def test_export_refuses_a_run_with_no_brief(workspace):
+    # Carry from P4 Task 10 (gap #1 in docs/runbooks/golden-capture.md): check_golden must raise when
+    # p1.intake never produced a brief, even though the live Hall B run always has one from p1.intake.
+    store, blobs = workspace
+    store.set_doc(f"workspaces/{UID}/runs/{RID}/outputs/p1.intake",
+                  {"step": "p1.intake", "json": json.dumps({})})
+    with pytest.raises(CaptureError, match="brief"):
+        export_run(store, blobs, UID, RID)
+
+
+def test_check_golden_refuses_a_bundle_with_no_brief(workspace):
+    # Unit-level check on check_golden itself (the runbook's suggested smallest fix): clear brief directly
+    # on an already-exported bundle, bypassing export_run, to pin down check_golden's own behaviour.
+    raw = export_run(*workspace, UID, RID)
+    raw.bundle.brief = None
+    with pytest.raises(CaptureError, match="brief"):
+        check_golden(raw)
+
+
+def test_export_refuses_a_run_with_no_options(workspace):
+    # Gap #3 (ruling P3-R6): OptionCards reads run.options, and the option gate (phase2.py:42) always
+    # writes it for a real run, so a golden run with none is a defect, not a legitimate state.
+    store, blobs = workspace
+    store.update_doc(f"workspaces/{UID}/runs/{RID}", {"options": []})
+    with pytest.raises(CaptureError, match="options"):
+        export_run(store, blobs, UID, RID)
+
+
 def test_to_hall_a_rewrites_ids_people_times_and_refs(workspace, stub_engine):
     cap = to_hall_a(export_run(*workspace, UID, RID), stub_engine, None, None, signed_at=SIGNED)
     b = cap.bundle
@@ -55,6 +85,7 @@ def test_to_hall_a_rewrites_ids_people_times_and_refs(workspace, stub_engine):
     dump = b.model_dump_json()
     assert all(leak not in dump for leak in ("hall-b", "Hall B", "Demo Reviewer", RID, UID))
     assert cap.docs_summary == "Hall A passes every check after the FA-01 fix."
+    assert b.runs[0].options  # P3-R6: OptionCards reads run.options
 
 
 def test_a_second_run_becomes_pune_edge(workspace, stub_engine):
@@ -68,6 +99,7 @@ def test_a_second_run_becomes_pune_edge(workspace, stub_engine):
     assert [w.revision_ref for w in b.what_ifs] == ["seed:pune-edge-1@r2"] * 5
     dump = b.model_dump_json()
     assert all(leak not in dump for leak in ("hall-b", "Hall B", "Demo Reviewer", RID, UID))
+    assert b.runs[0].options  # P3-R6: OptionCards reads run.options
 
 
 def test_capture_is_deterministic(workspace, stub_engine):
@@ -82,6 +114,20 @@ def test_hash_drift_is_refused(workspace, stub_engine):
     raw.bundle.revisions[0].hash = "0" * 64
     with pytest.raises(CaptureError, match="R22"):
         to_hall_a(raw, stub_engine, None, None, signed_at=SIGNED)
+
+
+def test_rewrite_leak_guard_catches_a_raw_uid(workspace, stub_engine):
+    # Gap #2: export_run already anonymises uid -> "visitor" before check_golden ever runs, so this is
+    # defense-in-depth, not a live leak. Plant the real uid somewhere the rewrite's text() swaps never touch
+    # (it only knows about ids/names/times, never the raw visitor uid) and confirm _check_rewritten still
+    # refuses the bundle when the uid is threaded through to_static.
+    raw = export_run(*workspace, UID, RID)
+    raw.bundle.revisions[0].summary = f"debug note for {UID}"
+    with pytest.raises(CaptureError, match=UID):
+        to_hall_a(raw, stub_engine, None, None, signed_at=SIGNED, uid=UID)
+    # Without the uid, the same planted leak is invisible to the guard (confirms the test actually
+    # exercises the new check, not some other leak path).
+    to_hall_a(raw, stub_engine, None, None, signed_at=SIGNED)
 
 
 def test_capture_documents_are_deterministic(workspace, stub_engine, small_seed):

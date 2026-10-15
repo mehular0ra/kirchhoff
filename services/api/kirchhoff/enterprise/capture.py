@@ -114,6 +114,14 @@ def check_golden(raw: RawCapture) -> None:
     run = b.runs[0] if b.runs else None
     if run is None or run.project_id != "hall-b" or run.status != "done":
         problems.append("the run is not a finished Hall B run")
+    elif not run.options:
+        # P3-R6: OptionCards reads run.options, and every real run that reaches "done" has passed through
+        # the option gate (phase2.py:42 always writes it), so an empty list means corrupted/incomplete data.
+        problems.append("the run has no options")
+    if b.brief is None:
+        # Carry from P4 Task 10: the live Hall B run always has a brief from p1.intake, but a missing one
+        # would ship a broken bundle, so this is checked explicitly rather than assumed.
+        problems.append("the brief is missing")
     approved = [a for a in b.approvals if a.decision == "approved"]
     if len(approved) != 1:
         problems.append(f"expected exactly one approval, found {len(approved)}")
@@ -212,7 +220,8 @@ def time_map(times: list[float], anchor_from: float, anchor_to: float) -> Callab
     return m
 
 
-def to_static(raw: RawCapture, engine, scn, erp, *, target: CaptureTarget, signed_at: float) -> CapturedBundle:
+def to_static(raw: RawCapture, engine, scn, erp, *, target: CaptureTarget, signed_at: float,
+             uid: str | None = None) -> CapturedBundle:
     check_golden(raw)
     b, pid = raw.bundle, target.project.id
     prefix = f"{raw.rid}-r"
@@ -271,18 +280,21 @@ def to_static(raw: RawCapture, engine, scn, erp, *, target: CaptureTarget, signe
                            brief=out.brief.model_copy(update={"project_id": pid}) if out.brief else None,
                            runs=[run], steps=steps, events=events, revisions=revisions, findings=out.findings,
                            approvals=approvals, prs=prs, crm=crm, what_ifs=what_ifs)
-    _check_rewritten(bundle, raw.rid, signed_rev)
+    _check_rewritten(bundle, raw.rid, signed_rev, uid)
     return CapturedBundle(bundle=bundle, docs_order=list(raw.docs_order), docs_summary=text(raw.docs_summary))
 
 
-def to_hall_a(raw: RawCapture, engine, scn, erp, *, signed_at: float) -> CapturedBundle:
-    return to_static(raw, engine, scn, erp, target=HALL_A, signed_at=signed_at)
+def to_hall_a(raw: RawCapture, engine, scn, erp, *, signed_at: float, uid: str | None = None) -> CapturedBundle:
+    return to_static(raw, engine, scn, erp, target=HALL_A, signed_at=signed_at, uid=uid)
 
 
-def _check_rewritten(bundle: ProjectBundle, rid: str, signed_rev: str) -> None:
+def _check_rewritten(bundle: ProjectBundle, rid: str, signed_rev: str, uid: str | None = None) -> None:
     no_models = bundle.model_copy(update={"revisions": [r.model_copy(update={"model": None}) for r in bundle.revisions]})
     dump = no_models.model_dump_json()
-    leaks = [s for s in ("hall-b", "Hall B", VISITOR_NAME, rid) if s in dump]
+    # uid is the raw (pre-anonymisation) visitor uid, when the caller still has it (export_run and to_static
+    # in the same process). export_run already replaces it with "visitor" before writing RawCapture, so this
+    # is defense-in-depth: a regression there would otherwise ship the real uid in a public static bundle.
+    leaks = [s for s in ("hall-b", "Hall B", VISITOR_NAME, rid, *([uid] if uid else [])) if s in dump]
     if leaks:
         raise CaptureError(f"the rewrite left {leaks} in the {bundle.project.id} bundle")
     ids = {r.id for r in bundle.revisions}
