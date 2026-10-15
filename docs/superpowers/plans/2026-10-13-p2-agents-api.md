@@ -123,11 +123,11 @@ scenarios/hall_a/
 
 Test files use unique prefixes (`test_intake_*`, `test_runs_*`, …) because the test directories have no `__init__.py`.
 
-**Schedule mapping:** Mon 13 (tonight) → Tasks 1–3. Tue 14 → Tasks 4–11, then Task 12 (API). Wed 15 → Tasks 12–14, then the full P1–P4 live run (Task 14 Step 6). Thu 16 → Tasks 15–18. Golden-path freeze: Thu 22:00 IST.
+**Schedule mapping:** Tue 13 (tonight) → Tasks 1–3. Wed 14 → Tasks 4–11, then Task 12 (API). Thu 15 → Tasks 12–14, then the full P1–P4 live run (Task 14 Step 6). Fri 16 → Tasks 15–18. Golden-path freeze: Fri 22:00 IST.
 
 ---
 
-### Task 1: Tender schema (WS1's `tender.yaml`), fixture and tender PDF renderer (Mon 13)
+### Task 1: Tender schema (WS1's `tender.yaml`), fixture and tender PDF renderer (Tue 13)
 
 **Files:**
 - Create: `services/api/kirchhoff/intake/__init__.py`, `services/api/kirchhoff/intake/textnorm.py`, `services/api/kirchhoff/intake/tender_schema.py`, `services/api/kirchhoff/intake/render.py`
@@ -563,7 +563,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Hall drawing (DXF + PDF plot), DXF parser and drawing cross-check (Mon 13)
+### Task 2: Hall drawing (DXF + PDF plot), DXF parser and drawing cross-check (Tue 13)
 
 **Files:**
 - Modify: `services/api/kirchhoff/intake/render.py` (append the drawing renderer)
@@ -1003,7 +1003,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 3: Ground truth, quote verification and intake scoring (Mon 13)
+### Task 3: Ground truth, quote verification and intake scoring (Tue 13)
 
 **Files:**
 - Create: `scenarios/hall_a/ground_truth.yaml`
@@ -1363,7 +1363,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Trust rules — digit allowlist sanitizer (Tue 14)
+### Task 4: Trust rules — digit allowlist sanitizer (Wed 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/agents/__init__.py`, `services/api/kirchhoff/agents/trust.py`
@@ -1576,7 +1576,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Agent runner layer — replay/record, JSON repair, retries, ADK and google-genai runners, agent specs (Tue 14)
+### Task 5: Agent runner layer — replay/record, JSON repair, retries, ADK and google-genai runners, agent specs (Wed 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/agents/runner.py`, `services/api/kirchhoff/agents/adk_runner.py`, `services/api/kirchhoff/agents/genai_runner.py`, `services/api/kirchhoff/agents/specs.py`
@@ -2146,7 +2146,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 6: EventWriter hardening, and leases with the global live-run cap on `Store.transact` (Tue 14)
+### Task 6: EventWriter hardening, and leases with the global live-run cap on `Store.transact` (Wed 14)
 
 **Files:**
 - Modify: `services/api/kirchhoff/store/events.py` (WS2-owned after the P0 fix wave; the change is announced to all workstreams), `services/api/tests/test_events.py` (append)
@@ -2571,7 +2571,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 7: Engine/enterprise ports, compat shim and deterministic fakes (Tue 14)
+### Task 7: Engine/enterprise ports, compat shim and deterministic fakes (Wed 14)
 
 These fakes let every WS2 task be tested before WS1's engine and WS4's sandbox land. They also back local UI development (`KIRCHHOFF_FAKES=1`, Task 12). The fake numbers are illustrative and never reach production.
 
@@ -3165,7 +3165,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 8: Step machinery — event writer wiring, blobs, outputs, Deps, PhaseContext and transactional `run_step` (Tue 14)
+### Task 8: Step machinery — event writer wiring, blobs, outputs, Deps, PhaseContext and transactional `run_step` (Wed 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/runs/events.py`, `services/api/kirchhoff/runs/blobs.py`, `services/api/kirchhoff/runs/outputs.py`, `services/api/kirchhoff/runs/deps.py`, `services/api/kirchhoff/runs/steps.py`
@@ -3900,7 +3900,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 9: Intake extraction (Gemini native PDF) and brief building (Tue 14)
+### Task 9: Intake extraction (Gemini native PDF) and brief building (Wed 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/intake/extract.py`, `services/api/kirchhoff/intake/brief.py`
@@ -4153,7 +4153,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 10: Phase orchestrator — workers, heartbeats, gates, Ask/Auto, resume, expiry (Tue 14)
+### Task 10: Phase orchestrator — workers, heartbeats, gates, Ask/Auto, resume, expiry (Wed 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/runs/orchestrator.py`
@@ -4531,7 +4531,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 11: Policy, P1 (Intake → Orchestrator) and P2 (Layout → Power ∥ Cooling → Procurement → Power recheck), live P1 smoke (Tue 14)
+### Task 11: Policy, P1 (Intake → Orchestrator) and P2 (Layout → Power ∥ Cooling → Procurement → Power recheck), live P1 smoke (Wed 14)
 
 **Files:**
 - Create: `services/api/kirchhoff/runs/policy.py`, `services/api/kirchhoff/runs/phase1.py`, `services/api/kirchhoff/runs/phase2.py`
@@ -5148,7 +5148,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 12: HTTP API — app wiring, production Deps, workspace create/reset, runs, plan/option gates, resume, limits (Tue 14 → Wed 15)
+### Task 12: HTTP API — app wiring, production Deps, workspace create/reset, runs, plan/option gates, resume, limits (Wed 14 → Thu 15)
 
 **Files:**
 - Modify: `services/api/kirchhoff/api/app.py`
@@ -5687,7 +5687,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 13: P3 — option selection, routing, clashes, BOQ, revisions, Checker, fix loop, Docs (stub exports) (Wed 15)
+### Task 13: P3 — option selection, routing, clashes, BOQ, revisions, Checker, fix loop, Docs (stub exports) (Thu 15)
 
 **Files:**
 - Create: `services/api/kirchhoff/runs/revisions.py`, `services/api/kirchhoff/runs/phase3.py`, `services/api/kirchhoff/agents/docs_export.py`
@@ -6234,7 +6234,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 14: Review gate and P4 — sign, PRs via the enterprise client, R12 on submitted PRs, CRM overlay, audit; full live run (Wed 15)
+### Task 14: Review gate and P4 — sign, PRs via the enterprise client, R12 on submitted PRs, CRM overlay, audit; full live run (Thu 15)
 
 **Files:**
 - Create: `services/api/kirchhoff/runs/phase4.py`
@@ -6591,7 +6591,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 15: Co-pilot — `/api/what-if` and `/api/explain` on workspace and seed revisions (Thu 16)
+### Task 15: Co-pilot — `/api/what-if` and `/api/explain` on workspace and seed revisions (Fri 16)
 
 **Files:**
 - Create: `services/api/kirchhoff/agents/copilot.py`, `services/api/kirchhoff/api/copilot_routes.py`
@@ -6889,7 +6889,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 16: `/api/voice` push-to-talk fallback (google-genai, audio input, same tools) (Thu 16)
+### Task 16: `/api/voice` push-to-talk fallback (google-genai, audio input, same tools) (Fri 16)
 
 **Files:**
 - Modify: `services/api/pyproject.toml` (add `python-multipart>=0.0.20`; FastAPI needs it for `UploadFile`/`Form`. This is a shared file, so the change is one line.)
@@ -7132,7 +7132,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 17: Asset agent — `/api/asset/{pack}` for grid and solar (Thu 16)
+### Task 17: Asset agent — `/api/asset/{pack}` for grid and solar (Fri 16)
 
 **Files:**
 - Create: `services/api/kirchhoff/agents/asset.py`, `services/api/kirchhoff/api/asset_routes.py`
@@ -7296,7 +7296,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 18: Docs exports to Cloud Storage, `/api/files` signed URLs, retire the P0 hello route, drop the compat shim (Thu 16)
+### Task 18: Docs exports to Cloud Storage, `/api/files` signed URLs, retire the P0 hello route, drop the compat shim (Fri 16)
 
 **Files:**
 - Modify: `services/api/kirchhoff/agents/docs_export.py` (append `latin1`, `boq_csv`, `calc_report_pdf`, `BlobExporter`), `services/api/kirchhoff/api/deps.py` (production exporter), `services/api/kirchhoff/api/app.py` (files router; drop hello)

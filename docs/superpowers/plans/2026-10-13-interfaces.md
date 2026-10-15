@@ -92,7 +92,7 @@ Grid and solar (WS1 produces, WS2's Asset agent consumes): `kirchhoff/engine/gri
 
 ## Scenario files
 
-- `scenarios/hall_a/tender.yaml` (WS1, Monday): clause list `[{id: "§4.6", title, text, page, limits: {...}}]` — single source for the tender PDF (WS2 renders it) and for engine limits. Includes the deliberate contradiction (§4.2 vs Appendix B) and §2.3 (26 weeks).
+- `scenarios/hall_a/tender.yaml` (WS1, Tuesday): clause list `[{id: "§4.6", title, text, page, limits: {...}}]` — single source for the tender PDF (WS2 renders it) and for engine limits. Includes the deliberate contradiction (§4.2 vs Appendix B) and §2.3 (26 weeks).
 - `scenarios/hall_a/erp_seed.yaml` (WS1): the Hall A materials (incl. 2.5 MVA: stock 0, 98 weeks; 3.15 MVA: stock 6). WS4's demo-world generator includes these verbatim in the ~60-material ERP.
 - `scenarios/hall_a/out/` (WS2 generates): `tender-hall-a.pdf`, `hall-a.dxf`, `hall-a-plan.pdf`.
 
