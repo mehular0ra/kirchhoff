@@ -19,6 +19,8 @@ SERVICES=(firestore.googleapis.com firebasestorage.googleapis.com firebaseml.goo
 # and curl and enforced App Check on ordinal-mep). With APPCHECK_FAKE_DIR set, gcloud, curl and python3 come from that
 # directory ONLY, never from PATH, and a stub that is missing or not executable stops the script. Under pytest without it
 # the script refuses to run at all. Nobody sets either in real use.
+# The pytest guard reads PYTEST_CURRENT_TEST, so it only fires when the child process inherits the test process's
+# environment; a test that builds its own environment must keep that variable (test_infra_appcheck.py checks it).
 if [ -n "${APPCHECK_FAKE_DIR:-}" ]; then
   for tool in curl python3 gcloud; do  # (keep this order: test_infra_scripts scans the text of this file)
     [ -x "$APPCHECK_FAKE_DIR/$tool" ] || {

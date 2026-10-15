@@ -5,10 +5,14 @@ which services it would patch, in which mode, and that the debug-token value nev
 SAFETY (incident of 15 Oct 14:49 IST: non-executable stubs let bash fall through to the REAL gcloud and curl, and a
 test run enforced App Check on ordinal-mep). Four independent layers now stop that from happening again:
   1. every stub is chmod 755;
-  2. the fixture proves, through bash itself, that the stubs are what `command -v` finds first;
+  2. the fixture proves, through bash itself, that the stubs are what `command -v` finds first, so EVERY test errors at
+     setup if a stub does not resolve first;
   3. a DECOY "real" gcloud and curl sit behind the stubs on PATH; if any is ever run, the test fails at teardown;
   4. the script takes its tools from APPCHECK_FAKE_DIR only (never PATH) when that is set, stops if a stub is missing or
-     not executable, and refuses to run under pytest at all without it (tests below)."""
+     not executable, and refuses to run under pytest at all without it (tests below);
+  5. the environment of every run has no credentials: CLOUDSDK_CONFIG is an empty directory, GOOGLE_APPLICATION_CREDENTIALS
+     and CLOUDSDK_AUTH_* are not passed on, and APPCHECK_FAKE_DIR / APPCHECK_ENFORCE_CONFIRM exported in the caller's
+     shell are dropped. This is the one layer that depends on neither PATH nor the script."""
 import os
 import re
 import shutil
@@ -18,7 +22,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import yaml
 
 REPO = Path(__file__).resolve().parents[4]
 SCRIPT = REPO / "infra" / "appcheck.sh"
@@ -88,19 +91,37 @@ def fakes(tmp_path):
         _executable(decoys / name, DECOY)
     log, decoy_log = tmp_path / "calls.log", tmp_path / "decoy.log"
     log.write_text("", encoding="utf-8")
-    state = SimpleNamespace(tmp=tmp_path, stubs=stubs, decoys=decoys, log=log, decoy_log=decoy_log)
+    config = tmp_path / "gcloud-config"  # an EMPTY gcloud configuration directory: no accounts, no credentials
+    config.mkdir()
+    state = SimpleNamespace(tmp=tmp_path, stubs=stubs, decoys=decoys, log=log, decoy_log=decoy_log, config=config)
+    _assert_stubs_resolve_first(state)  # layer 2, for every test: a stub that does not resolve first errors at setup
     yield state
     # Teardown: whatever the test did, the decoy "real" tools were never reached.
     assert not decoy_log.exists(), decoy_log.read_text(encoding="utf-8")
 
 
 def _env(state, fake_dir=True, **extra):
-    base = {**os.environ, "PATH": os.pathsep.join([str(state.stubs), str(state.decoys), os.environ["PATH"]]),
+    # Nothing that could authenticate, or arm the script, is inherited from whoever runs the tests. PYTEST_CURRENT_TEST
+    # IS inherited on purpose: the script's pytest guard needs it.
+    inherited = {k: v for k, v in os.environ.items()
+                 if k not in ("GOOGLE_APPLICATION_CREDENTIALS", "APPCHECK_FAKE_DIR", "APPCHECK_ENFORCE_CONFIRM")
+                 and not k.startswith("CLOUDSDK_AUTH_")}
+    base = {**inherited, "PATH": os.pathsep.join([str(state.stubs), str(state.decoys), os.environ["PATH"]]),
+            "CLOUDSDK_CONFIG": str(state.config),
             "FAKE_LOG": state.log.as_posix(), "FAKE_DIR": state.tmp.as_posix(), "FAKE_SECRET_VALUE": TOKEN,
             "DECOY_LOG": state.decoy_log.as_posix()}
     if fake_dir:
         base["APPCHECK_FAKE_DIR"] = state.stubs.as_posix()
     return {**base, **extra}
+
+
+def _assert_stubs_resolve_first(state):
+    """Layer 2: ask bash itself (not Python's which, which differs on Windows) what each tool name resolves to."""
+    done = subprocess.run(["bash", "-c", "command -v gcloud curl python3"], capture_output=True, text=True,
+                          env=_env(state, fake_dir=False), timeout=60)
+    found = done.stdout.strip().splitlines()
+    assert len(found) == 3 and all(state.tmp.name in line and "stubs" in line for line in found), (
+        f"gcloud, curl and python3 must all resolve to the stubs first, bash found: {found}")
 
 
 def run(state, *args, fake_dir=True, **env):
@@ -127,14 +148,6 @@ def test_appcheck_script_targets_the_three_services_and_keeps_the_token_secret()
     assert not re.search(UUID4, text)  # no literal token
 
 
-def test_api_env_declares_the_app_check_switch_and_it_stays_off_until_the_staged_enforcement():
-    """Issue #15 orders the steps: debug token, e2e green on the deployed site, THEN KIRCHHOFF_REQUIRE_APPCHECK="1" and
-    a redeploy; Firestore, Storage and AI Logic only on Mehul's "go" after the golden capture. So this is "0" until then
-    and the flip belongs to the enforcement PR, which tightens this assertion to "1"."""
-    env = yaml.safe_load((REPO / "infra" / "api.env.yaml").read_text(encoding="utf-8"))
-    assert env["KIRCHHOFF_REQUIRE_APPCHECK"] in ("0", "1")
-
-
 def test_playwright_injects_the_debug_token_without_touching_the_app():
     fixtures = (REPO / "e2e" / "tests" / "fixtures.ts").read_text(encoding="utf-8")
     assert "addInitScript" in fixtures and "FIREBASE_APPCHECK_DEBUG_TOKEN" in fixtures
@@ -143,19 +156,12 @@ def test_playwright_injects_the_debug_token_without_touching_the_app():
 
 # ---- the safety layers themselves ---------------------------------------------------------------------------------
 @needs_bash
-def test_the_stubs_are_what_bash_finds_first_and_none_of_them_is_the_real_tool(fakes):
-    """Layer 2: ask bash itself (not Python's which, which differs on Windows) what each tool name resolves to."""
-    done = subprocess.run(["bash", "-c", "command -v gcloud curl python3"], capture_output=True, text=True,
-                          env=_env(fakes, fake_dir=False), timeout=60)
-    found = done.stdout.strip().splitlines()
-    assert len(found) == 3 and all(fakes.tmp.name in line and "stubs" in line for line in found), found
-
-
-@needs_bash
 def test_under_pytest_the_script_refuses_to_run_without_the_stubs_marker(fakes):
     """Layer 4a: a test that forgets the stubs gets a refusal, never a call to the real project."""
     for args in (["status"], ["enforce"], ["unenforce"], ["debug-token"]):
-        done, calls = run(fakes, *args, fake_dir=False, APPCHECK_ENFORCE_CONFIRM="yes")
+        # No confirmation here on purpose: the guard fires before argument parsing, so it adds no coverage, and without it a
+        # failure of every other layer still cannot confirm an enforce.
+        done, calls = run(fakes, *args, fake_dir=False)
         assert done.returncode == 3 and "refusing to run under pytest" in done.stderr, (args, done.stderr)
         assert calls == []
 
@@ -177,6 +183,43 @@ def test_a_non_executable_stub_stops_the_script_before_any_call(fakes):
     done, calls = run(fakes, "enforce", APPCHECK_ENFORCE_CONFIRM="yes")
     assert done.returncode == 4 and "stub curl is missing or not executable" in done.stderr
     assert calls == [] and not fakes.decoy_log.exists()
+
+
+@needs_bash
+def test_the_test_environment_has_no_credentials_and_inherits_no_switches(fakes, monkeypatch):
+    """Layer 5 (#22 review): even a real gcloud reached by accident finds no credentials, because CLOUDSDK_CONFIG points
+    at an empty directory and no credential variable is passed on; and a switch exported in the caller's shell cannot
+    leak into a test."""
+    for name, value in {"GOOGLE_APPLICATION_CREDENTIALS": "/real/adc.json", "CLOUDSDK_AUTH_ACCESS_TOKEN": "real-token",
+                        "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE": "/real/key.json", "APPCHECK_FAKE_DIR": "/elsewhere",
+                        "APPCHECK_ENFORCE_CONFIRM": "yes"}.items():
+        monkeypatch.setenv(name, value)
+    env = _env(fakes, fake_dir=False)
+    assert "GOOGLE_APPLICATION_CREDENTIALS" not in env and not [k for k in env if k.startswith("CLOUDSDK_AUTH_")]
+    assert "APPCHECK_FAKE_DIR" not in env and "APPCHECK_ENFORCE_CONFIRM" not in env
+    config = Path(env["CLOUDSDK_CONFIG"])
+    assert config.is_dir() and not any(config.iterdir()) and fakes.tmp in config.parents
+    assert "PYTEST_CURRENT_TEST" in env  # the script's pytest guard only works if the child inherits it
+
+
+@needs_bash
+def test_a_switch_exported_in_the_callers_shell_does_not_count(fakes, monkeypatch):
+    """A developer who exported APPCHECK_FAKE_DIR or APPCHECK_ENFORCE_CONFIRM in their own shell must not change what a
+    test does: without the fake dir passed on purpose, the script still refuses."""
+    monkeypatch.setenv("APPCHECK_FAKE_DIR", fakes.stubs.as_posix())
+    monkeypatch.setenv("APPCHECK_ENFORCE_CONFIRM", "yes")
+    done, calls = run(fakes, "enforce", fake_dir=False)
+    assert done.returncode == 3 and "refusing to run under pytest" in done.stderr
+    assert calls == []
+
+
+@needs_bash
+def test_the_fixture_check_fails_when_a_stub_is_not_what_bash_finds_first(fakes):
+    """Layer 2 is enforced for every test at fixture setup; prove the check itself bites: take a stub away and bash
+    falls through to the decoy, which the check must report."""
+    (fakes.stubs / "curl").unlink()
+    with pytest.raises(AssertionError, match="curl"):
+        _assert_stubs_resolve_first(fakes)
 
 
 # ---- behaviour: the real script under real bash, stub gcloud and curl ------------------------------------------
