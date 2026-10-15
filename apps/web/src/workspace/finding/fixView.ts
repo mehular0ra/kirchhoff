@@ -1,4 +1,5 @@
 // The engine's fix dict as the drawer and the co-pilot show it. Formatting only: values come from the record.
+import { tidyTokens } from '@/lib/format'
 import type { Finding } from '@/lib/types'
 
 export interface FixView {
@@ -18,7 +19,7 @@ export function readFix(fix: Finding['fix']): FixView | null {
   const cost = typeof fix.cost_delta === 'number' && !inner.some(([k]) => k === 'cost_delta') ? [['cost_delta', fix.cost_delta] as [string, unknown]] : []
   const deltas = [...cost, ...inner]
   return {
-    label: String(fix.label ?? fix.candidate ?? 'Fix'),
+    label: tidyTokens(String(fix.label ?? fix.candidate ?? 'Fix')),
     reason: typeof fix.reason === 'string' ? fix.reason : '',
     deltas,
   }

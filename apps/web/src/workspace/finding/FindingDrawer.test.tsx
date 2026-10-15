@@ -4,7 +4,9 @@ import { useEffect } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ServicesProvider } from '@/services/services'
 import { useUi } from '@/store/ui'
+import { normalizeBundle, type ProjectBundle } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
+import hallASigned from '@/test/fixtures/hall-a-signed.json'
 import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { WorkspaceProvider } from '../WorkspaceContext'
 import { bboxToCss } from './bbox'
@@ -131,4 +133,28 @@ test('I11: a document opened without a quote never claims a verified quote', () 
   const dlg = screen.getByRole('dialog')
   expect(within(dlg).queryByText(/Verified quote/)).not.toBeInTheDocument()
   expect(within(dlg).getByText('Tender PDF · page 1')).toBeInTheDocument()
+})
+
+test('D9: a count rule shows "1 crossing (limit 0)" in place of a bar; the formula wraps; tiers read as words', async () => {
+  const b = normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
+  resetStores()
+  act(() => {
+    useUi.getState().setViewRev('r1')
+    useUi.getState().openFinding('R11:H-Z2')
+  })
+  render(
+    <ServicesProvider services={fakeServices()}>
+      <TooltipProvider>
+        <WorkspaceProvider bundle={b} source="static">
+          <FindingDrawer />
+        </WorkspaceProvider>
+      </TooltipProvider>
+    </ServicesProvider>,
+  )
+  const drawer = await screen.findByRole('dialog')
+  expect(within(drawer).queryByRole('img', { name: /against limit/ })).not.toBeInTheDocument()
+  expect(within(drawer).getByText((_, el) => el?.tagName === 'P' && /Fail · 1 crossing \(limit 0\)/.test(el.textContent ?? ''))).toBeInTheDocument()
+  expect(within(drawer).getByText('Drop H-Z2 to the low pipe tier where it crosses FB-03')).toBeInTheDocument()
+  expect(within(drawer).getByText('28 m')).toBeInTheDocument()
+  expect(within(drawer).getByRole('region', { name: 'Formula' }).querySelector('pre')).toHaveClass('whitespace-pre-wrap')
 })

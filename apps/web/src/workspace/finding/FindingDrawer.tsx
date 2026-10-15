@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { ClauseChip, TenderChip } from '@/components/TenderChip'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { fillPlaceholders, fmtInput, fmtKeyValue } from '@/lib/format'
+import { fillPlaceholders, fmtInput, fmtKeyValue, tidyTokens } from '@/lib/format'
 import { canvasesFor } from '@/lib/model'
 import { ruleName } from '@/lib/status'
 import { useServices } from '@/services/services'
@@ -91,7 +91,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
 
               {f.formula && (
                 <section aria-label="Formula" className="flex flex-col gap-1">
-                  <pre className="overflow-x-auto rounded bg-zinc-900 p-2 font-mono text-xs text-zinc-100">{f.formula}</pre>
+                  <pre className="whitespace-pre-wrap break-words rounded bg-zinc-900 p-2 font-mono text-xs text-zinc-100">{f.formula}</pre>
                   {f.inputs && Object.keys(f.inputs).length > 0 && (
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                       {Object.entries(f.inputs).map(([k, v]) => {
@@ -113,7 +113,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
               )}
 
               <section aria-label="Explanation" className="flex flex-col gap-2">
-                <p className="text-zinc-200">{fillPlaceholders(f.explanation || f.title, f)}</p>
+                <p className="text-zinc-200">{tidyTokens(fillPlaceholders(f.explanation || f.title, f))}</p>
                 {view.revRef && (
                   <Button
                     variant="ghost"

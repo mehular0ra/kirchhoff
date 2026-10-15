@@ -11,8 +11,10 @@ import {
   fmtRelative,
   fmtTs,
   fmtUsd,
+  isCountRule,
   shortHash,
   tidyPlurals,
+  tidyTokens,
 } from './format'
 
 test('quantities keep engine values and only add grouping and units', () => {
@@ -118,4 +120,27 @@ test('D2: "(1 lines)" from the demo-world generator reads "(1 line)" on display'
   expect(tidyPlurals('submitted PR-2026-0148 to the ERP sandbox (1 lines)')).toBe('submitted PR-2026-0148 to the ERP sandbox (1 line)')
   expect(tidyPlurals('submitted PR-2026-0146 to the ERP sandbox (2 lines)')).toBe('submitted PR-2026-0146 to the ERP sandbox (2 lines)')
   expect(tidyPlurals('(11 lines) and 1 PRs')).toBe('(11 lines) and 1 PR')
+})
+
+test('D9: a count of one takes the singular unit', () => {
+  expect(fmtQty(1, 'crossings')).toBe('1 crossing')
+  expect(fmtQty(2, 'crossings')).toBe('2 crossings')
+  expect(fmtQty(1, 'lines')).toBe('1 line')
+  expect(fmtQty(-1, 'pipes')).toBe('-1 pipe')
+  expect(fmtQty(1, '%')).toBe('1%')
+})
+
+test('D9: the R11 location inputs carry metres; tier ids read as words', () => {
+  expect(fmtInput('at_x', 28)).toEqual({ label: 'At x', value: '28 m' })
+  expect(fmtInput('at_z', 3.8)).toEqual({ label: 'At z', value: '3.8 m' })
+  expect(tidyTokens('Drop H-Z2 to pipe_low where it crosses FB-03')).toBe('Drop H-Z2 to the low pipe tier where it crosses FB-03')
+  expect(tidyTokens('moved to pipe_high')).toBe('moved to the high pipe tier')
+})
+
+test('D9: count-type rules are recognised by their unit or a zero limit', () => {
+  expect(isCountRule('crossings', 0)).toBe(true)
+  expect(isCountRule('lines', 0)).toBe(true)
+  expect(isCountRule(null, 0)).toBe(true)
+  expect(isCountRule('%', 2)).toBe(false)
+  expect(isCountRule('A', 1600)).toBe(false)
 })

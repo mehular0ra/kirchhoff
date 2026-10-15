@@ -21,10 +21,31 @@ export function fmtNum(v: number | null | undefined): string {
   return v === null || v === undefined || Number.isNaN(v) ? DASH : NUM.format(v)
 }
 
+/** Units that count things: a value of one takes the singular ("1 crossing", D9). */
+const COUNT_UNITS = new Set(['crossings', 'lines', 'systems', 'elements', 'pipes', 'clashes', 'checks', 'findings', 'weeks'])
+
 export function fmtQty(v: number | null | undefined, unit?: string | null): string {
   if (v === null || v === undefined) return DASH
   if (!unit) return fmtNum(v)
-  return unit === '%' ? `${fmtNum(v)}%` : `${fmtNum(v)} ${unit}`
+  if (unit === '%') return `${fmtNum(v)}%`
+  return `${fmtNum(v)} ${Math.abs(v) === 1 && COUNT_UNITS.has(unit) ? unit.slice(0, -1) : unit}`
+}
+
+/**
+ * A count-type rule (R11 crossings, R12 lines, R06 single points of failure): a value-vs-limit bar for
+ * "1 against 0" means nothing, so the drawer states it in words instead (D9).
+ */
+export function isCountRule(unit: string | null | undefined, limit: number | null | undefined): boolean {
+  return limit === 0 || (!!unit && COUNT_UNITS.has(unit) && unit !== 'weeks')
+}
+
+/** Engine tier ids in display text read as words: "pipe_low" → "the low pipe tier" (D9; a label map, no value changes). */
+const TOKEN_LABELS: Record<string, string> = {
+  pipe_low: 'the low pipe tier',
+  pipe_high: 'the high pipe tier',
+}
+export function tidyTokens(text: string): string {
+  return text.replace(/\b(pipe_low|pipe_high)\b/g, (t) => TOKEN_LABELS[t] ?? t)
 }
 
 export function fmtUsd(v: number | null | undefined, signed = false): string {
@@ -123,6 +144,9 @@ const KEY_LABELS: Record<string, { label: string; unit?: string; usd?: boolean }
   finding_id: { label: 'Finding' },
   ok: { label: 'OK' },
   i_a: { label: 'Current I', unit: 'A' },
+  at_x: { label: 'At x', unit: 'm' },
+  at_y: { label: 'At y', unit: 'm' },
+  at_z: { label: 'At z', unit: 'm' },
   n1_current_a: { label: 'N-1 current', unit: 'A' },
   dc_kwp: { label: 'DC capacity', unit: 'kWp' },
   dc_ac: { label: 'DC/AC ratio' },

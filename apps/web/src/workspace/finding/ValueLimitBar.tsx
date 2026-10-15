@@ -1,6 +1,6 @@
 import { cn } from 'cn'
 import { Num } from '@/components/Labels'
-import { fmtQty } from '@/lib/format'
+import { fmtNum, fmtQty, isCountRule } from '@/lib/format'
 import { STATUS_META } from '@/lib/status'
 import type { FindingStatus } from '@/lib/types'
 
@@ -16,9 +16,22 @@ export function ValueLimitBar({
   unit: string | null | undefined
   status: FindingStatus
 }) {
+  const m = STATUS_META[status]
+  if (isCountRule(unit, limit)) {
+    // A count against a count (R11: 1 crossing, limit 0): words, not a bar (D9).
+    const Icon = m.icon
+    return (
+      <p className="flex items-center gap-1.5 text-sm">
+        <Icon aria-hidden className={cn('size-4 shrink-0', m.text)} />
+        <span className={m.text}>{m.label}</span>{' '}
+        <span className="text-zinc-200">
+          · <Num>{fmtQty(value, unit)}</Num> (limit <Num>{fmtNum(limit)}</Num>)
+        </span>
+      </p>
+    )
+  }
   const max = Math.max(Math.abs(value), Math.abs(limit)) * 1.25 || 1
   const pct = (n: number) => `${Math.min(100, (Math.abs(n) / max) * 100)}%`
-  const m = STATUS_META[status]
   return (
     <div className="flex flex-col gap-1.5">
       <div
