@@ -84,8 +84,8 @@ def r13(ctx: Ctx) -> list[Finding]:
         ok = len(ups_systems) >= 2
         out.append(make_finding(ctx.scn, "R13", cdu.id, status_of(ok), value=float(len(ups_systems)), limit=2.0,
                                 unit="systems", inputs={"systems": ", ".join(ups_systems)},
-                                explanation=f"{cdu.id} pumps are fed from {{value}} independent UPS-backed systems; "
-                                            f"{{limit}} are required."))
+                                explanation=f"{cdu.id} pumps have independent UPS-backed supplies from {{value}} "
+                                            f"systems; at least {{limit}} systems are required."))
     return out
 
 

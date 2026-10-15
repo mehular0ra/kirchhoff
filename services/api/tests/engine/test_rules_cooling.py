@@ -77,3 +77,13 @@ def test_check_facade_counts_every_rule(scn, erp, routed):
                                             "R10", "R11", "R12", "R13", "R14", "R15"}
     assert len({f.id for f in findings}) == len(findings)
     assert all(f.status in ("pass", "fail") for f in findings)
+
+
+def test_r13_explanation_reads_cleanly_once_filled(scn, routed):
+    """P2 final fix wave (ruling P2-R19): the unit "systems" follows {value}, so filling never doubles it
+    (it used to read "fed from 2 systems independent UPS-backed systems"). Bundled into the static demo."""
+    from kirchhoff.agents.trust import fill_finding
+
+    f = _by_id(run_rules(scn, routed["2N"], None, only=["R13"]))["R13:CDU-1"]
+    assert fill_finding(f.explanation, f.value, f.limit, f.unit) == (
+        "CDU-1 pumps have independent UPS-backed supplies from 2 systems; at least 2 systems are required.")
