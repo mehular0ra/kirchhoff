@@ -174,3 +174,17 @@ test('D14: the main nav keeps each link on one line and names the inbox link "Bi
   expect(inbox).toHaveClass('whitespace-nowrap')
   expect(within(inbox).getByText('Inbox')).toHaveClass('sm:hidden')
 })
+
+test('I2: the landing shows a real product frame (lazy, with alt text), the stack line and both required labels', async () => {
+  renderWithProviders(<Landing />)
+  const shot = screen.getByRole('img', { name: /Hall A \(sample\) in Kirchhoff's 3D view/ })
+  expect(shot).toHaveAttribute('loading', 'lazy')
+  expect(shot).toHaveAttribute('src', '/landing/hall-a-r2.webp')
+  expect(shot).toHaveAttribute('width')
+  expect(screen.getByText('Hall A (sample): the first revision’s failures, fixed and signed.')).toBeInTheDocument()
+  expect(screen.getByText('Built on Gemini · ADK · Cloud Run · Firestore · Firebase')).toBeInTheDocument()
+  const footer = screen.getByRole('contentinfo')
+  expect(footer).toHaveTextContent('Demo workspace — all companies, people and data are fictional')
+  expect(footer).toHaveTextContent('IEC-based, illustrative values, not for construction')
+  await screen.findByRole('link', { name: /replay a recorded run/i }) // let the recorded-run check settle
+})
