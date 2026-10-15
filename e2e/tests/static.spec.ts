@@ -3,6 +3,15 @@ import { BANNER, expect, startTour, test, tourCardPositions } from './fixtures'
 type Snapshot = { erp: { prs: { id: string; project_id: string }[] } }
 type Bundle = { events?: unknown[]; what_ifs?: unknown[] }
 
+/** Citations (`page`, `quote`, `bbox`) that have a quote and a page but no box: they open the PDF without a highlight. */
+function countUnboxed(node: unknown): number {
+  if (Array.isArray(node)) return node.reduce<number>((n, v) => n + countUnboxed(v), 0)
+  if (node === null || typeof node !== 'object') return 0
+  const o = node as Record<string, unknown>
+  const own = 'page' in o && 'quote' in o && 'bbox' in o && o.quote && o.page && !o.bbox ? 1 : 0
+  return Object.values(o).reduce<number>((n, v) => n + countUnboxed(v), own)
+}
+
 const TOUR: (string | RegExp)[] = [
   "Your firm's live projects",
   'Every number is checked and cited',
@@ -46,7 +55,7 @@ test.describe('first visit', () => {
 
 test('Hall A: the signed revision is clean and the first one cites the tender', async ({ page, request }) => {
   const bundle = (await (await request.get('/demo/projects/hall-a.json')).json()) as { findings: Record<string, unknown[]> }
-  const hasBbox = /"bbox":\s*\[/.test(JSON.stringify(bundle.findings))
+  expect(countUnboxed(bundle), 'citations with a quote and a page but no box').toBe(0)
   await page.goto('/app/p/hall-a?tab=matrix')
   await expect(page.getByRole('table', { name: 'Compliance matrix' })).toBeVisible()
   await expect(page.getByRole('button', { name: /: Fail$/ })).toHaveCount(0)
@@ -59,12 +68,8 @@ test('Hall A: the signed revision is clean and the first one cites the tender', 
   await expect(source).toBeVisible()
   await expect(source).toContainText('Verified quote:')
   await expect(source.locator('canvas').first()).toBeVisible({ timeout: 20_000 }) // the PDF page rendered
-  if (hasBbox) {
-    await expect(page.getByTestId('citation-highlight').first()).toBeVisible({ timeout: 20_000 })
-  } else {
-    // Issue #11: the provisional bundle has no pdfplumber boxes until the golden capture (Task 14).
-    test.info().annotations.push({ type: 'no-bbox-until-golden-capture', description: 'issue #11' })
-  }
+  // Issues #11 and #14: every citation in the demo bundle carries pdfplumber's box, so the quote is highlighted.
+  await expect(page.getByTestId('citation-highlight').first()).toBeVisible({ timeout: 20_000 })
 })
 
 test('what-if chip lights the impact chain within the spec budget', async ({ page }) => {
