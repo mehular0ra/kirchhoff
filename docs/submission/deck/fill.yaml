@@ -34,7 +34,7 @@ metrics:
   upload_to_clean_median: ""
   # Slide 12, speaker notes (full sentence): intake accuracy against our ground truth
   # (spec §4, metric 2).
-  intake_accuracy: ""
+  intake_accuracy: "Measured on a live intake run on Vertex AI, 15 Oct 2026: requirement recall 0.84 against our hand-labelled ground truth for the Hall A tender, with 27 of 28 extracted quotes verified word for word against the tender PDF; the one unverified quote was shown as unverified, never as fact."
 
 sources:
   # Slide 12, speaker notes: citation for the 4–8 week first-coordinated-electrical-package baseline.
