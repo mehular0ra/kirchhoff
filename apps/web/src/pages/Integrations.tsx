@@ -1,6 +1,6 @@
 // Integrations (spec §13.3): ERP/CRM sandbox via /api/enterprise/*, documents and notifications from
 // the static snapshot; falls back to /demo/integrations.json with a "showing cached snapshot" note.
-import { Bell, Boxes, Cloud, CloudOff, Handshake, LoaderCircle, Puzzle, type LucideIcon } from 'lucide-react'
+import { Bell, Boxes, CircleCheck, Cloud, CloudOff, Handshake, Info, LoaderCircle, Puzzle, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { EmptyState, Num, SandboxLabel } from '@/components/Labels'
 import { LoadError } from '@/components/LoadError'
@@ -50,12 +50,21 @@ export function useIntegrations(): IntegrationsState {
   return state
 }
 
+// The card's own status line is icon + text, never colour alone (M1): "ok" for connected (live or always-on
+// stores), "offline" for a cached/unreachable fallback, "info" for a feature that isn't live yet.
+const STATUS_TONE: Record<'ok' | 'offline' | 'info', { icon: LucideIcon; cls: string }> = {
+  ok: { icon: CircleCheck, cls: 'text-emerald-400' },
+  offline: { icon: CloudOff, cls: 'text-amber-300' },
+  info: { icon: Info, cls: 'text-zinc-400' },
+}
+
 function Card({
   icon: Icon,
   title,
   kind,
   sandbox,
   status,
+  statusTone,
   counts,
   children,
   tour,
@@ -65,10 +74,12 @@ function Card({
   kind: string
   sandbox: boolean
   status: string
+  statusTone: 'ok' | 'offline' | 'info'
   counts: string[]
   children?: ReactNode
   tour?: string
 }) {
+  const StatusIcon = STATUS_TONE[statusTone].icon
   return (
     <article aria-label={title} data-tour={tour} className="flex flex-col gap-2 rounded-lg border bg-card p-4">
       {/* The badge wraps under a long title instead of being squashed (D18). */}
@@ -78,7 +89,9 @@ function Card({
         {sandbox && <SandboxLabel className="ml-auto shrink-0 whitespace-nowrap" />}
       </header>
       <p className="text-xs text-zinc-400">{kind}</p>
-      <p className="text-xs text-zinc-300">{status}</p>
+      <p className={`flex items-center gap-1.5 text-xs ${STATUS_TONE[statusTone].cls}`}>
+        <StatusIcon aria-hidden className="size-3.5 shrink-0" /> {status}
+      </p>
       <ul className="flex flex-wrap gap-1.5 text-xs">
         {counts.map((c) => (
           <li key={c} className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-200">
@@ -179,6 +192,7 @@ export function IntegrationsPage() {
           kind="Materials, stock, lead times and purchase requisitions"
           sandbox
           status={status}
+          statusTone={live ? 'ok' : 'offline'}
           counts={[`${data.erp.materials.length} materials`, `${data.erp.prs.length} purchase requisitions`]}
         >
           <DataSheet title="ERP (SAP-style)" label="sandbox (simulated) · kirchhoff-enterprise">
@@ -242,6 +256,7 @@ export function IntegrationsPage() {
           kind="Accounts and opportunities"
           sandbox
           status={status}
+          statusTone={live ? 'ok' : 'offline'}
           counts={[`${new Set(data.crm.opportunities.map((o) => o.account)).size} accounts`, `${data.crm.opportunities.length} opportunities`]}
         >
           <DataSheet title="CRM (Salesforce-style)" label="sandbox (simulated) · kirchhoff-enterprise">
@@ -277,6 +292,7 @@ export function IntegrationsPage() {
           kind="Google Cloud Storage: tenders, drawings, calc reports, BOQs"
           sandbox={false}
           status="Connected (Cloud Storage)"
+          statusTone="ok"
           counts={[`${data.documents.length} documents`]}
         >
           <DataSheet title="Document store" label="Google Cloud Storage">
@@ -294,7 +310,7 @@ export function IntegrationsPage() {
             </ul>
           </DataSheet>
         </Card>
-        <Card icon={Bell} title="Notifications" kind="In-app inbox of approvals and findings" sandbox status={status} counts={[`${data.notifications.length} notifications`]}>
+        <Card icon={Bell} title="Notifications" kind="In-app inbox of approvals and findings" sandbox status={status} statusTone={live ? 'ok' : 'offline'} counts={[`${data.notifications.length} notifications`]}>
           <DataSheet title="Notifications" label="sandbox (simulated)">
             <ul className="flex flex-col gap-2 text-sm">
               {data.notifications.map((n) => (
@@ -306,7 +322,7 @@ export function IntegrationsPage() {
             </ul>
           </DataSheet>
         </Card>
-        <Card icon={Puzzle} title="PLM" kind="Product lifecycle management" sandbox={false} status="Coming soon" counts={[]} />
+        <Card icon={Puzzle} title="PLM" kind="Product lifecycle management" sandbox={false} status="Coming soon" statusTone="info" counts={[]} />
       </div>
     </div>
   )

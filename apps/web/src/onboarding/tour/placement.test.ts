@@ -49,12 +49,25 @@ test('N2: a chip low on the screen keeps the card fully inside the viewport', ()
   expect(p.anchor.top + 170).toBeLessThanOrEqual(desk.h)
 })
 
-test('D3 step 3 on a phone: the drawer fills the width, so the card falls back to the chip (below it)', () => {
+test('N9 step 3 on a phone: the drawer fills the width, so the card pins under the banner, clear of the value bar and formula further down the drawer', () => {
   const chip = box(172, 148, 105, 33)
   const drawer = box(0, 0, 412, 915)
   const p = placeCard(chip, drawer, 'left', phone)
   expect(p).toMatchObject({ side: 'bottom', floating: false })
-  expect(p.anchor).toEqual(chip)
+  // Pinned near the top of the screen, not below the chip (which would land on the evidence).
+  expect(p.anchor.top).toBe(32)
+  expect(p.anchor.top).toBeLessThan(chip.top)
+})
+
+test('N9: the same full-width-drawer fallback applies at 390 px wide', () => {
+  const narrow = { w: 390, h: 844 }
+  const chip = box(150, 185, 105, 33)
+  const drawer = box(0, 0, 390, 844)
+  const p = placeCard(chip, drawer, 'left', narrow)
+  expect(p).toMatchObject({ side: 'bottom', floating: false })
+  expect(p.anchor.top).toBe(32)
+  expect(p.anchor.left).toBeGreaterThanOrEqual(0)
+  expect(p.anchor.left + p.anchor.width).toBeLessThanOrEqual(narrow.w)
 })
 
 test('D3: without a card target the card is placed against the spotlight as before', () => {

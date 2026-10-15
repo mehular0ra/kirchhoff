@@ -112,7 +112,10 @@ test('ask-why falls back to the engine explanation when the API is down', async 
     useUi.getState().openFinding('R05:FA-01')
   })
   await user.click(screen.getByRole('button', { name: /ask the co-pilot why/i }))
-  expect(await screen.findByText(/Co-pilot is unavailable/)).toBeInTheDocument()
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(/Co-pilot is unavailable/)
+  // M1: status is icon + text, never colour alone.
+  expect(alert.querySelector('svg')).toBeTruthy()
 })
 
 test('I5: Show on canvas from the Matrix switches to the 3D hall, focuses the element and closes the drawer', async () => {

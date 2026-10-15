@@ -63,6 +63,10 @@ export function placeCard(spot: Box, cardSpot: Box | null, preferred: Side, vp: 
       const top = Math.max(MIN_CARD_TOP, Math.min(spot.top, vp.h - CARD_H - EDGE))
       return { ...p, anchor: { left: cardSpot.left, top, width: cardSpot.width, height: 1 } }
     }
+    // No room beside the card target itself (a phone-width drawer, N9): falling back to "below the
+    // spotlit chip" would land the card on the value bar and formula further down the drawer. Pin it
+    // under the banner instead, clear of that evidence.
+    return { side: 'bottom', anchor: { left: EDGE, top: MIN_CARD_TOP, width: vp.w - 2 * EDGE, height: 1 }, floating: false }
   }
   return cardPlacement(spot, preferred, vp)
 }

@@ -37,6 +37,19 @@ test('with the API down, the static snapshot renders with a cached note and the 
   expect(screen.getByRole('article', { name: 'PLM' })).toHaveTextContent('Coming soon')
 })
 
+test('M1: each card\'s own status line is icon plus text, never colour alone', async () => {
+  renderWithProviders(<IntegrationsPage />)
+  const erp = await screen.findByRole('article', { name: 'ERP (SAP-style)' })
+  const cachedLine = within(erp).getByText(/^Cached snapshot/)
+  expect(cachedLine.querySelector('svg')).toBeTruthy()
+  const store = screen.getByRole('article', { name: 'Document store' })
+  const connectedLine = within(store).getByText('Connected (Cloud Storage)')
+  expect(connectedLine.querySelector('svg')).toBeTruthy()
+  const plm = screen.getByRole('article', { name: 'PLM' })
+  const comingSoonLine = within(plm).getByText('Coming soon')
+  expect(comingSoonLine.querySelector('svg')).toBeTruthy()
+})
+
 test('with the real generated snapshot, counts, Hall A PRs and opportunity stages render correctly', async () => {
   const user = userEvent.setup()
   const snap = structuredClone(realSnapshot) as unknown as IntegrationsSnapshot

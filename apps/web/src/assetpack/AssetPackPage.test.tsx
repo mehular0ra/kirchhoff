@@ -150,4 +150,8 @@ test('D11: with the demo world unavailable the title is the pack label, never th
   expect(screen.queryByText('grid-132kv')).not.toBeInTheDocument()
   expect(await screen.findByText("Couldn't load the recorded result")).toBeInTheDocument()
   expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument()
+  // The error state offers a way out, not just "Run the grid engine" (parity with the D11 error states).
+  expect(screen.getByRole('button', { name: /Try again/ })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Back to projects' })).toHaveAttribute('href', '/app')
+  expect(screen.getByRole('button', { name: /Run the grid engine/ })).toBeInTheDocument()
 })

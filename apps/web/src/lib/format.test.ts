@@ -116,6 +116,16 @@ test('D2: relative times read against the demo clock and never run into the futu
   expect(fmtRelative(DEMO_AS_OF + 30, now)).toBe('now')
 })
 
+test('N6: a timestamp that rounds to 24 hours ago reads "yesterday", the same word the day bucket gives the same moment', () => {
+  const now = demoNowMs()
+  // 23h59m30s ago rounds to 24h in the hour bucket; it must not say "24 hours ago" while a timestamp
+  // one tick later (exactly 24h, handled by the day bucket) says "yesterday" for what is effectively the same instant.
+  expect(fmtRelative(DEMO_AS_OF - (86400 - 60), now)).toBe('yesterday')
+  expect(fmtRelative(DEMO_AS_OF - 86400, now)).toBe('yesterday')
+  // well inside the hour bucket, still reads in hours
+  expect(fmtRelative(DEMO_AS_OF - 23 * 3600, now)).toBe('23 hours ago')
+})
+
 test('D2: "(1 lines)" from the demo-world generator reads "(1 line)" on display', () => {
   expect(tidyPlurals('submitted PR-2026-0148 to the ERP sandbox (1 lines)')).toBe('submitted PR-2026-0148 to the ERP sandbox (1 line)')
   expect(tidyPlurals('submitted PR-2026-0146 to the ERP sandbox (2 lines)')).toBe('submitted PR-2026-0146 to the ERP sandbox (2 lines)')

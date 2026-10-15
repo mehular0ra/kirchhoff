@@ -27,3 +27,27 @@ test('M9: a recorded design without a brief or export events lists its documents
   expect(await within(exports).findByRole('link', { name: /calc-report\.pdf/ })).toHaveAttribute('href', '/demo/files/hall-a/calc-report.pdf')
   expect(screen.queryByText(/publishes the calc report and BOQ before the review gate/)).not.toBeInTheDocument()
 })
+
+test('live run whose Docs export step failed: an honest icon+text error, not the "publishes before the review gate" copy', async () => {
+  resetStores()
+  const b = {
+    ...fixtureBundle(),
+    runs: [{ id: 'run-1', project_id: 'hall-a', status: 'running' as const, autonomy: 'auto' as const, started_at: 0 }],
+    steps: [{ id: 'docs.export', phase: 'p3' as const, status: 'failed' as const, attempt: 1, started_at: 0 }],
+    events: [{ seq: 1, phase: 'p3' as const, step: 'docs.export', agent: 'docs' as const, kind: 'status' as const, title: 'Export', detail: '', ts: 0 }],
+  }
+  render(
+    <ServicesProvider services={fakeServices()}>
+      <TooltipProvider>
+        <WorkspaceProvider bundle={b} source="live">
+          <DocsTab />
+        </WorkspaceProvider>
+      </TooltipProvider>
+    </ServicesProvider>,
+  )
+  const exports = screen.getByRole('region', { name: 'Exports' })
+  const alert = await within(exports).findByRole('alert')
+  expect(alert).toHaveTextContent(/couldn't publish the calc report and BOQ/i)
+  expect(alert.querySelector('svg')).toBeTruthy()
+  expect(screen.queryByText(/publishes the calc report and BOQ before the review gate/)).not.toBeInTheDocument()
+})

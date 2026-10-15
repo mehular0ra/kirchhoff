@@ -6,7 +6,7 @@ export function legendKeys(v: WorkspaceView): { statuses: Set<FindingStatus>; di
   const whatIf = v.highlights.size > 0 || !!v.whatIf
   return {
     statuses: new Set<FindingStatus>([...v.status.values(), ...(whatIf ? v.whatIfStatus.values() : [])]),
-    diff: !!v.diff && v.diff.changes.length > 0,
+    diff: !!v.diff && v.diff.changes.length > 0 && !whatIf, // N7: the "changed" key is stale compare styling during a what-if
     resolved: !!v.diff && v.resolved.size > 0 && !whatIf, // what-if callouts replace the resolved ones
     whatIf,
   }

@@ -233,17 +233,37 @@ export function AssetPackPage({ pack, pid }: { pack: 'grid' | 'solar'; pid: stri
         <AssetPackView pack={pack} result={result} onRerun={() => void rerun()} rerunning={busy} narration={narration} />
       ) : data.status === 'loading' ? (
         <EmptyState title="Loading…" />
+      ) : data.error ? (
+        // D11-style error state: Try again and Back to projects alongside the way to run the engine directly.
+        <EmptyState
+          tone="error"
+          title="Couldn't load the recorded result"
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button size="sm" onClick={() => window.location.reload()}>
+                <RotateCcw aria-hidden /> Try again
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void rerun()} disabled={busy}>
+                Run the {pack} engine
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/app">Back to projects</Link>
+              </Button>
+            </div>
+          }
+        >
+          Check your connection and try again, or run the engine.
+        </EmptyState>
       ) : (
         <EmptyState
-          tone={data.error ? 'error' : 'info'}
-          title={data.error ? "Couldn't load the recorded result" : 'No recorded result for this asset pack'}
+          title="No recorded result for this asset pack"
           action={
             <Button size="sm" onClick={() => void rerun()} disabled={busy}>
               Run the {pack} engine
             </Button>
           }
         >
-          {data.error ? 'Check your connection and reload, or run the engine.' : 'The static bundle has no evaluate_grid/evaluate_solar result.'}
+          The static bundle has no evaluate_grid/evaluate_solar result.
         </EmptyState>
       )}
     </div>
