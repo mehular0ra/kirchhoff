@@ -175,10 +175,11 @@ test('D14: the main nav keeps each link on one line and names the inbox link "Bi
   expect(within(inbox).getByText('Inbox')).toHaveClass('sm:hidden')
 })
 
-test('I2: the landing shows a real product frame (lazy, with alt text), the stack line and both required labels', async () => {
+test('I2 / N4: the landing shows a real product frame (above the fold: eager, high priority), the stack line and both labels', async () => {
   renderWithProviders(<Landing />)
   const shot = screen.getByRole('img', { name: /Hall A \(sample\) in Kirchhoff's 3D view/ })
-  expect(shot).toHaveAttribute('loading', 'lazy')
+  expect(shot).toHaveAttribute('loading', 'eager')
+  expect(shot).toHaveAttribute('fetchpriority', 'high')
   expect(shot).toHaveAttribute('src', '/landing/hall-a-r2.webp')
   expect(shot).toHaveAttribute('width')
   expect(screen.getByText('Hall A (sample): the first revision’s failures, fixed and signed.')).toBeInTheDocument()
