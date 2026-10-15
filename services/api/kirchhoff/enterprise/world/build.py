@@ -13,7 +13,7 @@ from .docs import boq_csv_bytes, summary_pdf
 from .enterprise_data import (MaterialsErp, build_enterprise_seed, build_historical_prs, build_materials,
                               hall_a_materials)
 from .feed import activity, notifications, tool_summary
-from .projects import archive_bundle, engine_bundles, project_record
+from .projects import archive_bundle, boxed_what_ifs, engine_bundles, project_record
 
 DEMO = "apps/web/public/demo"
 OUT = "scenarios/demo_world/out"
@@ -90,7 +90,9 @@ def build_world(cfg: WorldConfig, *, scenarios_root: Path, engine=None, captures
     for pid, raw in sorted(captures.items()):
         cap = to_static(raw, engine, scn, erp, target=TARGETS[pid],
                         signed_at=cfg.ts(cfg.project(pid).days_ago) - 300.0)
-        bundles[pid] = cap.bundle
+        tender = scenarios_root / "hall_a" / "out" / "tender-hall-a.pdf"  # the chips come from the engine, unboxed
+        bundles[pid] = (cap.bundle.model_copy(update={"what_ifs": boxed_what_ifs(cap.bundle.what_ifs, tender)})
+                        if tender.is_file() else cap.bundle)
         files_docs[pid] = render_capture_docs(cap, engine, scn, erp)
     for pid in ("hall-a", "pune-edge-1"):  # engine-built fallbacks
         if pid in bundles and pid not in files_docs:

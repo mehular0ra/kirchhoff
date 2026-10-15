@@ -278,6 +278,16 @@ def test_explain_saturating_the_llm_pool_does_not_delay_what_if(client, seeded, 
 # --- Real-engine verification (controller's measured 200 kW what-if beat): the `real_client` fixture
 # (tests/api/conftest.py) wires the real engine and the production ERP catalogue to the real WS4 hall-a
 # seed bundle, so this runs the actual demo-world numbers end to end through the live API.
+def test_a_live_what_if_cites_the_tender_with_boxes_so_its_pdf_highlights(real_client, auth):
+    """Issue #14: the engine cites quotes without boxes; the live route adds pdfplumber's, as the live pipeline does,
+    so a what-if finding's citation highlights its quote exactly like the precomputed chips."""
+    client, bundle = real_client
+    wi = bundle.what_ifs[0]
+    r = _post(client, auth, "/api/what-if", {"revision_ref": wi.revision_ref, "param": wi.param, "value": wi.value})
+    cited = [c for f in r.json()["findings"] for c in f["tender_refs"] if c["quote"] and c["page"]]
+    assert r.status_code == 200 and cited and all(len(c["bbox"] or []) == 4 for c in cited)
+
+
 def test_what_if_matches_every_precomputed_what_if_on_the_production_catalogue(real_client, auth):
     client, bundle = real_client
     assert len(bundle.what_ifs) == 5
