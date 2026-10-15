@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from kirchhoff.agents.adk_runner import AdkRunner
+from kirchhoff.agents.docs_export import BlobExporter
 from kirchhoff.agents.genai_runner import GenaiRunner
 from kirchhoff.agents.runner import RecordingRunner
 from kirchhoff.runs.blobs import GcsBlobStore, MemoryBlobStore
@@ -87,4 +88,4 @@ def build_production_deps(store=None) -> Deps:
     blobs = MemoryBlobStore(public_base=None) if os.environ.get("KIRCHHOFF_BLOBS") == "memory" else GcsBlobStore()
     return Deps(store=store, engine=LazyModule("kirchhoff.engine.api"), runner=runner, enterprise=_enterprise(scen),
                 blobs=blobs, scenarios_dir=scen, seed_dir=seed, voice_runner=GenaiRunner(),
-                asset_engines=_asset_engines())
+                asset_engines=_asset_engines(), exporter=BlobExporter(blobs))

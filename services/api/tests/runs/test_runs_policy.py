@@ -1,5 +1,5 @@
 from kirchhoff.contracts import TopologyOption
-from kirchhoff.runs.compat import FixCandidate
+from kirchhoff.contracts.extra import FixCandidate
 from kirchhoff.runs.policy import choose_option, lead_limit_weeks, preferred_candidate
 from kirchhoff.runs.fakes import FakeScenario
 

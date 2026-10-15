@@ -32,7 +32,7 @@ from kirchhoff.intake.tender_schema import load_tender
 from kirchhoff.store.memory import MemoryStore
 from kirchhoff.store.validate import firestore_safe_problems
 
-from .compat import ClashReport, FixCandidate
+from kirchhoff.contracts.extra import ClashReport, FixCandidate
 
 
 def _m(id, category, description, rating, unit, stock, lead, price, vendor):
