@@ -15,6 +15,23 @@ SECRET=kirchhoff-e2e-appcheck-debug-token
 API="https://firebaseappcheck.googleapis.com/v1/projects/$P"
 SERVICES=(firestore.googleapis.com firebasestorage.googleapis.com firebaseml.googleapis.com)
 
+# Test safety hook (incident of 15 Oct 2026: a test run with stubs that were not executable fell through to the REAL gcloud
+# and curl and enforced App Check on ordinal-mep). With APPCHECK_FAKE_DIR set, gcloud, curl and python3 come from that
+# directory ONLY, never from PATH, and a stub that is missing or not executable stops the script. Under pytest without it
+# the script refuses to run at all. Nobody sets either in real use.
+if [ -n "${APPCHECK_FAKE_DIR:-}" ]; then
+  for tool in gcloud curl python3; do
+    [ -x "$APPCHECK_FAKE_DIR/$tool" ] || {
+      echo "appcheck: stub $tool is missing or not executable in $APPCHECK_FAKE_DIR" >&2
+      exit 4
+    }
+    eval "$tool() { \"\$APPCHECK_FAKE_DIR/$tool\" \"\$@\"; }"
+  done
+elif [ -n "${PYTEST_CURRENT_TEST:-}" ]; then
+  echo "appcheck: refusing to run under pytest against the real project (use the stubs and APPCHECK_FAKE_DIR)" >&2
+  exit 3
+fi
+
 call() {  # method url [json body: sent on stdin so a token never appears in a process listing]
   local auth
   auth="$(gcloud auth print-access-token)"
