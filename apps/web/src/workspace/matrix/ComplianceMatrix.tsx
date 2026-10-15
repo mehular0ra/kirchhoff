@@ -1,6 +1,5 @@
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
 import { cn } from 'cn'
-import { motion } from 'motion/react'
 import { createContext, useContext, useMemo, useState, type KeyboardEvent } from 'react'
 import { EmptyState, IllustrativeLabel } from '@/components/Labels'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -33,22 +32,26 @@ function Cell({ f, r, c }: { f: Finding; r: number; c: number }) {
   const Icon = m.icon
   const key = cellKey(r, c)
   return (
-    <motion.button
+    // A plain button with a CSS entrance (tw-animate-css; off under reduced motion via index.css):
+    // ~150 Motion components per matrix made the first render the slowest thing in the workspace.
+    <button
       key={`${f.id}:${f.status}`}
       type="button"
       data-cell={key}
       tabIndex={nav.active === key ? 0 : -1}
       onFocus={() => nav.setActive(key)}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.25 }}
       aria-label={`${f.rule_id} ${f.element_id}: ${m.label}`}
       onClick={() => openFinding(f.id)}
-      className={cn('inline-flex w-full items-center justify-center gap-1 rounded px-1 py-0.5 text-[11px]', m.text, m.bg, 'hover:ring-1 hover:ring-zinc-500')}
+      className={cn(
+        'inline-flex w-full animate-in items-center justify-center gap-1 rounded px-1 py-0.5 text-[11px] duration-300 fade-in-0 zoom-in-90',
+        m.text,
+        m.bg,
+        'hover:ring-1 hover:ring-zinc-500',
+      )}
     >
       <Icon aria-hidden className="size-3.5" />
       <span>{m.label}</span>
-    </motion.button>
+    </button>
   )
 }
 

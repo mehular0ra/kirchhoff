@@ -131,7 +131,9 @@ test('real Hall A bundle: the 200 kW chip resolves from the bundle, shows failin
   for (const ruleId of ['R01', 'R02', 'R03', 'R05', 'R07', 'R08', 'R09']) {
     expect(within(failures).getAllByText(new RegExp(`^${ruleId} ·`)).length).toBeGreaterThan(0)
   }
-})
+  // ~0.3 s alone after the fixes above (was 0.56 s); the margin covers a loaded machine running
+  // the suite's workers in parallel with other jobs (it hit 5.3 s at load average 18 on 8 cores).
+}, 15_000)
 
 test('M13: the impact chain comes first and long failure lists are collapsed', async () => {
   const user = userEvent.setup()
