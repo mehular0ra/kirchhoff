@@ -188,7 +188,7 @@ export interface AssetResult {
 
 **Dependencies:** P2 adds `python-multipart>=0.0.20` to `services/api/pyproject.toml` (Task 16); request any WS4 additions through the controller.
 
-**Deploy guard:** deploy only when no run holds a live lease: `ops/live_runs` has no `runs` entry with `now - heartbeat_at < 60` (spec §6.2, §11). Freeze Thu 16 Oct 22:00 IST.
+**Deploy guard:** deploy only when no run holds a live lease: `ops/live_runs` has no `runs` entry with `now - heartbeat_at < 60` (spec §6.2, §11). Freeze Fri 16 Oct 22:00 IST.
 
 **Smoke (`infra/smoke.sh`, unchanged):** `GET /api/health` → `{"ok":true,…}`, `/` contains `<div id="root">`, `GET /api/whoami` → 401 without a token (permanent route; P2 keeps it).
 

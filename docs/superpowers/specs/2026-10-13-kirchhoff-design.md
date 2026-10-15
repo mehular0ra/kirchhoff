@@ -4,7 +4,7 @@
 **One-liner:** Kirchhoff turns weeks of scarce senior-engineer work into one reviewed, signed design session. Gemini agents read the tender, design power and cooling for an AI data hall, and hand off to procurement and sales; a deterministic checker proves every number; the engineer decides and signs.
 **Tagline:** *AI designs. Physics checks. An engineer signs.*
 **Target:** Google Cloud × Hack2skill AI Builder Cup 2026, theme *Future of Work & Enterprise Productivity*. Secondary: Hitachi Startup Challenge 2026 (Smart Engineering).
-**Date:** 2026-10-13 (v4.1 after review rounds 1–4 and the user's demo-world requirement). **Submission due:** 18 Oct 2026; internal deadline Fri 17 Oct, 20:00 IST.
+**Date:** 2026-10-13 (v4.1 after review rounds 1–4 and the user's demo-world requirement). **Submission due:** Sun 18 Oct 2026 (the organisers publish no time or timezone, aibuildercup.com); internal deadline Sat 17 Oct, 20:00 IST.
 
 ---
 
@@ -105,7 +105,7 @@ Every failure shown is computed live on the sample inputs; the sample hall is ch
 5. Engine as an MCP server at `/mcp` (`check_design`, `what_if`).
 6. DXF export.
 
-**Cut order if behind (Thu 18:00 IST checkpoint):** MCP server → DXF export → Cloud Trace → demo world extras → asset-pack polish (cards only) → Gemini Live (typed what-if remains). Must items are never cut.
+**Cut order if behind (Fri 18:00 IST checkpoint):** MCP server → DXF export → Cloud Trace → demo world extras → asset-pack polish (cards only) → Gemini Live (typed what-if remains). Must items are never cut.
 
 **Cancelled for the hackathon (roadmap slide):** CADCraft rendering/visual review (pre-alpha), live multi-user presence, Gemma on-prem, 800 VDC architecture, Revit/IFC round-trip, real ERP/CRM connectors, auto-layout from messy drawings, PLM integration.
 
@@ -314,7 +314,7 @@ In the scenario regression, every option is generated and checked through P3 and
 - Transformer 2.5 MVA: stock 0, lead time 98 weeks. Transformer 3.15 MVA: stock 6, 12 weeks for more. Every other line the design can use (UPS modules, busways incl. 2,000 A, STS, CDUs, pipes, breakers, cables) is in stock in sufficient quantity or ≤ 26 weeks, so only the transformer fails R15 (generator constraint, asserted by a test). The sandbox does not decrement stock when PRs are created. Prices and vendors for all (section 13 adds the wider catalogue).
 - CRM: "Hall A design-build" is seeded at "Design approved" (Hall A is already signed). "Hall B design-build" is seeded at "Design in progress" and moves to "Design approved" when a visitor signs Hall B (stored as the visitor's overlay).
 
-### 9.6 Verified numbers (hand-calculated 13 Oct; locked by the scenario regression test Tue 14 Oct)
+### 9.6 Verified numbers (hand-calculated 13 Oct; locked by the scenario regression test Wed 14 Oct)
 
 - Rack 193 A; row busway 773 A normal / 1,546 A failover (97% of 1,600 A; ambient ≤ 35 °C, no derating).
 - Transformer loading (incl. UPS losses, section 8.2): 2N board 2,399 kVA in failover → 2.5 MVA: 48% normal / 96% failover (passes R01) → R15 fails (98 weeks) → `r15_swap` picks 3.15 MVA: 38% / 76%.
@@ -344,7 +344,7 @@ Both reuse the shell, Checker, finding drawer and revision timeline, with one As
 - **Gemini:** retries with backoff, per-agent timeouts, structured-output validation with one repair attempt. Vertex Gemini runs on Google's shared pay-as-you-go capacity, so no per-project quota request is needed; 429s are retried with backoff.
 - **Firestore writes:** events batched ~250 ms; `runs/{rid}` ≤ 1 update/s (lease heartbeats included); event docs < 10 KB; models > 500 KB to Cloud Storage with hash pointer; single writer assigns `seq` per phase.
 - **Monitoring:** uptime checks on `/` and `/api/health`; budget USD 200 with 50%/90% alerts.
-- **Freeze:** golden path frozen Thu 16 Oct 22:00 IST; post-submission changes only via tagged releases, deployed with no runs active.
+- **Freeze:** golden path frozen Fri 16 Oct 22:00 IST; post-submission changes only via tagged releases, deployed with no runs active.
 
 ## 12. UI design
 
@@ -480,7 +480,7 @@ GitHub repo created private, made public before submission.
 
 - **Engine:** pytest per calculation against section 9.6 values.
 - **Rule pack:** passing and failing fixture per rule.
-- **Scenario regression (Tue 14 Oct):** golden option (2N) first pass yields exactly R05 (FA-01, ΔV in [2.1%, 2.4%]) and R11 (H-Z2 over FB-03); both fix candidates for each pass with no new failures; `r15_swap` deterministically picks 3.15 MVA and only transformer lines fail R15 before the swap; DR and block each reach all-pass within 2 fix iterations; re-checking the signed model with rack load set to 200 kW (equipment frozen) fails at least R01, R02, R08 (Tue, via `check` on a load-modified model; the `what_if` facade lands Thu).
+- **Scenario regression (Wed 14 Oct):** golden option (2N) first pass yields exactly R05 (FA-01, ΔV in [2.1%, 2.4%]) and R11 (H-Z2 over FB-03); both fix candidates for each pass with no new failures; `r15_swap` deterministically picks 3.15 MVA and only transformer lines fail R15 before the swap; DR and block each reach all-pass within 2 fix iterations; re-checking the signed model with rack load set to 200 kW (equipment frozen) fails at least R01, R02, R08 (Tue, via `check` on a load-modified model; the `what_if` facade lands Thu).
 - **Capture determinism:** `capture.py` + demo-world generator produce the same Hall A bundle and integrations snapshot hash from the same Hall B run.
 - **Seeded-fault benchmark:** ~30 mutated designs → catch rate and false positives.
 - **Intake scoring:** extraction vs ground truth; citation resolution rate.
@@ -492,12 +492,12 @@ GitHub repo created private, made public before submission.
 
 | Day | WS1 | WS2 | WS3 | WS4 |
 |---|---|---|---|---|
-| **Mon 13** | Spec review done; implementation plan; repo scaffold; engine model types + catalogue.yaml + geometry.yaml | Tender PDF, hall DXF + PDF plot and intake ground truth (scenario authoring) | Shared schemas frozen (Pydantic → TypeScript: ProjectBundle, events, findings) and UI fixtures | Hello world end to end (Hosting → Cloud Run → Firestore events in browser); infra already provisioned (Auth, bucket, App Check key) |
-| **Tue 14** | Electrical calcs, short circuit, redundancy, cooling, routing; rule pack R01–R15 + tests; `r15_swap`; regression lock | Intake (verified citations, contradiction, scoring); P1/P2 workflows; steps, leases, resume; event streaming | App shell, landing, dashboard, workspace layout; SLD and 3D on fixtures; welcome screen | Enterprise sandbox service + seed; demo-world generators; Procurement tools; Firestore/Storage rules; uptime + budget alerts |
-| **Wed 15** | Seeded-fault benchmark; asset-pack engines (grid, solar) | P2 option gate, P3 fix loop, P4, Docs (stubbed exports); full P1–P4 live run; workspace create/reset and run limits API | Matrix, finding drawer + PDF citations, options cards, gates, revisions + diff; tour + checklist | Integrations page + API proxy; capture.py. Evening: record a full run |
-| **Thu 16** | What-if engine + impact chain; precomputed chip what-ifs | Co-pilot + voice (Live + push-to-talk); Asset agent; Docs exports (PDF, BOQ) | Review/sign-off page, what-if UI, asset-pack screens, polish | Golden capture → static Hall A + demo world; Should items by value; Playwright. Checkpoint 18:00; freeze 22:00; record |
-| **Fri 17** | Record 09:00; deck; video < 3:00; brief; repo public; submit by 20:00 IST | | | |
-| **Sat 18** | Buffer only | | | |
+| **Tue 13** | Spec review done; implementation plan; repo scaffold; engine model types + catalogue.yaml + geometry.yaml | Tender PDF, hall DXF + PDF plot and intake ground truth (scenario authoring) | Shared schemas frozen (Pydantic → TypeScript: ProjectBundle, events, findings) and UI fixtures | Hello world end to end (Hosting → Cloud Run → Firestore events in browser); infra already provisioned (Auth, bucket, App Check key) |
+| **Wed 14** | Electrical calcs, short circuit, redundancy, cooling, routing; rule pack R01–R15 + tests; `r15_swap`; regression lock | Intake (verified citations, contradiction, scoring); P1/P2 workflows; steps, leases, resume; event streaming | App shell, landing, dashboard, workspace layout; SLD and 3D on fixtures; welcome screen | Enterprise sandbox service + seed; demo-world generators; Procurement tools; Firestore/Storage rules; uptime + budget alerts |
+| **Thu 15** | Seeded-fault benchmark; asset-pack engines (grid, solar) | P2 option gate, P3 fix loop, P4, Docs (stubbed exports); full P1–P4 live run; workspace create/reset and run limits API | Matrix, finding drawer + PDF citations, options cards, gates, revisions + diff; tour + checklist | Integrations page + API proxy; capture.py. Evening: record a full run |
+| **Fri 16** | What-if engine + impact chain; precomputed chip what-ifs | Co-pilot + voice (Live + push-to-talk); Asset agent; Docs exports (PDF, BOQ) | Review/sign-off page, what-if UI, asset-pack screens, polish | Golden capture → static Hall A + demo world; Should items by value; Playwright. Checkpoint 18:00; freeze 22:00; record |
+| **Sat 17** | Record 09:00; deck; video < 3:00; brief; repo public; submit by 20:00 IST | | | |
+| **Sun 18** | Buffer only | | | |
 
 ## 18. Risks
 
@@ -540,6 +540,6 @@ GitHub repo created private, made public before submission.
 - **Pursue** creates the project and moves or creates the CRM opportunity at "Qualification" (the existing CRM stage; no stage is renamed). For Hall B it then opens the normal Intake flow.
 - **Static first:** triage results for all seeded emails are precomputed (run once with the real agent, then frozen into the demo bundle). A live "Triage" button exists only on the Hall B email.
 
-**Cut line (checkpoint Thu 16 Oct 12:00 IST):** if Must items are behind, ship only the static inbox page with precomputed triage. Drop the live Triage button and the endpoint.
+**Cut line (checkpoint Fri 16 Oct 12:00 IST):** if Must items are behind, ship only the static inbox page with precomputed triage. Drop the live Triage button and the endpoint.
 
 **Video:** the 0:10–0:30 beat becomes "the tender lands in the bids inbox; Kirchhoff triages it, checks fit and supply, and opens the project". The intake card stream follows.

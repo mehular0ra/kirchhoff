@@ -45,7 +45,7 @@
 - UI (spec §12, P3): status is always icon + text, never colour alone. WCAG AA on `#0b0d10`. Every control is keyboard-reachable. Motion only for progress, and `prefers-reduced-motion` disables it (`motion-reduce:` utilities). The 7-step tour order (spec §13.5) does not change.
 - Live GCP actions (Firestore seed reloads, deploys) are run by the controller, never by a task implementer.
 - Tests: Python from `services/api`: `uv run pytest <path> -q`. Test files have unique basenames. Web from `apps/web`: `npx vitest run <path>`, full suite `npm test`, type-check `npx tsc -b`.
-- **Cut line (spec §20, checkpoint Thu 16 Oct 12:00 IST).** Every step is tagged:
+- **Cut line (spec §20, checkpoint Fri 16 Oct 12:00 IST).** Every step is tagged:
   - **[cut-safe]**: ships even if Must items are behind at the checkpoint. That is all of I-1, I-2's triage pipeline and precompute script, and I-3's static page.
   - **[cut]**: skipped if Must items are behind at the checkpoint. That is I-2's endpoints and I-3's live Triage button.
   - If the cut is taken, the inbox ships with precomputed triage only, and the static Pursue still opens Hall B (I-3 Step 5).
@@ -3911,7 +3911,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 | Pursue creates the project and moves or creates the opportunity at "Qualification"; Hall B opens Intake | I-1 sandbox (B1, B2); I-2 `pursue` (B3, B4); I-3 `PursueAction` |
 | Static first: precomputed triage for every seeded email, from the real agent, frozen into the bundle | I-2 Step 15 + `precompute.py`; I-1 `load_triage_capture` / `build_inbox`; I-3 static loader |
 | Live Triage only on the Hall B email | I-1 `live_triage`; I-2 409 `precomputed`; I-3 `TriageButton` |
-| Cut line (Thu 16 Oct 12:00 IST) | Every step tagged [cut-safe] or [cut] |
+| Cut line (Fri 16 Oct 12:00 IST) | Every step tagged [cut-safe] or [cut] |
 | UI: icon + text, keyboard, reduced motion; tour order unchanged | I-3 (`VERDICT_META`, `VERIFICATION_META`, `StatusBadge`, link rows, `motion-reduce:animate-none`); `INBOX_TOUR_STEP` outside `TOUR_STEPS` |
 
 **Validation done while writing.** Every code block was run in scratch copies of the three worktrees, with I-1 merged into the WS2 copy and P2 Tasks 8, 9 and 12 taken from the P2 plan.
