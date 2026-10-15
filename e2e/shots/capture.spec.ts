@@ -75,7 +75,7 @@ const SHOTS: Shot[] = [
     file: 's05-4-option-r15-swap.png',
     open: async (page) => {
       await workspace(page, '?tab=options')
-      await text(page, '3.15 MVA') // the R15 swap card: needs the options from the golden capture
+      await text(page, /R15, line transformer/) // the R15 swap line on the 2N card: needs the options from the golden capture
       return page.getByRole('tabpanel').first()
     },
   },
@@ -153,7 +153,7 @@ const SHOTS: Shot[] = [
     file: 's11-4-options-r15-swap.png',
     open: async (page) => {
       await workspace(page, '?tab=options')
-      await text(page, '3.15 MVA') // needs the options from the golden capture
+      await text(page, /R15, line transformer/) // needs the options from the golden capture
     },
   },
   {
