@@ -7,7 +7,7 @@ export function legendKeys(v: WorkspaceView): { statuses: Set<FindingStatus>; di
   return {
     statuses: new Set<FindingStatus>([...v.status.values(), ...(whatIf ? v.whatIfStatus.values() : [])]),
     diff: !!v.diff && v.diff.changes.length > 0,
-    resolved: !!v.diff && v.resolved.size > 0,
+    resolved: !!v.diff && v.resolved.size > 0 && !whatIf, // what-if callouts replace the resolved ones
     whatIf,
   }
 }

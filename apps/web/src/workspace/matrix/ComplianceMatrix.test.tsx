@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { CHAIN_COLORS } from '@/lib/agents'
 import { fixtureBundle } from '@/test/fixtures'
 import { resetStores } from '@/test/render'
 import { useUi } from '@/store/ui'
@@ -181,4 +182,27 @@ test('M13: in what-if view the header counts what-if findings, not "checks"', ()
   act(() => useUi.getState().setWhatIf({ result: fixtureBundle().what_ifs[0], origin: 'precomputed' }))
   expect(screen.getByText('3 what-if findings')).toBeInTheDocument()
   expect(screen.queryByText(/^\d+ checks$/)).not.toBeInTheDocument()
+})
+
+test('D6: in what-if view the header shows only non-zero counts and says only failing checks are listed', async () => {
+  const b = fixtureBundle()
+  resetStores()
+  const result = b.what_ifs.find((w) => w.param === 'rack_kw' && w.value === 200)!
+  act(() => useUi.getState().setWhatIf({ result, origin: 'precomputed' }))
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="static">
+        <ComplianceMatrix />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  const fails = result.findings.filter((f) => f.status === 'fail').length
+  expect(screen.getByText(`${fails} fail`)).toBeInTheDocument()
+  expect(screen.queryByText('0 pass')).not.toBeInTheDocument()
+  expect(screen.queryByText('0 warn')).not.toBeInTheDocument()
+  expect(screen.getByText('(only failing checks are listed)')).toBeInTheDocument()
+})
+
+test('D6: impact-chain colours stay clear of the pipe blue and the status hues', () => {
+  expect(CHAIN_COLORS).toEqual({ electrical: '#fb923c', cooling: '#c084fc' })
 })

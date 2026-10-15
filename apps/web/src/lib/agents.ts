@@ -35,5 +35,8 @@ export const LANE_ORDER: AgentName[] = [
   'asset',
 ]
 
-/** Impact-chain colours (spec §3 what-if beat): electrical follows Power, cooling follows Cooling. */
-export const CHAIN_COLORS = { electrical: '#f59e0b', cooling: '#3b82f6' } as const
+/**
+ * Impact-chain colours (spec §3 what-if beat). Orange and violet (UX-1 D6): the earlier amber/blue pair
+ * matched Warn amber and the default pipe blue, so the cooling chain vanished in 3D.
+ */
+export const CHAIN_COLORS = { electrical: '#fb923c', cooling: '#c084fc' } as const

@@ -164,7 +164,8 @@ export function ComplianceMatrix() {
           {whatIf ? `${findings.length} what-if findings` : `${findings.length} checks`}
         </span>
         {(['fail', 'warn', 'pass', 'n/a'] as const)
-          .filter((s) => s !== 'n/a' || c[s] > 0)
+          // A what-if lists only failing checks, so its zero counts would read "0 pass" (D6): show non-zero ones.
+          .filter((s) => (whatIf ? c[s] > 0 : s !== 'n/a' || c[s] > 0))
           .map((s) => {
             const Icon = STATUS_META[s].icon
             return (
@@ -174,6 +175,7 @@ export function ComplianceMatrix() {
               </span>
             )
           })}
+        {whatIf && <span className="text-zinc-400">({c.warn > 0 ? 'only failing and warning checks are listed' : 'only failing checks are listed'})</span>}
         <IllustrativeLabel className="ml-auto" />
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
