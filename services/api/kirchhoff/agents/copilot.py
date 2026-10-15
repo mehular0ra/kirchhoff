@@ -173,22 +173,23 @@ def _ancestors(deps, uid: str, ref: str, limit: int = 32) -> Iterator[tuple[str,
 
 
 def why_answer(deps, uid: str, ref: str, findings: list[Finding], finding_id: str,
-               element: str) -> tuple[Finding, str] | None:
+               element: str) -> tuple[Finding, str, str | None] | None:
     """Voice's "why" answer, the web co-pilot's UX-1 D1 (apps/web/src/workspace/copilot/tools.ts `locate`):
     when the finding on this revision is not a problem, walk back through earlier revisions to the nearest
     one where it failed, and answer "In r1: <filled explanation> Fixed in r2: <fix> · Cost Δ ... · ...";
-    otherwise this revision's finding and its filled explanation. Code-authored from records only (R14)."""
+    otherwise this revision's finding and its filled explanation. Code-authored from records only (R14).
+    Returns (finding, text, the earlier revision cited, or None when the answer is about `ref` itself)."""
     rule = next((f.rule_id for f in findings if finding_id and f.id == finding_id), None)
     here = _finding_in(findings, finding_id, element, rule)
     if _is_problem(here):
-        return here, finding_explanation(here)
+        return here, finding_explanation(here), None
     child_id, child_findings = _revision_id(ref), findings  # the next revision on the way back (it was fixed in)
     for rev, earlier in _ancestors(deps, uid, ref):
         back = _finding_in(earlier, finding_id, element, rule)
         if _is_problem(back):
-            return back, f"In {rev}: {finding_explanation(back)}{fix_line(back, child_id, child_findings)}"
+            return back, f"In {rev}: {finding_explanation(back)}{fix_line(back, child_id, child_findings)}", rev
         child_id, child_findings = rev, earlier
-    return (here, finding_explanation(here)) if here is not None else None
+    return (here, finding_explanation(here), None) if here is not None else None
 
 
 def _revision_id(ref: str) -> str | None:
@@ -350,8 +351,11 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
             el = by_id[fid].element_id if fid else real({x.element_id for x in findings}, args.get("element_id"))
             # No second model call: the finding's own filled explanation, looked back to where it failed (D1).
             if el and (why := why_answer(deps, uid, ref, findings, fid, el)):
-                f, text = why
-                results.append({"name": "explain_finding", "args": {"finding_id": f.id}, "result": {"text": text}})
+                f, text, cited = why
+                # `revision` (optional, additive): set only when the answer cites an earlier revision, so the
+                # push-to-talk client switches to it before opening the finding, as typed D1 does.
+                result = {"text": text, **({"revision": cited} if cited else {})}
+                results.append({"name": "explain_finding", "args": {"finding_id": f.id}, "result": result})
         elif intent.tool == "focus_element":
             # Fix round 1, Critical: only an id that actually exists on the model is trusted, so an invented
             # one carrying its own narration ("the 7.77 percent feeder") never reaches the answer.

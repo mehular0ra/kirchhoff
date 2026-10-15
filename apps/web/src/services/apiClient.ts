@@ -31,6 +31,8 @@ export class ApiError extends Error {
 export interface VoiceToolResult {
   name: 'what_if' | 'explain_finding' | 'focus_element'
   args: Record<string, unknown>
+  /** For explain_finding: `{text}`, plus an optional `revision` (the id of the earlier revision the answer
+   * cites, where the check failed; present only when that differs from the requested one, issue #36). */
   result: Record<string, unknown>
 }
 export interface VoiceResponse {

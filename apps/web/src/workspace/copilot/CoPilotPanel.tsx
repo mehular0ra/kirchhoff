@@ -7,6 +7,7 @@ import { completeItem } from '@/onboarding/checklist/checklistStore'
 import type { VoiceResponse } from '@/services/apiClient'
 import { useServices, type LiveVoiceCall } from '@/services/services'
 import { canvasesFor } from '@/lib/model'
+import { revisionById } from '@/lib/select'
 import { useUi } from '@/store/ui'
 import { PlanGate } from '../gates/PlanGate'
 import { RequirementsPanel } from '../RequirementsPanel'
@@ -87,7 +88,13 @@ export function CoPilotPanel() {
       if (t.name === 'what_if' && Array.isArray((t.result as Partial<WhatIfResult>).impact_chain))
         setWhatIf({ result: t.result as unknown as WhatIfResult, origin: 'engine' })
       if (t.name === 'focus_element') focus(String(t.args.element_id ?? t.result.element_id ?? ''))
-      if (t.name === 'explain_finding' && t.args.finding_id) openFinding(String(t.args.finding_id))
+      if (t.name === 'explain_finding' && t.args.finding_id) {
+        // D1, as typed and Live answers do (tools.ts): when the answer cites an earlier revision where the
+        // check failed (`result.revision`, set by /api/voice only then), switch to it before opening the finding.
+        const cited = typeof t.result.revision === 'string' ? revisionById(view.bundle, t.result.revision) : null
+        if (cited) setViewRev(cited.id)
+        openFinding(String(t.args.finding_id))
+      }
     }
     add('co-pilot', 'voice', res.answer)
     speak(res.answer)

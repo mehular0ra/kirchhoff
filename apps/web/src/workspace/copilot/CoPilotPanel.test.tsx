@@ -1,13 +1,14 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useChecklist } from '@/onboarding/checklist/checklistStore'
+import type { VoiceResponse } from '@/services/apiClient'
 import { ServicesProvider, type LiveVoiceCall, type Services } from '@/services/services'
 import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
 import hallASigned from '@/test/fixtures/hall-a-signed.json'
-import { fakeServices, resetStores } from '@/test/render'
+import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { WorkspaceProvider } from '../WorkspaceContext'
 import { CoPilotPanel } from './CoPilotPanel'
 import { parseIntent } from './intent'
@@ -128,6 +129,46 @@ test('D1: a Gemini Live explain_finding call with r2\'s passing finding id also 
   expect(response).toMatchObject({ finding_id: 'R11:H-Z2', revision: 'r1', status: 'fail', value: 1, limit: 0 })
   expect(useUi.getState().viewRev).toBe('r1')
   expect(useUi.getState().findingId).toBe('R11:H-Z2')
+})
+
+/** Push-to-talk: Live fails, the panel switches to "Hold to talk", and one press-and-release posts the clip. */
+async function pushToTalk(res: VoiceResponse) {
+  const user = userEvent.setup()
+  const voice = vi.fn(async () => res)
+  renderPanel(fakeServices({ api: fakeApi({ voice }), startLiveVoice: async () => Promise.reject(new Error('blocked')) }), realHallA())
+  await user.click(screen.getByRole('button', { name: 'Start voice' }))
+  const hold = await screen.findByRole('button', { name: 'Hold to talk' })
+  fireEvent.keyDown(hold, { key: ' ' })
+  await screen.findByRole('button', { name: 'Release to send' })
+  fireEvent.keyUp(screen.getByRole('button', { name: 'Release to send' }), { key: ' ' })
+  await waitFor(() => expect(voice).toHaveBeenCalled())
+  return within(await screen.findByRole('list', { name: 'Conversation' }))
+}
+
+test('D1 in push-to-talk: an explain_finding result citing r1 switches to r1, then opens the finding there', async () => {
+  const answer = 'In r1: Voltage drop from the UPS output board to the furthest tap-off via FA-01 is 2.16% against a limit of 2%.'
+  const convo = await pushToTalk({
+    transcript: 'Why did FA-01 fail?',
+    answer,
+    tool_results: [{ name: 'explain_finding', args: { finding_id: 'R05:FA-01' }, result: { text: answer, revision: 'r1' } }],
+  })
+  expect(await convo.findByText(answer)).toBeInTheDocument()
+  expect(useUi.getState().viewRev).toBe('r1') // screen and voice agree: the drawer shows r1's failing R05 · FA-01
+  expect(useUi.getState().findingId).toBe('R05:FA-01')
+})
+
+test('push-to-talk without a cited revision (or with one the bundle does not have) keeps the revision on screen', async () => {
+  const convo = await pushToTalk({
+    transcript: 'Why is FA-02 fine?',
+    answer: 'FA-02 carries 1,546 A.',
+    tool_results: [
+      { name: 'explain_finding', args: { finding_id: 'R02:FA-02' }, result: { text: 'FA-02 carries 1,546 A.' } },
+      { name: 'explain_finding', args: { finding_id: 'R05:FA-01' }, result: { text: 'x', revision: 'r9' } },
+    ],
+  })
+  expect(await convo.findByText('FA-02 carries 1,546 A.')).toBeInTheDocument()
+  expect(useUi.getState().viewRev).toBeNull()
+  expect(useUi.getState().findingId).toBe('R05:FA-01')
 })
 
 test('D1: on the revision that fails, "why" answers there without switching or a prefix', async () => {

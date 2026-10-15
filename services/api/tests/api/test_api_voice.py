@@ -339,8 +339,9 @@ def test_voice_why_on_r2_cites_where_fa01_failed_and_its_fix(real_client, args):
     assert body["answer"] == expected
     assert f"{fmt_number(failed.value)}% against a limit of {fmt_number(failed.limit)}%" in body["answer"]
     assert cost in body["answer"]
+    # `revision` (additive, optional): the earlier revision the answer cites, so push-to-talk can switch to it
     assert body["tool_results"] == [{"name": "explain_finding", "args": {"finding_id": failed.id},
-                                     "result": {"text": expected}}]
+                                     "result": {"text": expected, "revision": r1.id}}]
 
 
 def test_voice_why_on_r2_for_h_z2_cites_the_crossing_fix(real_client):
@@ -357,6 +358,7 @@ def test_voice_why_on_the_failing_revision_explains_it_there(real_client):
     failed = next(f for f in bundle.findings["r1"] if f.element_id == "FA-01" and f.status == "fail")
     assert body["answer"] == _filled(failed)
     assert body["tool_results"][0]["args"] == {"finding_id": failed.id}
+    assert body["tool_results"][0]["result"] == {"text": _filled(failed)}  # the requested revision: no `revision`
 
 
 def test_voice_why_falls_back_to_the_current_finding_when_it_never_failed(real_client):
@@ -367,6 +369,7 @@ def test_voice_why_falls_back_to_the_current_finding_when_it_never_failed(real_c
     first = next(f for f in bundle.findings["r2"] if f.element_id == never)
     assert body["answer"] == _filled(first) and not body["answer"].startswith("In ")
     assert body["tool_results"][0]["args"] == {"finding_id": first.id}
+    assert "revision" not in body["tool_results"][0]["result"]
 
 
 def test_voice_why_follows_ws_revision_parents_in_the_store(real_client):
@@ -383,6 +386,7 @@ def test_voice_why_follows_ws_revision_parents_in_the_store(real_client):
     _, _, failed = _d1_parts(bundle, "FA-01")
     assert body["answer"].startswith(f"In x-r1: {_filled(failed)} Fixed in x-r2: {failed.fix['label']} · Cost Δ +$")
     assert body["tool_results"][0]["args"] == {"finding_id": failed.id}
+    assert body["tool_results"][0]["result"]["revision"] == "x-r1"
 
 
 def test_voice_model_failure_falls_back_to_the_summary(client, seeded, auth):
