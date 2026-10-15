@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ValidationError
 from starlette.concurrency import run_in_threadpool
-from starlette.formparsers import MultiPartException
+from starlette.formparsers import FormData, FormParser, MultiPartException, MultiPartParser, parse_options_header
 
 from kirchhoff.agents.copilot import (BadRevisionRef, RevisionNotFound, answer_voice, call_with_timeout, explain_text,
                                       load_revision)
@@ -18,8 +18,39 @@ VOICE_MIME = {"audio/webm", "audio/ogg", "audio/wav", "audio/x-wav", "audio/mp4"
 VOICE_MAX_BYTES = 2_000_000
 # Fix round 1, Important #1: allowance above VOICE_MAX_BYTES for multipart boundaries/headers and the
 # revision_ref field, so a genuinely oversize audio part is rejected by its declared Content-Length before
-# any parsing starts, and (if the client lies about Content-Length) by max_part_size during parsing.
+# any parsing starts.
+# Fix round 2: Starlette 1.8.0's `max_part_size` does NOT bound FILE parts (only non-file form fields --
+# formparsers.py's `on_part_data` only checks it `if self._current_part.file is None`), so it gave no real
+# protection against a client that lies about a small Content-Length while sending a large file: the
+# reviewer measured 6 MB spooled before the eventual per-field size check caught it. The cap is now also
+# enforced on the raw request stream itself (`_bounded_stream` below), independent of Content-Length.
 VOICE_CONTENT_LENGTH_OVERHEAD = 65_536
+
+
+async def _bounded_stream(stream, cap: int):
+    """Wraps an ASGI body stream, raising MultiPartException once more than `cap` bytes have been read in
+    total -- bounds memory/spool usage during parsing itself, regardless of what Content-Length claims."""
+    total = 0
+    async for chunk in stream:
+        total += len(chunk)
+        if total > cap:
+            raise MultiPartException(f"body exceeded {cap} bytes")
+        yield chunk
+
+
+async def _parse_bounded_form(request: Request, cap: int) -> FormData:
+    """A hand-rolled `request.form()` that bounds the raw stream (see `_bounded_stream`) instead of relying
+    on `max_part_size`, which Starlette does not apply to file parts."""
+    content_type, _ = parse_options_header(request.headers.get("content-type", ""))
+    stream = _bounded_stream(request.stream(), cap)
+    if content_type == b"multipart/form-data":
+        return await MultiPartParser(request.headers, stream).parse()
+    if content_type == b"application/x-www-form-urlencoded":
+        return await FormParser(request.headers, stream).parse()
+    async for _ in stream:  # drain so the ASGI server doesn't see an unread body
+        pass
+    return FormData()
+
 
 try:
     from kirchhoff.enterprise.client import EnterpriseUnavailable  # WS4-owned module
@@ -98,20 +129,22 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
 
     @router.post("/api/voice")
     async def voice(request: Request, uid: str = Depends(current_uid)):
-        # Fix round 1, Important #1: FastAPI/Starlette parse the whole multipart body before a route's own
+        # Fix round 1/2, Important #1: FastAPI/Starlette parse the whole multipart body before a route's own
         # File(...)/Form(...) dependencies run, with no cap by default -- on Cloud Run the temp filesystem is
-        # RAM, so an unbounded upload is a real resource risk. A declared Content-Length over budget is
-        # rejected before parsing starts at all; max_part_size then bounds parsing itself against a client
-        # that lies about a small Content-Length but sends a large body.
+        # RAM, so an unbounded upload is a real resource risk. A browser always sends Content-Length for a
+        # FormData body, so a missing one (e.g. a chunked upload) is rejected outright, before touching the
+        # body at all. A declared size over budget is rejected the same way. A lying small Content-Length is
+        # still caught, because _parse_bounded_form bounds the raw stream itself as it parses (see above).
         declared = request.headers.get("content-length")
-        if declared is not None:
-            try:
-                if int(declared) > VOICE_MAX_BYTES + VOICE_CONTENT_LENGTH_OVERHEAD:
-                    return err(413, "audio_too_large")
-            except ValueError:
-                pass
+        if declared is None:
+            return err(411, "length_required")
         try:
-            form = await request.form(max_part_size=VOICE_MAX_BYTES + 1)
+            if int(declared) > VOICE_MAX_BYTES + VOICE_CONTENT_LENGTH_OVERHEAD:
+                return err(413, "audio_too_large")
+        except ValueError:
+            return err(411, "length_required")  # an unparsable Content-Length is as good as missing
+        try:
+            form = await _parse_bounded_form(request, VOICE_MAX_BYTES + VOICE_CONTENT_LENGTH_OVERHEAD)
         except MultiPartException:
             return err(413, "audio_too_large")
         audio = form.get("audio")
@@ -121,6 +154,8 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         if len(data) > VOICE_MAX_BYTES:
             return err(413, "audio_too_large")
         revision_ref = form.get("revision_ref") or "seed:hall-a@r2"
+        if not isinstance(revision_ref, str):
+            return err(422, "bad_revision_ref")  # e.g. sent as a file part instead of a text field
         mime = (audio.content_type or "").split(";")[0].strip().lower()
         if mime == "audio/x-wav":
             mime = "audio/wav"  # Minor: Vertex expects the canonical mime type

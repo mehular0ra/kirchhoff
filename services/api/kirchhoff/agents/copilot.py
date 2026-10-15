@@ -11,7 +11,7 @@ from concurrent.futures import TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from kirchhoff.contracts import DesignModel, Finding, ProjectBundle
 from kirchhoff.runs.revisions import load_revision_model
@@ -121,9 +121,16 @@ def explain_text(deps, model: DesignModel, finding: Finding, *, deadline: float 
         cancel = fut.cancel
     else:
         box: list = []
+        error: list = []
 
         def call() -> None:
-            box.append(deps.runner.run(COPILOT, f"explain:{finding.id}", msg))
+            # Fix round 2, Minor: a thread target's uncaught exception does not propagate to whoever joins
+            # it, so `box` would stay empty and `wait()` below would raise an unrelated IndexError instead
+            # of the real cause -- caught here and re-raised from `wait()` once the thread is joined.
+            try:
+                box.append(deps.runner.run(COPILOT, f"explain:{finding.id}", msg))
+            except Exception as exc:
+                error.append(exc)
 
         thread = threading.Thread(target=call, daemon=True)
         thread.start()
@@ -132,6 +139,8 @@ def explain_text(deps, model: DesignModel, finding: Finding, *, deadline: float 
             thread.join(t)
             if thread.is_alive():
                 raise FuturesTimeoutError()
+            if error:
+                raise error[0]
             return box[0]
 
         cancel = lambda: None  # noqa: E731 -- the thread is a daemon; it is simply abandoned on timeout
@@ -175,21 +184,27 @@ def engine_summary(results: list[dict]) -> str:
 
 
 def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
+    # Fix round 2, Minor: the deadline is taken before load_revision, and deps.scenario() -- which shares
+    # Deps._lock with deps.erp() -- is fetched lazily inside what_if (its only use), not eagerly up front.
+    # A focus_element-only voice call has no business waiting on another request's slow ERP refresh, which
+    # holds the same lock: the reviewer measured a 1s-budget voice call waiting 2.91s behind one.
+    deadline = time.monotonic() + VOICE_TIMEOUT_S
     model, findings = load_revision(deps, uid, ref)
-    scn, by_id = deps.scenario(), {f.id: f for f in findings}
+    by_id = {f.id: f for f in findings}
     model_ids = allowed_ids_for(model)
     results: list[dict] = []
-    # Fix round 1, Important #2: one deadline for the whole voice round trip, taken before the model call.
-    # deps.erp() is fetched lazily inside what_if below (most voice questions never call it), and bounded by
-    # this same deadline -- not fetched eagerly up front, which previously ran outside VOICE_TIMEOUT_S
-    # entirely and could push the worst case to ~18s against the service's <10s-per-/api budget.
-    deadline = time.monotonic() + VOICE_TIMEOUT_S
     erp_box: list = []
+    scn_box: list = []
 
     def erp():
         if not erp_box:
             erp_box.append(deps.erp())
         return erp_box[0]
+
+    def scn():
+        if not scn_box:
+            scn_box.append(deps.scenario())
+        return scn_box[0]
 
     def what_if(param: Literal["rack_kw", "liquid_fraction", "dv_limit_pct", "tx_loading_cap_pct"],
                value: float) -> dict:
@@ -200,7 +215,7 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         # Engine work runs on the engine pool (same pool /api/what-if uses via call_with_timeout's default),
         # kept separate from the LLM pool the surrounding voice call runs on below, so neither starves the
         # other under load. Bounded by the remaining voice deadline (Fix round 1, Minor).
-        fut = _ENGINE_POOL.submit(deps.engine.what_if, scn, model, param, float(value), ref, erp())
+        fut = _ENGINE_POOL.submit(deps.engine.what_if, scn(), model, param, float(value), ref, erp())
         r = fut.result(timeout=max(0.0, deadline - time.monotonic()))
         results.append({"name": "what_if", "args": {"param": param, "value": float(value)},
                         "result": r.model_dump(mode="json")})
@@ -248,6 +263,8 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         raise
     except EnterpriseUnavailable:  # Fix round 1, Important #3: let the route map this to 503, not a fallback
         raise
+    except ValidationError:  # Fix round 2, Minor: a server bug (e.g. malformed engine/erp record), never
+        raise               # masked as an ordinary "could not match that" fallback
     except Exception as exc:  # model or JSON failure: answer from what the engine produced
         log.warning("voice fallback: %r", exc)
         reply = VoiceReply()
