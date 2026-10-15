@@ -12,7 +12,7 @@ from kirchhoff.intake.score import load_ground_truth, score_intake
 from kirchhoff.intake.verify import PdfText, clause_on_page, verify_quote
 
 from .policy import PLAN_TEMPLATE
-from .steps import PhaseContext, PhaseOutcome, StepOutput, run_step
+from .steps import PhaseContext, PhaseOutcome, StepOutput, _n, run_step
 
 DOC_ID = "tender-hall-a"
 S_INTAKE, S_PLAN = "p1.intake", "p1.plan"
@@ -106,8 +106,8 @@ def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
     ctx.emit(S_PLAN, "orchestrator", "plan", "Plan ready", payload={"plan": plan, "open_questions": questions})
     if reply:
         n_verified = sum(r.verified for r in brief.requirements)
-        template = (f"Orchestrator built a {len(plan)}-step plan from {n_verified} verified requirement(s), with "
-                    f"{len(ask)} question(s) for you to decide.")
+        template = (f"Orchestrator built a {len(plan)}-step plan from {_n(n_verified, 'verified requirement')}, "
+                    f"with {_n(len(ask), 'question')} for you to decide.")
         ctx.narrate(S_PLAN, "orchestrator", reply.summary, ctx.allowed(extra=[q.id for q in brief.open_questions]),
                     "planning", template=template)
     return StepOutput(data={"plan": plan, "open_questions": questions})

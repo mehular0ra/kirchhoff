@@ -36,6 +36,15 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
+def _n(count: int, singular: str, plural: str | None = None) -> str:
+    """"{count} {noun}", singular or plural per `count` -- e.g. _n(1, "option") -> "1 option",
+    _n(3, "option") -> "3 options". Used by the P2 final fix wave's engine-record narration fallback
+    templates (ruling P2-R19); pass `plural` for an irregular noun (_n(1, "fix") -> "1 fix", but
+    _n(2, "fix", "fixes") -> "2 fixes"). Leading underscore: a shared helper, not part of the module's
+    public surface (and it avoids colliding with the very common loop variable name `n` in this package)."""
+    return f"{count} {singular if count == 1 else (plural or f'{singular}s')}"
+
+
 def _truncated_payload(payload: dict, budget: int) -> dict:
     """Minor: the {'truncated', 'keys'} fallback itself must fit `budget` -- with many long key names
     (e.g. 50 keys of about 300 characters), the naive top-50 fallback can itself still blow the cap.

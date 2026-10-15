@@ -11,7 +11,7 @@ from kirchhoff.contracts import DesignBrief, DesignModel, Finding, LedgerEntry, 
 
 from .policy import OWNER, choose_option, criterion, lead_limit_weeks, preferred_candidate
 from .revisions import build_revision, diff_elements, load_revision_model, run_revisions, with_citation_boxes
-from .steps import AGENT_LABEL, ParkAtGate, PhaseContext, PhaseOutcome, StepOutput, run_step
+from .steps import AGENT_LABEL, ParkAtGate, PhaseContext, PhaseOutcome, StepOutput, _n, run_step
 
 log = logging.getLogger("kirchhoff")
 MAX_FIX_ITERATIONS = 2
@@ -90,8 +90,8 @@ def _route(ctx: PhaseContext, option_id: str) -> StepOutput:
     feeders = sorted(c.id for c in m.connections if c.kind != "internal" and c.route)
     routed = sum(1 for c in m.connections if c.route)
     # R14: code-authored, built only from the engine's route output.
-    template = (f"Layout routed {routed} connection(s), including {len(feeders)} feeder busway(s), with the "
-                f"engine's default candidate routes.")
+    template = (f"Layout routed {_n(routed, 'connection')}, including {_n(len(feeders), 'feeder busway')}, "
+                f"with the engine's default candidate routes.")
     ctx.narrate(S_ROUTE, "layout", res.text if res else "", ctx.allowed(m), "busway routing", template=template)
     ctx.emit(S_ROUTE, "cooling", "tool_result", "route_pipes done",
              payload={"tool": "route_pipes", "summary": {"pipes": {p.id: p.tier for p in m.pipes}}})
@@ -258,8 +258,8 @@ def _docs(ctx: PhaseContext, chk: dict, iterations: int, stop_reason: str | None
     order = [x for x in (reply.order if reply else []) if x in SECTIONS]
     order += [x for x in SECTIONS if x not in order]
     # R14: code-authored, built only from the engine-checked findings and fixes counted above.
-    template = (f"Docs prepared the calc report and BOQ for {rev.id}: {len(findings)} check(s), "
-                f"{len(chk['fail_ids'])} failing, {len(fixes)} fix(es) applied.")
+    template = (f"Docs prepared the calc report and BOQ for {rev.id}: {_n(len(findings), 'check')}, "
+                f"{len(chk['fail_ids'])} failing, {_n(len(fixes), 'fix', 'fixes')} applied.")
     summary = ctx.narrate(S_DOCS, "docs", reply.summary if reply else "", ctx.allowed(model), "the calc report",
                           template=template)
     # P2 final fix wave (Task 18 minor): the arguments are built OUTSIDE the try, so a real bug -- missing

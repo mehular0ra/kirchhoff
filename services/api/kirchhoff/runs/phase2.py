@@ -7,7 +7,7 @@ from kirchhoff.agents.specs import COOLING, LAYOUT, POWER, PROCUREMENT
 from kirchhoff.contracts import CoolingNode, DesignModel, OpenQuestion, Rack, TopologyOption
 
 from .policy import choose_option, lead_limit_weeks
-from .steps import PhaseContext, PhaseOutcome, StepOutput, run_step
+from .steps import PhaseContext, PhaseOutcome, StepOutput, _n, run_step
 
 S_RESOLVE, S_PLACE, S_POWER = "p2.resolve_plan", "p2.place_racks", "p2.power_options"
 S_COOL, S_ANN, S_RECHECK = "p2.cooling_sizing", "p2.annotate_options", "p2.power_recheck"
@@ -71,7 +71,8 @@ def _place(ctx: PhaseContext) -> StepOutput:
         tool()
     rows = sorted({r.row for r in box["racks"]})
     # R14: code-authored, built only from the engine's own place_racks output -- never the LLM's text.
-    template = f"Layout placed {len(box['racks'])} rack(s) in {len(rows)} row(s) with the engine's default pitch."
+    template = (f"Layout placed {_n(len(box['racks']), 'rack')} in {_n(len(rows), 'row')} with the engine's "
+                f"default pitch.")
     ctx.narrate(S_PLACE, "layout", res.text if res else "", ctx.allowed(extra=_rack_ids(box["racks"])),
                 "rack placement", template=template)
     return StepOutput(data={"racks": [r.model_dump(mode="json") for r in box["racks"]]})
@@ -97,7 +98,7 @@ def _power(ctx: PhaseContext, racks: list[Rack]) -> StepOutput:
     offer = [i for i in (reply.offer if reply else []) if i in ids] or ids
     options = [(o, m) for o, m in box["options"] if o.id in offer]
     # R14: code-authored, built only from the engine's power_options output and the offered ids.
-    template = (f"Power compared {len(ids)} topology option(s) ({', '.join(sorted(ids))}) and offered "
+    template = (f"Power compared {_n(len(ids), 'topology option')} ({', '.join(sorted(ids))}) and offered "
                 f"{len(options)} to the engineer.")
     ctx.narrate(S_POWER, "power", reply.reason if reply else "", ctx.allowed(*[m for _, m in options]),
                 "topology options", template=template)
@@ -132,7 +133,7 @@ def _cooling(ctx: PhaseContext, racks: list[Rack]) -> StepOutput:
     cdus = [n for n in box["nodes"] if n.kind == "cdu"]
     zones = sorted({n.zone for n in cdus})
     # R14: code-authored, built only from the engine's size_cooling output.
-    template = f"Cooling sized {len(cdus)} CDU(s) across {len(zones)} zone(s), N+1 per zone."
+    template = f"Cooling sized {_n(len(cdus), 'CDU', 'CDUs')} across {_n(len(zones), 'zone')}, N+1 per zone."
     ctx.narrate(S_COOL, "cooling", res.text if res else "", ctx.allowed(extra=ids), "CDU sizing", template=template)
     return StepOutput(data={"cooling_nodes": [n.model_dump(mode="json") for n in box["nodes"]]})
 
@@ -162,7 +163,8 @@ def _annotate(ctx: PhaseContext, power: dict, cooling: dict) -> StepOutput:
     rec = choose_option([o for o, _ in annotated], ctx.outputs(S_RESOLVE)["resolutions"], lead_limit_weeks(scn))
     # R14: code-authored, built only from the engine's annotate_options output (equipment lines and options).
     n_items = sum(len(m.equipment) for _, m in annotated)
-    template = f"Procurement checked lead times for {n_items} catalogue item(s) across {len(annotated)} option(s)."
+    template = (f"Procurement checked lead times for {_n(n_items, 'catalogue item')} across "
+                f"{_n(len(annotated), 'option')}.")
     ctx.narrate(S_ANN, "procurement", res.text if res else "", ctx.allowed(*[m for _, m in annotated]),
                 "lead-time check", template=template)
     return StepOutput(data={"options": _dump(annotated), "recommended": rec.id if rec else None})
@@ -193,7 +195,7 @@ def _recheck(ctx: PhaseContext, ann: dict) -> StepOutput:
             tool()
         # R14: code-authored, built only from the swapped option ids the engine's annotate_options produced.
         swap_ids = ", ".join(sorted(o.id for o, _ in swapped))
-        template = f"Power re-checked {len(swapped)} swapped option(s) ({swap_ids}) after the R15 swap."
+        template = f"Power re-checked {_n(len(swapped), 'swapped option')} ({swap_ids}) after the R15 swap."
         ctx.narrate(S_RECHECK, "power", res.text if res else "", ctx.allowed(*[m for _, m in swapped]),
                     "fault-level re-check", template=template)
         for oid, s in box["summary"].items():

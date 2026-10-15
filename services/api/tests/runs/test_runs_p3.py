@@ -303,7 +303,7 @@ def test_route_narration_falls_back_to_the_engine_record_template(p123, make_run
     rid = _to_review(p123, make_run)
     msgs = [e["title"] for e in _events(p123, rid) if e["kind"] == "message" and e["agent"] == "layout"
             and e["step"] == "p3.route"]
-    assert msgs == ["Layout routed 2 connection(s), including 2 feeder busway(s), with the engine's "
+    assert msgs == ["Layout routed 2 connections, including 2 feeder busways, with the engine's "
                     "default candidate routes."]
 
 
@@ -325,8 +325,8 @@ def test_docs_narration_falls_back_to_the_engine_record_template(p123, make_run)
     rid = _to_review(p123, make_run)
     msgs = [e["title"] for e in _events(p123, rid) if e["kind"] == "message" and e["agent"] == "docs"]
     r1, r2 = run_revisions(p123.store, "u1", rid)
-    assert msgs == [f"Docs prepared the calc report and BOQ for {r2['id']}: 9 check(s), 0 failing, "
-                    "2 fix(es) applied."]
+    assert msgs == [f"Docs prepared the calc report and BOQ for {r2['id']}: 9 checks, 0 failing, "
+                    "2 fixes applied."]
 
 
 def test_clean_docs_narration_passes_through_unchanged(p123, make_run):

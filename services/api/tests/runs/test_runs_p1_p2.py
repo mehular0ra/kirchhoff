@@ -115,7 +115,7 @@ def test_narration_with_free_numbers_is_replaced_by_the_engine_record_template(p
     start_phase(p12, "u1", rid, "p1")
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "layout"]
-    assert msgs == ["Layout placed 2 rack(s) in 2 row(s) with the engine's default pitch."]
+    assert msgs == ["Layout placed 2 racks in 2 rows with the engine's default pitch."]
 
 
 def test_clean_layout_narration_passes_through_unchanged(p12, make_run):
@@ -139,7 +139,7 @@ def test_power_topology_narration_falls_back_to_the_engine_record_template(p12, 
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "power"
             and e["step"] == "p2.power_options"]
-    assert msgs == ["Power compared 3 topology option(s) (2N, BLOCK, DR) and offered 3 to the engineer."]
+    assert msgs == ["Power compared 3 topology options (2N, BLOCK, DR) and offered 3 to the engineer."]
 
 
 def test_cooling_narration_falls_back_to_the_engine_record_template(p12, make_run):
@@ -153,7 +153,7 @@ def test_cooling_narration_falls_back_to_the_engine_record_template(p12, make_ru
     start_phase(p12, "u1", rid, "p1")
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "cooling"]
-    assert msgs == ["Cooling sized 6 CDU(s) across 2 zone(s), N+1 per zone."]
+    assert msgs == ["Cooling sized 6 CDUs across 2 zones, N+1 per zone."]
 
 
 def test_procurement_narration_falls_back_to_the_engine_record_template(p12, make_run):
@@ -166,7 +166,7 @@ def test_procurement_narration_falls_back_to_the_engine_record_template(p12, mak
     start_phase(p12, "u1", rid, "p1")
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "procurement"]
-    assert msgs == ["Procurement checked lead times for 15 catalogue item(s) across 3 option(s)."]
+    assert msgs == ["Procurement checked lead times for 15 catalogue items across 3 options."]
 
 
 def test_power_recheck_narration_falls_back_to_the_engine_record_template(p12, make_run):
@@ -181,7 +181,7 @@ def test_power_recheck_narration_falls_back_to_the_engine_record_template(p12, m
     resume_from_gate(p12, "u1", rid, "plan", {"open_questions": qs})
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "power"
             and e["step"] == "p2.power_recheck"]
-    assert msgs == ["Power re-checked 3 swapped option(s) (2N, BLOCK, DR) after the R15 swap."]
+    assert msgs == ["Power re-checked 3 swapped options (2N, BLOCK, DR) after the R15 swap."]
 
 
 def test_orchestrator_plan_narration_falls_back_to_the_engine_record_template(p12, make_run):
@@ -193,5 +193,5 @@ def test_orchestrator_plan_narration_falls_back_to_the_engine_record_template(p1
     rid = make_run()
     start_phase(p12, "u1", rid, "p1")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "orchestrator"]
-    assert msgs == ["Orchestrator built a 13-step plan from 7 verified requirement(s), with "
-                    "1 question(s) for you to decide."]
+    assert msgs == ["Orchestrator built a 13-step plan from 7 verified requirements, with "
+                    "1 question for you to decide."]
