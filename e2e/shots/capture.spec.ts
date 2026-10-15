@@ -98,7 +98,7 @@ const SHOTS: Shot[] = [
       await page.goto('/app/p/hall-a/review/r2')
       await text(page, 'APPROVED')
       await settle(page)
-      return page.getByText('APPROVED').first().locator('xpath=ancestor::*[contains(@class,"border")][1]')
+      return page.getByRole('figure', { name: 'Approval stamp' }) // the stamp's own accessible name, not a class guess
     },
   },
   {
