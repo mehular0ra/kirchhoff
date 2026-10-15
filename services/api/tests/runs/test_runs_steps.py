@@ -9,7 +9,7 @@ from kirchhoff.runs.events import next_seq
 from kirchhoff.runs.fakes import CheckedStore, build_fake_deps
 from kirchhoff.runs.leases import acquire_lease, run_path
 from kirchhoff.runs.outputs import load_outputs, pack_outputs
-from kirchhoff.runs.steps import TXN_DOC_LIMIT, LeaseLost, PhaseContext, StepOutput, run_step
+from kirchhoff.runs.steps import TXN_DOC_LIMIT, LeaseLost, PhaseContext, StepOutput, _n, run_step
 from kirchhoff.store.events import EventWriter
 
 
@@ -93,6 +93,18 @@ def test_emit_truncates_payload_and_narrate_sanitizes(ctx):
     big, dirty, clean = _events(ctx)
     assert big["payload"]["truncated"] is True
     assert dirty["title"] == "Power completed fix selection." and clean["title"] == "FA-01 fails R05."
+
+
+def test_n_pluralizes_the_engine_count_in_narration_fallback_templates():
+    """The shared `_n` helper backs every engine-record fallback template in phase1/2/3.py (ruling P2-R19
+    polish): it must read naturally in the judged video for both the 1 case and the many case, not just
+    bolt on a literal "(s)"."""
+    assert _n(1, "option") == "1 option"
+    assert _n(3, "option") == "3 options"
+    assert _n(0, "option") == "0 options"  # zero takes the plural form too
+    # Irregular nouns (e.g. "fix" -> "fixes") need the explicit `plural` argument.
+    assert _n(1, "fix", "fixes") == "1 fix"
+    assert _n(2, "fix", "fixes") == "2 fixes"
 
 
 def test_tool_wrapper_and_agent_fallback(ctx):

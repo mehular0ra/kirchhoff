@@ -60,16 +60,25 @@ def test_no_leak_reaches_narration_fix_reasons_docs_summary_or_the_pdf(p123, mak
     _leaky_replies(p123.runner, leak)
     p123.exporter = BlobExporter(p123.blobs)
     rid = _to_review(p123, make_run)
-    assert _message(p123, rid, "p1.plan") == "Orchestrator completed planning."
-    assert _message(p123, rid, "p2.place_racks") == "Layout completed rack placement."
-    assert _message(p123, rid, "p2.power_options") == "Power completed topology options."
-    assert _message(p123, rid, "p2.annotate_options") == "Procurement completed lead-time check."
-    assert _message(p123, rid, "p3.route") == "Layout completed busway routing."
+    # P2 final fix wave (ruling P2-R19): the fallback is now the engine-record template for each step
+    # (ruling R14 -- code-authored text built only from engine values, never the leaking LLM text), not
+    # the flat generic "{Agent} completed {step}." -- but the leak itself must still never surface.
+    assert _message(p123, rid, "p1.plan") == ("Orchestrator built a 13-step plan from 7 verified "
+                                              "requirements, with 1 question for you to decide.")
+    assert _message(p123, rid, "p2.place_racks") == ("Layout placed 2 racks in 2 rows with the engine's "
+                                                      "default pitch.")
+    assert _message(p123, rid, "p2.power_options") == ("Power compared 3 topology options (2N, BLOCK, DR) "
+                                                        "and offered 3 to the engineer.")
+    assert _message(p123, rid, "p2.annotate_options") == ("Procurement checked lead times for 4 catalogue "
+                                                           "items across 3 options.")
+    assert _message(p123, rid, "p3.route") == ("Layout routed 2 connections, including 2 feeder busways, "
+                                               "with the engine's default candidate routes.")
     r1, r2 = run_revisions(p123.store, "u1", rid)
     fix = p123.store.get_doc(f"workspaces/u1/revisions/{r1['id']}/findings/R05:FA-01")["fix"]
     assert fix["reason"] == POWER_FIX
     docs = load_outputs(p123.store, p123.blobs, run_path("u1", rid), "p3.docs")
-    assert docs["summary"] == f"Docs prepared the calc report and BOQ for {r2['id']}."
+    assert docs["summary"] == (f"Docs prepared the calc report and BOQ for {r2['id']}: 9 checks, 0 failing, "
+                               "2 fixes applied.")
     pdf = p123.blobs.get(f"workspaces/u1/{docs['files'][0]['path']}")
     with pdfplumber.open(io.BytesIO(pdf)) as doc:
         text = " ".join(" ".join((page.extract_text() or "").split()) for page in doc.pages)

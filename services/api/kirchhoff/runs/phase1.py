@@ -12,7 +12,7 @@ from kirchhoff.intake.score import load_ground_truth, score_intake
 from kirchhoff.intake.verify import PdfText, clause_on_page, verify_quote
 
 from .policy import PLAN_TEMPLATE
-from .steps import PhaseContext, PhaseOutcome, StepOutput, run_step
+from .steps import PhaseContext, PhaseOutcome, StepOutput, _n, run_step
 
 DOC_ID = "tender-hall-a"
 S_INTAKE, S_PLAN = "p1.intake", "p1.plan"
@@ -94,7 +94,11 @@ def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
     msg = (f"Design brief for an AI data hall.\nVerified requirements:\n{reqs}\nOpen questions:\n{qs}\n"
            'Reply with JSON {"summary": one sentence, "ask_human": [ids of the questions the engineer must decide]}.')
     reply = ctx.agent_json(ORCHESTRATOR, S_PLAN, msg, PlanReply)
-    ask = set(reply.ask_human) if reply else {q.id for q in brief.open_questions}
+    # Trust (ruling R14): `ask_human` is the model's own choice and is never trusted blindly -- a
+    # hallucinated id must not inflate the "N question(s) for you to decide" count. Mirrors the
+    # offer-filter `_power` already applies to its own agent-chosen list in phase2.py.
+    valid = {q.id for q in brief.open_questions}
+    ask = {i for i in reply.ask_human if i in valid} if reply else valid
     questions = []
     for q in brief.open_questions:
         if q.id not in ask:
@@ -105,6 +109,9 @@ def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
     plan = [PlanStep(id=sid, agent=agent, title=title).model_dump() for sid, agent, title in PLAN_TEMPLATE]
     ctx.emit(S_PLAN, "orchestrator", "plan", "Plan ready", payload={"plan": plan, "open_questions": questions})
     if reply:
+        n_verified = sum(r.verified for r in brief.requirements)
+        template = (f"Orchestrator built a {len(plan)}-step plan from {_n(n_verified, 'verified requirement')}, "
+                    f"with {_n(len(ask), 'question')} for you to decide.")
         ctx.narrate(S_PLAN, "orchestrator", reply.summary, ctx.allowed(extra=[q.id for q in brief.open_questions]),
-                    "planning")
+                    "planning", template=template)
     return StepOutput(data={"plan": plan, "open_questions": questions})

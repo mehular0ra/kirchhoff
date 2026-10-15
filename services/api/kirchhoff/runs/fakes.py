@@ -309,6 +309,35 @@ class FakeEngine:
             counts["CDU-1200"] = cdus
         return counts
 
+    def boq_quantities(self, scn, model) -> dict[str, float]:
+        """Mirrors the real engine's `boq.boq_quantities` key space (P2-R19 fallback Minor): equipment
+        catalogue ids (UPS modules, busway length), breaker-frame ids under `params['brk.*']`, busway/cable
+        connections, and the CDU catalogue id -- the same keys R15 checks lead times against. This is a
+        separate, exact mirror rather than a reuse of `_counts` above, which rounds busway length for
+        pricing and so is not the key space R15 itself iterates. Pipes are omitted: at every call site
+        that uses this (P2, before `route()` in P3), `model.pipes` is always empty, so they would
+        contribute nothing."""
+        self._log("boq_quantities")
+        qty: dict[str, float] = {}
+        for e in model.equipment:
+            if e.catalogue_id:
+                if e.kind == "ups":
+                    qty[e.catalogue_id] = qty.get(e.catalogue_id, 0.0) + float(e.params.get("modules", 1))
+                elif e.kind == "busway":
+                    qty[e.catalogue_id] = qty.get(e.catalogue_id, 0.0) + float(e.params.get("length_m", 0.0))
+                else:
+                    qty[e.catalogue_id] = qty.get(e.catalogue_id, 0.0) + 1.0
+            for k, v in e.params.items():
+                if k.startswith("brk.") and not k.endswith(".in_a"):
+                    qty[str(v)] = qty.get(str(v), 0.0) + 1.0
+        for c in model.connections:
+            if c.kind in ("busway", "cable") and c.catalogue_id:
+                qty[c.catalogue_id] = qty.get(c.catalogue_id, 0.0) + c.length_m
+        n_cdu = sum(1 for n in model.cooling_nodes if n.kind == "cdu")
+        if n_cdu:
+            qty["CDU-1200"] = qty.get("CDU-1200", 0.0) + n_cdu
+        return qty
+
     def derive_boq(self, scn, model) -> list[dict]:
         """Re-exported from the real facade (via boq.py); the fake prices off FAKE_MATERIALS since a
         FakeScenario carries no real catalogue."""

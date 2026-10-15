@@ -7,7 +7,7 @@ import threading
 from kirchhoff.contracts import DesignModel, Finding, PRLine
 from kirchhoff.contracts.extra import ClashReport, FixCandidate  # noqa: F401  (re-exported for WS2)
 
-from .boq import derive_boq, derive_pr_lines  # noqa: F401
+from .boq import boq_quantities, derive_boq, derive_pr_lines  # noqa: F401
 from .checker import run_rules
 from .cooling import size_cooling  # noqa: F401
 from .erp import ErpView, YamlErp, default_erp  # noqa: F401

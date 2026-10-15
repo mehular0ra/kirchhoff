@@ -104,11 +104,110 @@ def test_resume_mid_p2_reruns_only_unfinished_steps(p12, make_run):
     assert p12.engine.calls.count("place_racks") == 1 and p12.engine.calls.count("power_options") == 1
 
 
-def test_narration_with_free_numbers_is_replaced_by_the_template(p12, make_run):
+def test_narration_with_free_numbers_is_replaced_by_the_engine_record_template(p12, make_run):
+    """P2 final fix wave (ruling P2-R19): a digit/number-word slip still falls back, but the fallback
+    template is now built from the engine's OWN place_racks output (2 racks, rows R1/R3 in the fake), not
+    the flat generic '{Agent} completed {step}.' -- this is code-authored text (ruling R14), so it may
+    carry those engine-derived digits even though sanitize() runs with placeholders=False."""
     p12.runner.replies["layout:p2.place_racks"] = {"tool_calls": [{"name": "place_racks", "args": {}}],
                                                    "text": "Placed 48 racks in 6 rows."}
     rid = make_run()
     start_phase(p12, "u1", rid, "p1")
     resume_from_gate(p12, "u1", rid, "plan")
     msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "layout"]
-    assert msgs == ["Layout completed rack placement."]
+    assert msgs == ["Layout placed 2 racks in 2 rows with the engine's default pitch."]
+
+
+def test_clean_layout_narration_passes_through_unchanged(p12, make_run):
+    """A clean LLM reply (no digits, no number words, no braces) is left untouched -- the fallback
+    template only fires when sanitize() actually rejects the text."""
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    resume_from_gate(p12, "u1", rid, "plan")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "layout"]
+    assert msgs == ["Layout placed the racks in rows R1 and R3 with the engine default."]
+
+
+def test_power_topology_narration_falls_back_to_the_engine_record_template(p12, make_run):
+    """Power's own narration (p2.power_options) slips a word-number ("all three topologies"); the
+    fallback must name the engine's own option ids and counts, not the generic template."""
+    p12.runner.replies["power:p2.power_options"] = {
+        "tool_calls": [{"name": "enumerate_topologies", "args": {}}],
+        "text": {"offer": ["2N", "DR", "BLOCK"], "reason": "All three topologies pass R01 at minimum rating."}}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    resume_from_gate(p12, "u1", rid, "plan")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "power"
+            and e["step"] == "p2.power_options"]
+    assert msgs == ["Power compared 3 topology options (2N, BLOCK, DR) and offered 3 to the engineer."]
+
+
+def test_cooling_narration_falls_back_to_the_engine_record_template(p12, make_run):
+    """Cooling's own narration slips "zero single points of failure" (a number word); the fallback must
+    be built from the engine's size_cooling output (6 CDUs, zones Z1/Z2 in the fake), not the generic
+    template."""
+    p12.runner.replies["cooling:p2.cooling_sizing"] = {
+        "tool_calls": [{"name": "size_cdus", "args": {}}, {"name": "hydraulic_zones", "args": {}}],
+        "text": "Cooling sized the CDUs with zero single points of failure across both zones."}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    resume_from_gate(p12, "u1", rid, "plan")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "cooling"]
+    assert msgs == ["Cooling sized 6 CDUs across 2 zones, N+1 per zone."]
+
+
+def test_procurement_narration_falls_back_to_the_engine_record_template(p12, make_run):
+    """Procurement's own narration slips a number word ("all three options"); the fallback must come from
+    the engine's own boq_quantities keys -- the SAME keys R15 itself iterates -- unioned across the 3
+    annotated options (TX-3150, UPS-500, BW-1600, CDU-1200 in the fake; shared ids like BW-1600 on two
+    busways count once), not a hand-rolled count of equipment ids (which misses the CDU catalogue id)."""
+    p12.runner.replies["procurement:p2.annotate_options"] = {
+        "tool_calls": [{"name": "annotate_options", "args": {}}],
+        "text": "All three options now ship within the tender's lead-time limit."}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    resume_from_gate(p12, "u1", rid, "plan")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "procurement"]
+    assert msgs == ["Procurement checked lead times for 4 catalogue items across 3 options."]
+
+
+def test_power_recheck_narration_falls_back_to_the_engine_record_template(p12, make_run):
+    """Power's fault-level re-check narration slips a number word; the fallback names the swapped option
+    ids the engine itself produced (all three options carry the TX-2500 -> TX-3150 swap in the fake)."""
+    p12.runner.replies["power:p2.power_recheck"] = {
+        "tool_calls": [{"name": "recheck_swapped_options", "args": {}}],
+        "text": "All three swapped options still pass R01, R04 and R04b."}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    qs = [{**q, "resolution": "compare_all"} for q in _run(p12, rid)["open_questions"]]
+    resume_from_gate(p12, "u1", rid, "plan", {"open_questions": qs})
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "power"
+            and e["step"] == "p2.power_recheck"]
+    assert msgs == ["Power re-checked 3 swapped options (2N, BLOCK, DR) after the R15 swap."]
+
+
+def test_orchestrator_plan_narration_falls_back_to_the_engine_record_template(p12, make_run):
+    """Orchestrator's planning narration slips a number word; the fallback is built only from the brief's
+    own verified-requirement count and the plan length -- both engine/code-derived, never the LLM's."""
+    p12.runner.replies["orchestrator:p1.plan"] = {
+        "text": {"summary": "All seven verified requirements are covered by the plan.",
+                 "ask_human": ["Q-redundancy"]}}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "orchestrator"]
+    assert msgs == ["Orchestrator built a 13-step plan from 7 verified requirements, with "
+                    "1 question for you to decide."]
+
+
+def test_orchestrator_hallucinated_question_id_does_not_inflate_the_question_count(p12, make_run):
+    """Trust (ruling R14): `ask_human` is the model's own choice. A hallucinated id that isn't one of
+    the brief's real open_questions must not count toward "N question(s) for you to decide" -- mirrors
+    the filter `_power` already applies to its own `offer` list in phase2.py."""
+    p12.runner.replies["orchestrator:p1.plan"] = {
+        "text": {"summary": "All seven verified requirements are covered by the plan.",
+                 "ask_human": ["Q-redundancy", "Q-does-not-exist"]}}
+    rid = make_run()
+    start_phase(p12, "u1", rid, "p1")
+    msgs = [e["title"] for e in _events(p12, rid) if e["kind"] == "message" and e["agent"] == "orchestrator"]
+    assert msgs == ["Orchestrator built a 13-step plan from 7 verified requirements, with "
+                    "1 question for you to decide."]
