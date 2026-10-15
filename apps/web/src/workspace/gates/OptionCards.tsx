@@ -28,13 +28,21 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 /** Option gate (spec §12 screen 5): costed topology cards; selectable at a live option gate. */
 export function OptionCards() {
-  const { run, source } = useWorkspace()
+  const { run, source, bundle } = useWorkspace()
   const { api } = useServices()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const options = run?.options ?? []
-  if (!run || !options.length)
+  if (!run || !options.length) {
+    // A signed recorded sample without a recorded option gate (D10): say what it is, not "not yet".
+    if (source === 'static' && bundle.approvals.length > 0)
+      return (
+        <EmptyState title="Topology options are not part of this sample">
+          This sample includes the checked design, findings and sign-off. Run Hall B live to see Power weigh the topologies.
+        </EmptyState>
+      )
     return <EmptyState title="No options yet">Power enumerates topologies and Procurement checks lead times; options appear here.</EmptyState>
+  }
   const atGate = source === 'live' && run.status === 'at_gate' && run.gate === 'option'
 
   const select = async (id: TopologyOption['id']) => {

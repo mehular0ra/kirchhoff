@@ -7,11 +7,19 @@ import { useWorkspace } from './WorkspaceContext'
 /** WS2's UNVERIFIED_TEMPLATE (services/api/kirchhoff/intake/brief.py). */
 export const UNVERIFIED_TEXT = 'Requirement not accepted: the quote was not found on the cited page.'
 
+/** What a recorded sample without Intake's brief does include (D10); a live run or replay still fills the cards. */
+export const SAMPLE_WITHOUT_BRIEF = 'This sample includes the checked design, findings and sign-off; the tender requirements are in the Docs tab.'
+
 /** Intake's requirement cards (spec §3 0:10–0:30): each with its verified quote and a tender chip. */
 export function RequirementsPanel() {
-  const { bundle } = useWorkspace()
+  const { bundle, source } = useWorkspace()
   const brief = bundle.brief
-  if (!brief) return <p className="p-3 text-xs text-zinc-400">Requirement cards appear when Intake has read the tender.</p>
+  if (!brief)
+    return (
+      <p className="p-3 text-xs text-zinc-400">
+        {source === 'static' ? SAMPLE_WITHOUT_BRIEF : 'Requirement cards appear when Intake has read the tender.'}
+      </p>
+    )
   return (
     <section aria-label="Requirements" className="flex flex-col gap-2 p-3">
       <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Citations</h3>

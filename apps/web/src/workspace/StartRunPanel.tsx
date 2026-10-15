@@ -2,6 +2,7 @@ import { CirclePlay, CircleX, FileText, LoaderCircle, Upload, Zap } from 'lucide
 import { useState, type DragEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { useRecordedRun } from '@/data/useRecordedRun'
 import { writeJson } from '@/lib/storage'
 import type { Project } from '@/lib/types'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
@@ -28,6 +29,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [over, setOver] = useState(false)
+  const recorded = useRecordedRun()
 
   const start = async () => {
     setBusy(true)
@@ -90,11 +92,13 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
         <Button onClick={() => void start()} disabled={busy}>
           {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Zap aria-hidden />} Start live run
         </Button>
-        <Button asChild variant="ghost">
-          <Link to="/app/p/hall-a?replay=1">
-            <CirclePlay aria-hidden /> Replay a recorded run
-          </Link>
-        </Button>
+        {recorded === true && (
+          <Button asChild variant="ghost">
+            <Link to="/app/p/hall-a?replay=1">
+              <CirclePlay aria-hidden /> Replay a recorded run
+            </Link>
+          </Button>
+        )}
       </div>
       {error && (
         <p role="alert" className="flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-200">

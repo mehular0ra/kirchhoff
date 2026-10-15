@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { ProjectStateBadge } from '@/components/ProjectState'
 import { Button } from '@/components/ui/button'
+import { useRecordedRun } from '@/data/useRecordedRun'
 import { useWorld } from '@/data/useWorld'
 import { unreadCount, useInbox } from '@/inbox/useInbox'
 import { demoClockLabel, demoNowMs, fmtRelative, tidyPlurals } from '@/lib/format'
@@ -22,7 +23,7 @@ export function lastLiveRun(pid: string): string | null {
   return readJson<string | null>(`lastRun.${pid}`, null)
 }
 
-function ProjectCard({ p, nowMs }: { p: Project; nowMs: number }) {
+function ProjectCard({ p, nowMs, recordedRun }: { p: Project; nowMs: number; recordedRun: boolean | null }) {
   const liveRun = p.id === 'hall-b' ? lastLiveRun('hall-b') : null
   const href = liveRun ? `/app/p/${p.id}?run=${liveRun}` : `/app/p/${p.id}`
   return (
@@ -57,11 +58,14 @@ function ProjectCard({ p, nowMs }: { p: Project; nowMs: number }) {
               <Zap aria-hidden /> {liveRun ? 'Open your live run' : 'Run it live'}
             </Link>
           </Button>
-          <Button asChild size="xs" variant="ghost">
-            <Link to="/app/p/hall-a?replay=1">
-              <CirclePlay aria-hidden /> Replay
-            </Link>
-          </Button>
+          {/* Replay only when Hall A carries a recorded run to play (D10). */}
+          {recordedRun === true && (
+            <Button asChild size="xs" variant="ghost">
+              <Link to="/app/p/hall-a?replay=1">
+                <CirclePlay aria-hidden /> Replay
+              </Link>
+            </Button>
+          )}
         </div>
       )}
     </article>
@@ -86,6 +90,7 @@ function InboxEntry() {
 export function Dashboard() {
   const { world, error } = useWorld()
   const startTour = useTour((s) => s.start)
+  const recordedRun = useRecordedRun()
   if (error) return <EmptyState tone="error" title="Could not load the demo world">{error}</EmptyState>
   if (!world) return <EmptyState title="Loading projects…" />
   const activity = [...world.activity].sort((a, b) => b.ts - a.ts)
@@ -117,7 +122,7 @@ export function Dashboard() {
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {projects.map((p) => (
-                  <ProjectCard key={p.id} p={p} nowMs={nowMs} />
+                  <ProjectCard key={p.id} p={p} nowMs={nowMs} recordedRun={recordedRun} />
                 ))}
               </div>
             </div>

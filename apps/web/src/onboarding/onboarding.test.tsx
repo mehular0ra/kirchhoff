@@ -87,6 +87,13 @@ test('tour step 3 opens the first failing finding; step 4 counts agents from the
   expect(TOUR_STEPS).toHaveLength(7)
 })
 
+test('D10: step 7 offers the recorded run only when Hall A carries one', () => {
+  const b = fixtureBundle()
+  expect(stepBody(TOUR_STEPS[6], { hallA: b })).toMatch(/or watch a recorded one/)
+  expect(stepBody(TOUR_STEPS[6], { hallA: { ...b, events: [] } })).not.toMatch(/recorded/)
+  expect(stepBody(TOUR_STEPS[6], { hallA: { ...b, events: [] } })).toMatch(/Start a live run in your own workspace\.$/)
+})
+
 test('D7: step 3 promises a highlight only when the cited quote carries a pdfplumber box', () => {
   const b = fixtureBundle()
   const withBox = b.findings.r1.find((f) => f.id === 'R05:FA-01')!

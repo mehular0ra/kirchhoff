@@ -116,3 +116,22 @@ test('D2: dashboard times read against the labelled demo clock, not the browser 
   expect(screen.getByText('16 Oct 2026, 13:00')).toBeInTheDocument()
   expect(screen.queryByText(/^in \d/)).not.toBeInTheDocument()
 })
+
+test('D10: the Hall B card offers Replay only when Hall A carries a recorded run', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  const { STATIC_FILES } = await import('@/test/render')
+  const noEvents = { ...(STATIC_FILES['/demo/projects/hall-a.json'] as object), events: [] }
+  renderWithProviders(<Dashboard />, {
+    services: fakeServices({
+      getJson: vi.fn(async (url: string) => (url === '/demo/projects/hall-a.json' ? structuredClone(noEvents) : structuredClone(STATIC_FILES[url]))),
+    }),
+  })
+  expect(await screen.findByRole('link', { name: /run it live/i })).toBeInTheDocument()
+  await vi.waitFor(() => expect(screen.queryByRole('link', { name: /^Replay$/ })).not.toBeInTheDocument())
+})
+
+test('D10: with a recorded run in Hall A, the Hall B card keeps Replay', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  renderWithProviders(<Dashboard />)
+  expect(await screen.findByRole('link', { name: /^Replay$/ })).toHaveAttribute('href', '/app/p/hall-a?replay=1')
+})

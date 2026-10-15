@@ -26,3 +26,29 @@ test('I11: an unverified requirement shows the "not accepted" sentence, never it
   expect(within(card).getByText('quote not verified')).toBeInTheDocument()
   expect(within(card).queryByText('quote verified')).not.toBeInTheDocument()
 })
+
+const SAMPLE_LINE = 'This sample includes the checked design, findings and sign-off; the tender requirements are in the Docs tab.'
+
+test('D10: a recorded design without a brief says what the sample includes; a live run keeps "appear when Intake has read"', () => {
+  resetStores()
+  const b = fixtureBundle()
+  b.brief = null
+  const { unmount } = render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="static">
+        <RequirementsPanel />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  expect(screen.getByText(SAMPLE_LINE)).toBeInTheDocument()
+  expect(screen.queryByText(/appear when Intake has read/)).not.toBeInTheDocument()
+  unmount()
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="live">
+        <RequirementsPanel />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  expect(screen.getByText('Requirement cards appear when Intake has read the tender.')).toBeInTheDocument()
+})

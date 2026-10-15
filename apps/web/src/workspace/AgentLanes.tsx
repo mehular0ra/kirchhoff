@@ -98,25 +98,30 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
   const st = LANE_STATUS[lane.status]
   const StIcon = st.icon
   const shown = all ? lane.events : lane.events.slice(-5)
+  const header = (
+    <>
+      <AgentDot agent={lane.agent} />
+      <span className="font-medium text-zinc-100">{meta.label}</span>
+      {/* A recorded design without agent events has no lane activity to report (M3): no status chip. */}
+      {!(recordedOnly && lane.status === 'idle') && (
+        <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
+          <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
+          {st.label}
+        </span>
+      )}
+    </>
+  )
   return (
     <li className="border-b border-zinc-800/80 px-3 py-2" style={{ boxShadow: `inset 2px 0 0 0 ${lane.status === 'idle' ? 'transparent' : meta.color.startsWith('#') ? meta.color : '#a78bfa'}` }}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 text-left text-sm"
-      >
-        <AgentDot agent={lane.agent} />
-        <span className="font-medium text-zinc-100">{meta.label}</span>
-        {/* A recorded design without agent events has no lane activity to report (M3): no status chip. */}
-        {!(recordedOnly && lane.status === 'idle') && (
-          <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
-            <StIcon aria-hidden className={cn('size-3.5', lane.status === 'running' && 'animate-spin motion-reduce:animate-none')} />
-            {st.label}
-          </span>
-        )}
-        <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-400 transition-transform', recordedOnly && lane.status === 'idle' && 'ml-auto', open && 'rotate-180')} />
-      </button>
+      {/* A lane with no events has nothing to expand (D10): a plain header, no chevron. */}
+      {lane.events.length > 0 ? (
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left text-sm">
+          {header}
+          <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-400 transition-transform', open && 'rotate-180')} />
+        </button>
+      ) : (
+        <div className="flex w-full items-center gap-2 text-sm">{header}</div>
+      )}
       {lane.counters.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-1" aria-label={`${meta.label} summary`}>
           {lane.counters.map((c) => (
@@ -166,8 +171,8 @@ export function AgentLanes() {
       </Hint>
       {recordedOnly && (
         <p className="px-3 pb-2 text-xs text-zinc-400">
-          This sample shows the recorded result. Each agent&rsquo;s tool calls and findings appear here during a live run or a
-          replay of one.
+          This sample shows the recorded result: the checked design, its findings and the sign-off. Each agent&rsquo;s tool
+          calls and findings appear here during a live run.
         </p>
       )}
       <ul>

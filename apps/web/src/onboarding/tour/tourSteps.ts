@@ -102,6 +102,8 @@ export const TOUR_STEPS: TourStep[] = [
     route: () => '/app',
     target: '[data-tour="hall-b"]',
     title: () => 'Now run it live yourself',
-    body: "Hall B is Hall A's twin. Start a live run in your own workspace, or watch a recorded one.",
+    // "or watch a recorded one" only when Hall A's bundle carries a recorded run (D10).
+    body: (ctx) =>
+      `Hall B is Hall A's twin. Start a live run in your own workspace${ctx.hallA && !ctx.hallA.events.length ? '' : ', or watch a recorded one'}.`,
   },
 ]

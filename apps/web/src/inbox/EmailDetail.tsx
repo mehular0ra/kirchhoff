@@ -257,7 +257,7 @@ export function EmailDetail({ email }: { email: InboxEmail }) {
           <FitCard triage={triage} />
         </>
       ) : (
-        <p className="text-sm text-zinc-400">Not triaged yet. The recorded triage arrives with the golden capture.</p>
+        <p className="text-sm text-zinc-400">Not triaged yet. Triage results for this email are not in this demo snapshot.</p>
       )}
       <div className="flex flex-wrap items-start gap-6">
         {triage && <PursueAction email={email} triage={triage} />}

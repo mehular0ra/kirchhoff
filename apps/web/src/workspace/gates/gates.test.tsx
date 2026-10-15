@@ -135,3 +135,17 @@ test('D4: a signed latest revision shows "Signed · view review", never "Request
   expect(screen.getByRole('link', { name: 'Signed · view review' })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
   expect(screen.queryByRole('link', { name: /request sign-off/i })).not.toBeInTheDocument()
 })
+
+test('D10: a signed recorded design without options says the sample does not include them; a live run keeps "No options yet"', () => {
+  const b = fixtureBundle()
+  b.runs = []
+  const { unmount } = wrap(<OptionCards />, { bundle: b })
+  expect(screen.getByText('Topology options are not part of this sample')).toBeInTheDocument()
+  expect(screen.queryByText('No options yet')).not.toBeInTheDocument()
+  unmount()
+  const live = fixtureBundle()
+  live.runs = []
+  live.approvals = []
+  wrap(<OptionCards />, { bundle: live, source: 'live' })
+  expect(screen.getByText('No options yet')).toBeInTheDocument()
+})

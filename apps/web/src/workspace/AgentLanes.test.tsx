@@ -61,3 +61,19 @@ test('M3: a recorded design with no agent events explains itself instead of show
   // Counters counted from the recorded design still show.
   expect(within(lanes).getByText('4 racks placed')).toBeInTheDocument()
 })
+
+test('D10: a lane with no events is not expandable (no chevron, no toggle)', () => {
+  resetStores()
+  const b = fixtureBundle()
+  b.events = []
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="static">
+        <AgentLanes />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  const lanes = screen.getByRole('navigation', { name: 'Agent lanes' })
+  expect(within(lanes).queryAllByRole('button', { expanded: false })).toHaveLength(0)
+  expect(within(lanes).getByText('Intake')).toBeInTheDocument()
+})
