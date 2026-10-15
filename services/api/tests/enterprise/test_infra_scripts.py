@@ -58,8 +58,18 @@ def test_iam_setup_grants_only_the_listed_roles():
     text = " ".join(_joined(INFRA / "iam_setup.sh"))
     roles = sorted(set(re.findall(r"roles/[A-Za-z.]+", text)))
     assert roles == ["roles/aiplatform.user", "roles/datastore.user", "roles/iam.serviceAccountTokenCreator",
-                     "roles/logging.logWriter", "roles/storage.objectAdmin"]
+                     "roles/logging.logWriter", "roles/serviceusage.serviceUsageConsumer", "roles/storage.objectAdmin"]
     assert "iamcredentials.googleapis.com" in text
+
+
+def test_a_pinned_quota_project_needs_the_runtime_account_to_be_allowed_to_bill_it():
+    """The first live run died in a Storage upload: with GOOGLE_CLOUD_QUOTA_PROJECT set, google-auth sends
+    x-goog-user-project and the caller needs serviceusage.services.use on that project (15 Oct dry run)."""
+    pinned = [f for f in ("api.env.yaml", "enterprise.env.yaml")
+              if "GOOGLE_CLOUD_QUOTA_PROJECT" in yaml.safe_load((INFRA / f).read_text(encoding="utf-8"))]
+    assert pinned, "if the env var is dropped on purpose, this guard can go with it"
+    text = " ".join(_joined(INFRA / "iam_setup.sh"))
+    assert "roles/serviceusage.serviceUsageConsumer" in text, f"{pinned} pin a quota project"
 
 
 def _live_runs():

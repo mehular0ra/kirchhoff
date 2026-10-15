@@ -11,7 +11,9 @@ gcloud services enable iamcredentials.googleapis.com --project=$P
 if ! gcloud iam service-accounts describe "$SA" --project=$P >/dev/null 2>&1; then
   gcloud iam service-accounts create "$SA_NAME" --project=$P --display-name="Kirchhoff Cloud Run runtime"
 fi
-for role in roles/datastore.user roles/aiplatform.user roles/logging.logWriter; do
+# serviceUsageConsumer: api.env.yaml and enterprise.env.yaml pin GOOGLE_CLOUD_QUOTA_PROJECT, so every Google call from
+# the runtime account carries x-goog-user-project and needs serviceusage.services.use (the first live run died on it).
+for role in roles/datastore.user roles/aiplatform.user roles/logging.logWriter roles/serviceusage.serviceUsageConsumer; do
   gcloud projects add-iam-policy-binding $P --member="serviceAccount:$SA" --role="$role" --condition=None \
     --quiet >/dev/null
 done
