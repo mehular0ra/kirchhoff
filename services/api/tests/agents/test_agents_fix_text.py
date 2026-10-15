@@ -53,3 +53,22 @@ def test_fix_line_is_empty_without_a_fix_record_and_falls_back_to_the_candidate_
     assert fix_line(_finding(None), "r2", []) == ""
     assert fix_line(_finding({"candidate": "FA-01:cable", "deltas": {"cost_delta": 10.0}}), "r2", []) == (
         " Chosen fix: FA-01:cable · Cost Δ +$10.")
+
+
+def test_rounding_matches_node_intl_on_decimal_ties():
+    """Expected strings are Node's own Intl.NumberFormat output (en-US, maximumFractionDigits 2 / USD with 0):
+    ties round half away from zero on the shortest decimal (repr), not on the binary value (2.675 -> 2.67)."""
+    from kirchhoff.agents.fix_text import fmt_num, fmt_usd
+
+    assert [fmt_num(v) for v in (2.675, 1.005, 0.835, -1.005, 0.125)] == ["2.68", "1.01", "0.84", "-1.01", "0.13"]
+    assert [fmt_usd(v) for v in (2.5, -2.5, 15580.0)] == ["$3", "-$3", "$15,580"]
+    assert fmt_usd(-0.4) == "-$0" and fmt_usd(-0.0) == "-$0"
+    assert fmt_num(-0.004) == "-0" and fmt_num(1e21) == "1,000,000,000,000,000,000,000"
+
+
+def test_non_finite_values_format_as_the_web_shows_them_instead_of_raising():
+    from kirchhoff.agents.fix_text import fmt_num, fmt_usd
+
+    assert (fmt_num(float("inf")), fmt_num(float("-inf")), fmt_num(float("nan"))) == ("∞", "-∞", "—")
+    assert (fmt_usd(float("inf")), fmt_usd(float("-inf"))) == ("$∞", "-$∞")
+    assert fmt_key_value("cost_delta", float("inf")) == "Cost Δ +$∞"

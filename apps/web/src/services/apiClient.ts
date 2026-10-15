@@ -91,6 +91,7 @@ const DETAIL_TEXT: Record<string, string> = {
   'invalid app check token': 'The browser check (App Check) did not pass. Disable blockers for this site or reload; seed projects and replays still work.',
   invalid_value: 'That value is outside the range the engine can check. Pick a value within the limits shown.',
   client_timeout: 'The live backend did not answer in time. Try again in a moment; seed projects and replays still work.',
+  voice_unavailable: 'The voice model is busy right now. Try again in a moment, or use the typed box or the chips.',
 }
 
 // The 12 s bound wraps the whole call (sign-in, App Check and fetch; final review I4).

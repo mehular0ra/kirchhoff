@@ -1,7 +1,7 @@
 // Voice state machine: Gemini Live first; on failure (or when Live is not configured) switch
 // automatically to push-to-talk via POST /api/voice (spec §6.5).
 import { useEffect, useRef, useState } from 'react'
-import type { VoiceResponse } from '@/services/apiClient'
+import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiClient'
 import { useServices, type LiveVoiceCall, type LiveVoiceHandle } from '@/services/services'
 import { canRecord, startRecording, type Recording } from './pushToTalk'
 
@@ -85,8 +85,13 @@ export function useVoice(opts: {
       const blob = await r.stop()
       if (!optsRef.current.revisionRef) throw new Error('no revision')
       optsRef.current.onPushToTalk(await api.voice(blob, optsRef.current.revisionRef))
-    } catch {
-      setNote('The voice service is unreachable; use the typed box or the chips.')
+    } catch (e) {
+      // A transient model error (503 voice_unavailable, issue #36) is worth retrying; say so.
+      setNote(
+        e instanceof ApiError && e.detail === 'voice_unavailable'
+          ? describeApiError(e)
+          : 'The voice service is unreachable; use the typed box or the chips.',
+      )
     } finally {
       setMode('ptt')
     }

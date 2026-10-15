@@ -18,7 +18,7 @@ from kirchhoff.engine.whatif import PARAM_BOUNDS
 from kirchhoff.runs.revisions import load_revision_model
 
 from .fix_text import fix_line
-from .runner import Attachment, run_json
+from .runner import Attachment, is_retryable, run_json
 from .specs import COPILOT, COPILOT_VOICE
 from .trust import allowed_ids_for, fill_finding, fmt_number, sanitize
 
@@ -41,6 +41,11 @@ WS_REF = re.compile(r"^ws:([A-Za-z0-9_-]+)$")
 
 class RevisionNotFound(KeyError):
     """The revision (or its seed bundle) does not exist."""
+
+
+class VoiceUnavailable(Exception):
+    """The voice model call failed with a transient error (429/5xx, runner.is_retryable). Voice makes a single
+    attempt, so the route answers 503 voice_unavailable and the client says to try again."""
 
 
 class BadRevisionRef(ValueError):
@@ -210,13 +215,21 @@ WHAT_IF_PARAMS = ("rack_kw", "liquid_fraction", "dv_limit_pct", "tx_loading_cap_
 VOICE_TOOLS: dict[str, tuple[str, ...]] = {"what_if": ("param", "value"),
                                            "explain_finding": ("finding_id", "element_id"),
                                            "focus_element": ("element_id",)}
-# A safety net over the one round trip. COPILOT_VOICE.timeout_s (the model call's own HTTP timeout) sits just
-# under it and the call is a single attempt, so a hung call frees its worker by the time the 504 goes out.
+# A safety net over the one round trip (owner ruling, #36: voice alone gets 20 s, not the ~10 s /api budget).
+# COPILOT_VOICE.timeout_s, the model call's own HTTP timeout, is 0.5 s under it and counts from when the call
+# starts, after load_revision. So a hung call ends itself, and frees its LLM-pool worker, at most 19.5 s after
+# it started: just before this deadline when the call started promptly (the 504 then comes from that HTTP
+# timeout), or up to a moment after the 504 when loading the revision took longer. Single attempt: no retry.
 VOICE_TIMEOUT_S = 20.0
 VOICE_PROMPT = ("The attached audio is the engineer's question about the current design revision. "
                 "Reply with the JSON object only.")
 NO_MATCH = "I could not match that to a design question; try a what-if chip."
 OUT_OF_RANGE = "That what-if value is outside what the engine can check; try a what-if chip."
+# A what-if whose value is missing or unreadable (not a finite number): an example for that parameter, in words.
+_SPOKEN_EXAMPLE = {"rack_kw": "two hundred kilowatts", "liquid_fraction": "zero point nine",
+                   "dv_limit_pct": "one point five percent", "tx_loading_cap_pct": "thirty-five percent"}
+NO_NUMBER = {p: f"I couldn't read a number for that what-if; try saying, for example, “{ex}”."
+             for p, ex in _SPOKEN_EXAMPLE.items()}
 
 
 class VoiceIntent(BaseModel):
@@ -327,6 +340,8 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
     except Exception as exc:
         if _is_timeout(exc):
             raise FuturesTimeoutError() from exc
+        if is_retryable(exc):  # a transient Vertex error (429/5xx) is not "could not match": try again
+            raise VoiceUnavailable(str(exc)[:200]) from exc
         log.warning("voice fallback: %r", exc)  # model or JSON failure: no tool, the honest fallback answer
         intent = VoiceIntent()
 
@@ -337,7 +352,9 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         if intent.tool == "what_if" and args.get("param") in WHAT_IF_PARAMS:
             param, value = args["param"], _finite_number(args.get("value"))
             lo, hi = PARAM_BOUNDS[param]
-            if value is None or not lo <= value <= hi:
+            if value is None:
+                answer = NO_NUMBER[param]  # missing or unreadable, not out of range
+            elif not lo <= value <= hi:
                 answer = OUT_OF_RANGE  # the same up-front check /api/what-if makes (ruling P2-R17)
             else:
                 # Engine work runs on the engine pool, as /api/what-if's does, under the remaining deadline.

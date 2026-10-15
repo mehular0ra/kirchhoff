@@ -113,7 +113,7 @@ All under `/api`, Firebase ID token required except `/api/health`; JSON bodies; 
 | POST | `/api/runs/{rid}/resume` | → 202 `{resumed: bool}` |
 | POST | `/api/what-if` | `{revision_ref, param, value}` → `WhatIfResult` |
 | POST | `/api/explain` | `{revision_ref, finding_id}` → `{text}` |
-| POST | `/api/voice` | multipart: file `audio` (webm/ogg) + form `revision_ref` → `{transcript, answer, tool_results: [{name, args, result}]}`. An `explain_finding` result is `{text}` plus an optional `revision`: the id of the earlier revision the answer cites (where the check failed), present only when it differs from `revision_ref`'s (issue #36). |
+| POST | `/api/voice` | multipart: file `audio` (webm/ogg) + form `revision_ref` → `{transcript, answer, tool_results: [{name, args, result}]}`. An `explain_finding` result is `{text}` plus an optional `revision`: the id of the earlier revision the answer cites (where the check failed), present only when it differs from `revision_ref`'s (issue #36). Exception to the < 10 s rule above: voice: 20 s budget (owner ruling, #36); the web client waits 25 s. Errors: 503 `voice_unavailable` (a transient model error; try again), 504 `timeout`. |
 | POST | `/api/asset/{pack}` | `pack ∈ {grid, solar}` → `{options, recommended, findings, geometry, choice: {option, reason, source}}` (no events written) |
 | GET | `/api/enterprise/erp/materials` | (WS4) → `Material[]` |
 | GET | `/api/enterprise/erp/prs` | (WS4) → `PurchaseRequisition[]` (seed + visitor) |

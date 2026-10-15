@@ -73,6 +73,12 @@ test('voice has its own 25 s client timeout, above the 12 s /api default (issue 
   vi.useRealTimers()
 })
 
+test('voice_unavailable (a transient model error, issue #36) reads as a try-again sentence with no digits', () => {
+  const text = describeApiError(new ApiError(503, 'voice_unavailable'))
+  expect(text).toMatch(/try again/i)
+  expect(text).not.toMatch(/\d|503|voice_unavailable/)
+})
+
 test('fileBlob asks for the signed URL, then fetches it without auth headers', async () => {
   const { calls, fetcher } = recorder(json({ url: 'https://storage.example/x?sig=1', expires_in: 600 }))
   const plain = vi.fn(async () => new Response('a,b'))

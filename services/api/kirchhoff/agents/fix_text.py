@@ -30,16 +30,26 @@ _TOKEN_LABELS = {"pipe_low": "the low pipe tier", "pipe_high": "the high pipe ti
 
 
 def _rounded(v: float, places: int) -> Decimal:
-    # Intl.NumberFormat rounds the exact value half away from zero.
-    return Decimal(v).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+    # Node's Intl.NumberFormat rounds the shortest decimal form of the number (what repr prints, so 2.675 and
+    # not 2.67499999...) half away from zero: 2.675 -> 2.68, -1.005 -> -1.01. Decimal(v) would round the binary
+    # value instead and disagree with the web on these ties.
+    return Decimal(repr(float(v))).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+
+
+def _non_finite(v: float) -> str | None:
+    """Intl's text for a non-finite value ("∞", "-∞"); NaN is the web's dash (fmtNum)."""
+    if v != v:
+        return DASH
+    return ("-∞" if v < 0 else "∞") if v in (float("inf"), float("-inf")) else None
 
 
 def fmt_num(v: float | None) -> str:
-    """Intl.NumberFormat('en-US', {maximumFractionDigits: 2})."""
-    if v is None or v != v:
+    """Intl.NumberFormat('en-US', {maximumFractionDigits: 2}), negative zero included ("-0")."""
+    if v is None:
         return DASH
-    s = f"{_rounded(v, 2):,.2f}".rstrip("0").rstrip(".")
-    return "0" if s == "-0" else s
+    if (special := _non_finite(v)) is not None:
+        return special
+    return f"{_rounded(v, 2):,.2f}".rstrip("0").rstrip(".")
 
 
 def fmt_qty(v: float | None, unit: str | None = None) -> str:
@@ -53,10 +63,17 @@ def fmt_qty(v: float | None, unit: str | None = None) -> str:
 
 
 def fmt_usd(v: float | None, signed: bool = False) -> str:
+    """Intl's USD with no decimals: the sign before the symbol, negative zero kept ("-$0", as Node prints)."""
     if v is None:
         return DASH
-    n = _rounded(v, 0)
-    s = f"-${-n:,.0f}" if n < 0 else f"${n:,.0f}"
+    if v != v:
+        return "$NaN"  # what the web's fmtUsd shows; no engine record carries one
+    if v in (float("inf"), float("-inf")):
+        body, negative = "∞", v < 0
+    else:
+        n = _rounded(v, 0)
+        body, negative = f"{abs(n):,.0f}", n.is_signed()
+    s = f"{'-' if negative else ''}${body}"
     return f"+{s}" if signed and v > 0 else s
 
 

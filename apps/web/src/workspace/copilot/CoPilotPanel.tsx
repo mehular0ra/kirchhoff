@@ -1,4 +1,4 @@
-import { LoaderCircle, Mic, MicOff, Send } from 'lucide-react'
+import { Info, LoaderCircle, Mic, MicOff, Send } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -178,7 +178,12 @@ export function CoPilotPanel() {
         ) : (
           <p className="text-xs text-zinc-400">This browser or device has no microphone access; use the typed box above.</p>
         )}
-        {voice.note && <p className="text-xs text-zinc-400">{voice.note}</p>}
+        {voice.note && (
+          <p className="flex items-start gap-1 text-xs text-zinc-400">
+            <Info aria-hidden className="mt-px size-3.5 shrink-0" />
+            {voice.note}
+          </p>
+        )}
         {log.length > 0 && (
           <ol aria-label="Conversation" className="flex flex-col gap-1 text-xs" aria-live="polite">
             {log.map((e) => (

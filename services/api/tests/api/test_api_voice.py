@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from kirchhoff.agents import copilot as copilot_mod
-from kirchhoff.agents.copilot import NO_MATCH, OUT_OF_RANGE, VOICE_TOOLS, WHAT_IF_PARAMS
+from kirchhoff.agents.copilot import NO_MATCH, NO_NUMBER, OUT_OF_RANGE, VOICE_TOOLS, WHAT_IF_PARAMS
 from kirchhoff.agents.runner import AgentResult, ReplayRunner
 from kirchhoff.agents.specs import COPILOT_VOICE
 from kirchhoff.agents.trust import fill_finding, fmt_number
@@ -198,10 +198,11 @@ FORGED = [
     ("explain_finding", {}, "Why did it fail?", NO_MATCH),
     ("what_if", {"param": "rack_kw", "value": 777}, "What if racks go to 777 kW?", OUT_OF_RANGE),
     ("what_if", {"param": "rack_kw", "value": -7.77}, "What if racks go to -7.77 kW?", OUT_OF_RANGE),
-    ("what_if", {"param": "rack_kw", "value": "7.77 kW"}, "What if racks go to 7.77 kW?", OUT_OF_RANGE),
-    ("what_if", {"param": "rack_kw", "value": True}, "What if racks go up?", OUT_OF_RANGE),
-    ("what_if", {"param": "rack_kw", "value": float("nan")}, "What if racks go to 777 kW?", OUT_OF_RANGE),
-    ("what_if", {"param": "rack_kw"}, "What if racks go to 777 kW?", OUT_OF_RANGE),
+    ("what_if", {"param": "rack_kw", "value": "7.77 kW"}, "What if racks go to 7.77 kW?", NO_NUMBER["rack_kw"]),
+    ("what_if", {"param": "rack_kw", "value": True}, "What if racks go up?", NO_NUMBER["rack_kw"]),
+    ("what_if", {"param": "rack_kw", "value": float("nan")}, "What if racks go to 777 kW?", NO_NUMBER["rack_kw"]),
+    ("what_if", {"param": "rack_kw"}, "What if racks go to 777 kW?", NO_NUMBER["rack_kw"]),
+    ("what_if", {"param": "dv_limit_pct", "value": None}, "What if the limit is 7.77%?", NO_NUMBER["dv_limit_pct"]),
     ("what_if", {"param": "voltage_pct", "value": 7.77}, "What if the voltage is 7.77%?", NO_MATCH),
     ("delete_project", {"project_id": "hall-a-777"}, "Delete project 777.", NO_MATCH),
 ]
@@ -249,6 +250,16 @@ def test_voice_transcript_is_the_users_own_words_unfiltered(client, seeded, auth
     body = _voice(client, auth).json()
     assert body["transcript"] == "What if racks go to 500 kW, about 7.77 percent more?"
     assert body["answer"] == OUT_OF_RANGE and body["tool_results"] == []
+
+
+def test_voice_a_missing_or_unreadable_what_if_number_is_named_honestly():
+    """A missing or unparsable value is not "out of range": the answer says no number was heard, with a
+    spoken example for that parameter (code-authored text, no digits)."""
+    assert NO_NUMBER["rack_kw"] == ("I couldn't read a number for that what-if; try saying, for example, "
+                                    "“two hundred kilowatts”.")
+    assert set(NO_NUMBER) == set(WHAT_IF_PARAMS)
+    assert all(not any(c.isdigit() for c in text) for text in NO_NUMBER.values())
+    assert OUT_OF_RANGE not in NO_NUMBER.values()
 
 
 def test_voice_a_malformed_reply_is_not_repaired_with_a_second_model_call(client, seeded, auth):
@@ -543,6 +554,41 @@ def test_voice_a_model_call_that_times_out_itself_is_a_504_not_a_fallback(client
     _intent(seeded, "Show me FA-01", "focus_element", {"element_id": "FA-01"})
     assert _voice(client, auth).json()["answer"] == "Showing FA-01."
     pool.shutdown(wait=True)
+
+
+class Coded(Exception):
+    def __init__(self, code):
+        super().__init__(f"{code} from Vertex")
+        self.code = code
+
+
+class ServiceUnavailable(Exception):  # a retryable error known by name (runner.RETRYABLE_NAMES)
+    pass
+
+
+@pytest.mark.parametrize("exc", [Coded(429), Coded(503), Coded(500), ServiceUnavailable("overloaded")],
+                         ids=["429", "503", "500", "by-name"])
+def test_voice_a_transient_vertex_error_is_503_voice_unavailable_not_could_not_match(client, seeded, auth, exc):
+    """A retryable model error (429/5xx: what with_retries would have retried) is not "I could not match
+    that": voice makes a single attempt, so the client is told to try again (503 voice_unavailable)."""
+
+    class Transient:
+        def run(self, spec, key, message, tools=(), attachments=()):
+            raise exc
+
+    seeded.voice_runner = Transient()
+    r = _voice(client, auth)
+    assert r.status_code == 503 and r.json() == {"detail": "voice_unavailable"}
+
+
+def test_voice_a_vertex_504_is_a_timeout(client, seeded, auth):
+    class DeadlineExceeded:
+        def run(self, spec, key, message, tools=(), attachments=()):
+            raise Coded(504)
+
+    seeded.voice_runner = DeadlineExceeded()
+    r = _voice(client, auth)
+    assert r.status_code == 504 and r.json() == {"detail": "timeout"}
 
 
 def test_voice_maps_a_bad_revision_ref_not_as_a_generic_value_error(client, seeded, auth):
