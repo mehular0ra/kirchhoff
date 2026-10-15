@@ -1,9 +1,13 @@
+import shutil
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from kirchhoff.api.app import create_app
+from kirchhoff.enterprise.world.inbox import load_inbox, load_inbox_seed
+from kirchhoff.inbox.fit import warm_engine
+from kirchhoff.inbox.triage import triage_email
 from kirchhoff.runs.fakes import CheckedStore, build_fake_deps, build_fake_scenarios
 
 INTAKE_FIX = Path(__file__).resolve().parents[1] / "intake" / "fixtures"
@@ -97,3 +101,33 @@ def real_client(tmp_path):
                            enterprise=FakeEnterprise(catalogue), spawn=lambda fn: fn(), heartbeat_s=3600.0)
     client = TestClient(create_app(deps=deps, verify_token=lambda token: "u1"))
     return client, ProjectBundle.model_validate_json(raw)
+
+
+REPO = Path(__file__).resolve().parents[4]
+
+
+@pytest.fixture
+def inbox_ready(deps):
+    """I-1's inbox seed and rendered attachments in the fake scenarios dir (the API's file fallback). Precomputed
+    triage is stripped, so the tests do not depend on whether the golden capture has been folded in yet."""
+    warm_engine()  # the live-triage tests run the engine against the real 9.5 s budget: pay the cold import here
+    out = deps.scenarios_dir / "demo_world" / "out"
+    out.mkdir(parents=True, exist_ok=True)
+    seed = load_inbox_seed(REPO / "scenarios" / "demo_world" / "out" / "inbox_seed.json")
+    seed = seed.model_copy(update={"emails": [e.model_copy(update={"triage": None}) for e in seed.emails]})
+    (out / "inbox_seed.json").write_text(seed.model_dump_json(indent=2), encoding="utf-8")
+    shutil.copytree(REPO / "scenarios" / "demo_world" / "out" / "inbox", out / "inbox", dirs_exist_ok=True)
+    return deps
+
+
+@pytest.fixture
+def inbox_precomputed(inbox_ready):
+    """Firestore seed/inbox with every email's precomputed triage (replayed), as WS4's seed loader writes it."""
+    deps = inbox_ready
+    seed = load_inbox_seed(deps.scenarios_dir / "demo_world" / "out" / "inbox_seed.json")
+    emails = [e.model_copy(update={"triage": triage_email(
+        e, runner=deps.runner, scenarios_dir=deps.scenarios_dir, opportunities=deps.enterprise.list_opportunities(None),
+        erp=deps.erp(), appetite=seed.appetite, as_of=seed.as_of, source="precomputed",
+        now=seed.as_of).model_dump(mode="json")}) for e in seed.emails]
+    load_inbox(deps.store, seed.model_copy(update={"emails": emails}))
+    return deps

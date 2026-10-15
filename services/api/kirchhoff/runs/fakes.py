@@ -27,6 +27,7 @@ from kirchhoff.agents.ports import ErpSnapshot
 from kirchhoff.contracts import (Citation, ClauseRef, Connection, CoolingNode, CrmOverlay, DesignModel, Equipment,
                                  Finding, Geometry, Material, Pipe, Point3, PRLine, PurchaseRequisition, Rack,
                                  TopologyOption, WhatIfResult)
+from kirchhoff.contracts import Opportunity
 from kirchhoff.contracts.extra import ClashReport, FixCandidate
 from kirchhoff.intake.render import load_geometry, render_drawing, render_tender_pdf
 from kirchhoff.intake.tender_schema import load_tender
@@ -355,6 +356,22 @@ class FakeEngine:
                 "geometry": {"mwp": 5.0}}
 
 
+FAKE_OPPORTUNITIES = [
+    Opportunity(id="opp-hall-a", account="Deccan Compute", name="Hall A design-build", stage="Design approved",
+                value=18_500_000.0),
+    Opportunity(id="opp-hall-b", account="Deccan Compute", name="Hall B design-build", stage="Design in progress",
+                value=18_500_000.0),
+    Opportunity(id="opp-pune-edge-1", account="Konkan Cloud", name="Pune Edge Phase 1", stage="Closed won",
+                value=7_000_000.0),
+    Opportunity(id="opp-grid-132kv", account="Narmada Transmission", name="Deccan campus 132 kV intake",
+                stage="Negotiation", value=4_800_000.0),
+    Opportunity(id="opp-solar-5mwp", account="Suryodaya Renewables", name="Deccan campus 5 MWp solar",
+                stage="Proposal", value=3_000_000.0),
+    Opportunity(id="opp-vindhya-cpp", account="Vindhya Steel", name="Captive power switchyard", stage="Qualification",
+                value=3_700_000.0),
+]
+
+
 class FakeEnterprise:
     def __init__(self, materials: list[Material] | None = None) -> None:
         self.materials = list(materials or FAKE_MATERIALS)
@@ -393,6 +410,35 @@ class FakeEnterprise:
             self.prs = {k: v for k, v in self.prs.items() if k[0] != uid}
             self.keys = {k: v for k, v in self.keys.items() if v[0] != uid}
             self.stages = {k: v for k, v in self.stages.items() if k[0] != uid}
+
+    # ---- bids inbox CRM (spec §20, I-2). Additive on purpose: the state is created on first use, so __init__ and
+    # reset_visitor above are untouched and stay trivial to merge. A side effect: reset_visitor does not clear
+    # visitor-created opportunities in this fake (create_opportunity is idempotent, so a repeat is harmless).
+    def _crm(self) -> dict:
+        return self.__dict__.setdefault("_crm_state", {"seed": list(FAKE_OPPORTUNITIES), "created": {}})
+
+    @property
+    def opportunities(self) -> list[Opportunity]:
+        return self._crm()["seed"]
+
+    @property
+    def created(self) -> dict[tuple[str, str], Opportunity]:
+        return self._crm()["created"]
+
+    def list_opportunities(self, uid) -> list[Opportunity]:
+        crm = self._crm()
+        with self._lock:
+            mine = [o for (u, _), o in crm["created"].items() if u == uid]
+            stages = {oid: ov.stage for (u, oid), ov in self.stages.items() if u == uid}
+        return sorted((o.model_copy(update={"stage": stages[o.id]}) if o.id in stages else o
+                       for o in crm["seed"] + mine), key=lambda o: o.id)
+
+    def create_opportunity(self, uid, opportunity) -> Opportunity:
+        crm = self._crm()
+        if opportunity.id in {o.id for o in crm["seed"]}:
+            raise ValueError(f"{opportunity.id} is a seed opportunity")
+        with self._lock:
+            return crm["created"].setdefault((uid, opportunity.id), opportunity)
 
 
 _EXTRACTION = {
@@ -465,6 +511,72 @@ FAKE_REPLIES: dict[str, dict] = {
     "asset:solar": {"text": {"option": "STR-28", "reason": "STR-28 stays under the inverter limit on cold "
                                                            "mornings."}},
 }
+
+
+def _q(key, value, source, quote, page=None, unit=None):
+    return {"key": key, "value": value, "unit": unit, "source": source, "page": page, "verbatim_quote": quote}
+
+
+# Bids inbox (addendum I-2): one recorded Inbox-agent reply per seeded email. Quotes are verbatim from I-1's world.yaml
+# bodies and rendered PDFs (and the Hall A tender), so verification runs for real in the tests.
+INBOX_REPLIES: dict[str, dict] = {
+    "inbox:triage:em-hall-b": {"usage": {"in": 14200, "out": 610}, "text": {
+        "is_bid": True,
+        "summary": "Deccan Compute invites a design-build bid for Data Hall B, a twin of Hall A with 2N power.",
+        "attachments": [{"attachment_id": "att-hall-b-tender", "kind": "tender"},
+                        {"attachment_id": "att-hall-b-drawing", "kind": "drawing"},
+                        {"attachment_id": "att-hall-b-addendum", "kind": "addendum"}],
+        "fields": [_q("client", "Deccan Compute", "body", "Deccan Compute invites your bid"),
+                   _q("site", "AI campus near Hyderabad, Telangana", "body",
+                      "at our AI campus near Hyderabad, Telangana"),
+                   _q("asset_type", "datahall", "body", "liquid-cooling design-build of Data Hall B"),
+                   _q("mw", 6.336, "att-hall-b-addendum", "Hall B IT load: 6.336 MW", 1, "MW"),
+                   _q("redundancy", "2N", "att-hall-b-tender", "The critical power distribution shall be 2N", 4),
+                   _q("bid_due", "13 November 2026", "att-hall-b-addendum", "Bids are due by 13 November 2026", 1),
+                   _q("lead_time_weeks", 26, "att-hall-b-tender", "no later than 26 weeks from contract award", 2,
+                      "weeks")],
+        "crm": {"account": "Deccan Compute", "opportunity_id": "opp-hall-b", "propose_new": False}}},
+    "inbox:triage:em-tapti-brochure": {"usage": {"in": 2100, "out": 140}, "text": {
+        "is_bid": False, "summary": "Vendor marketing from Tapti Transformers about its cast-resin range.",
+        "attachments": [{"attachment_id": "att-tapti-brochure", "kind": "brochure"}], "fields": [],
+        "crm": {"account": None, "opportunity_id": None, "propose_new": False}}},
+    "inbox:triage:em-konkan-rfi": {"usage": {"in": 2300, "out": 180}, "text": {
+        "is_bid": False,
+        "summary": "Konkan Cloud confirms the CDU gallery door stays as drawn, so the signed Pune Edge design holds.",
+        "attachments": [{"attachment_id": "att-konkan-rfi", "kind": "other"}],
+        "fields": [_q("client", "Konkan Cloud", "att-konkan-rfi", "Signed for Konkan Cloud", 1)],
+        "crm": {"account": "Konkan Cloud", "opportunity_id": "opp-pune-edge-1", "propose_new": False}}},
+    "inbox:triage:em-vindhya-boq": {"usage": {"in": 2600, "out": 260}, "text": {
+        "is_bid": True,
+        "summary": "Vindhya Steel asks for pricing of a captive power switchyard; its BOQ is a scanned image.",
+        "attachments": [{"attachment_id": "att-vindhya-boq", "kind": "boq"}],
+        "fields": [_q("client", "Vindhya Steel", "body", "Forwarding from Vindhya Steel"),
+                   _q("site", "Satna mill, Madhya Pradesh", "body", "at our Satna mill, Madhya Pradesh"),
+                   _q("asset_type", "grid", "body", "the 33 kV captive power switchyard"),
+                   _q("mw", 40, "att-vindhya-boq", "Plant load: 40 MW", 1, "MW"),
+                   _q("bid_due", "30 October 2026", "body", "Bids are due by 30 October 2026")],
+        "crm": {"account": "Vindhya Steel", "opportunity_id": "opp-vindhya-cpp", "propose_new": False}}},
+    "inbox:triage:em-suryodaya-solar": {"usage": {"in": 900, "out": 200}, "text": {
+        "is_bid": True,
+        "summary": "Suryodaya Renewables asks whether Meridian will bid for a ground-mount solar EPC.",
+        "attachments": [],
+        "fields": [_q("client", "Suryodaya Renewables", "body", "Suryodaya Renewables is planning"),
+                   _q("site", "near Anantapur, Andhra Pradesh", "body", "plant near Anantapur, Andhra Pradesh"),
+                   _q("asset_type", "solar", "body", "ground-mount solar plant"),
+                   _q("mw", 20, "body", "a 20 MWp ground-mount solar plant", unit="MWp")],
+        "crm": {"account": "Suryodaya Renewables", "opportunity_id": None, "propose_new": True}}},
+    "inbox:triage:em-narmada-400kv": {"usage": {"in": 2400, "out": 230}, "text": {
+        "is_bid": True,
+        "summary": "Narmada Transmission requests EPC quotations for a GIS substation in Gujarat.",
+        "attachments": [{"attachment_id": "att-narmada-spec", "kind": "tender"}],
+        "fields": [_q("client", "Narmada Transmission", "body", "Narmada Transmission requests EPC quotations"),
+                   _q("site", "Bharuch, Gujarat", "body", "substation at Bharuch, Gujarat"),
+                   _q("asset_type", "substation", "att-narmada-spec",
+                      "EPC of a new 400/220 kV gas-insulated substation", 1),
+                   _q("bid_due", "20 November 2026", "body", "Quotations are due by 20 November 2026")],
+        "crm": {"account": "Narmada Transmission", "opportunity_id": None, "propose_new": True}}},
+}
+FAKE_REPLIES.update(INBOX_REPLIES)
 
 
 def build_fake_scenarios(root: Path, tender_yaml: Path, geometry_yaml: Path, ground_truth_yaml: Path) -> Path:

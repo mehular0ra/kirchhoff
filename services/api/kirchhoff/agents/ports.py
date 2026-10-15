@@ -4,10 +4,11 @@ from typing import Protocol
 
 import yaml
 
-from kirchhoff.contracts import CrmOverlay, Material, PRLine, PurchaseRequisition
+from kirchhoff.contracts import CrmOverlay, Material, Opportunity, PRLine, PurchaseRequisition
 
 HALL_B_OPPORTUNITY_ID = "opp-hall-b"
 STAGE_DESIGN_APPROVED = "Design approved"
+STAGE_QUALIFYING = "Qualification"  # bids inbox Pursue (spec §20)
 
 
 class EnterpriseClient(Protocol):
@@ -20,6 +21,8 @@ class EnterpriseClient(Protocol):
     def set_pr_status(self, uid: str, pr_id: str, status: str) -> None: ...
     def set_opportunity_stage(self, uid: str, opportunity_id: str, stage: str) -> CrmOverlay: ...
     def reset_visitor(self, uid: str) -> None: ...
+    def list_opportunities(self, uid: str | None) -> list[Opportunity]: ...
+    def create_opportunity(self, uid: str, opportunity: Opportunity) -> Opportunity: ...
 
 
 class ErpSnapshot:

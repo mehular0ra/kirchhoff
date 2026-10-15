@@ -50,6 +50,11 @@ ASSET = AgentSpec("asset", thinking="low", timeout_s=5.0, instruction=(
     "You are the Asset agent for grid and solar packs. Choose one engine option and give a short reason. "
     "Reply with JSON only. " + NUMBERS_RULE))
 
+INBOX = AgentSpec("inbox", thinking="low", timeout_s=8.0, instruction=(
+    "You are the Inbox agent of Kirchhoff. You triage the bids@ mailbox of an EPC contractor: you classify each "
+    "attachment, link the email to the CRM and extract bid fields with exact verbatim quotes. Code checks every "
+    "quote against the documents, so copy text exactly and never guess. Reply with JSON only."))
+
 SPECS_BY_AGENT = {s.name: s for s in [ORCHESTRATOR, LAYOUT, POWER, COOLING, PROCUREMENT, DOCS, ASSET]}
 
 # WS3 copies this verbatim into the Firebase AI Logic Live session (spec §6.5): Firebase JS SDK 13 renamed the
