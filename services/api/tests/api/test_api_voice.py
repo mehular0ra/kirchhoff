@@ -11,6 +11,8 @@ from kirchhoff.agents import copilot as copilot_mod
 from kirchhoff.agents.copilot import NO_MATCH, OUT_OF_RANGE, VOICE_TOOLS, WHAT_IF_PARAMS
 from kirchhoff.agents.runner import AgentResult, ReplayRunner
 from kirchhoff.agents.specs import COPILOT_VOICE
+from kirchhoff.agents.trust import fill_finding, fmt_number
+from kirchhoff.contracts import Finding
 
 CLIP = {"audio": ("clip.webm", b"\x1aE\xdf\xa3fake-webm-bytes", "audio/webm")}
 WS3_LIVE_SPEC = (Path(__file__).resolve().parents[4] / "apps" / "web" / "src" / "workspace" / "copilot" / "voice"
@@ -121,13 +123,26 @@ def test_voice_demo_what_if_runs_the_engine_and_answers_with_the_engine_summary(
     assert res["result"]["impact_chain"]
 
 
-def test_voice_demo_explain_uses_the_explanation_path(client, seeded, auth):
+class NoCallRunner:
+    """deps.runner for voice tests: voice's explain must not make a second model call (coordinator ruling 1)."""
+
+    def __init__(self):
+        self.calls = []
+
+    def run(self, spec, key, message, tools=(), attachments=()):
+        self.calls.append(key)
+        raise AssertionError(f"unexpected model call {key}")
+
+
+def test_voice_demo_explain_answers_with_the_findings_own_filled_explanation(client, seeded, auth):
+    seeded.runner = no_call = NoCallRunner()
     spy = _intent(seeded, "Why did FA-01 fail?", "explain_finding", {"element_id": "FA-01"})
     body = _voice(client, auth, ref="seed:hall-a@r1").json()
     _one_model_call(spy)
+    assert no_call.calls == []
     [res] = body["tool_results"]
     assert res["name"] == "explain_finding" and res["args"] == {"finding_id": "R05:FA-01"}
-    assert res["result"]["text"].startswith("FA-01 has a voltage drop of 2.16%")
+    assert res["result"]["text"] == "Voltage drop: 2.16% against a limit of 2%."
     assert body["answer"] == res["result"]["text"]
     assert body["transcript"] == "Why did FA-01 fail?"
 
@@ -198,8 +213,8 @@ def test_voice_forged_tool_or_args_give_no_tool_result_and_echo_nothing(client, 
                                                                         transcript, answer):
     """Issue #36: the server validates the model's {tool, args} with the same checks the tools applied (the
     what-if param enum and PARAM_BOUNDS, real finding ids, real element ids). Anything else gives no tool
-    result and an honest code-authored answer, and nothing the model invented -- an id, a value, a tool name
-    or a number in the transcript -- reaches the response."""
+    result and an honest code-authored answer, and nothing the model invented -- an id, a value or a tool
+    name -- reaches the answer or the tool results. The transcript is the user's own words (R13)."""
     spy = _intent(seeded, transcript, tool, args)
     r = _voice(client, auth, ref="seed:hall-a@r1")
     assert r.status_code == 200
@@ -207,7 +222,8 @@ def test_voice_forged_tool_or_args_give_no_tool_result_and_echo_nothing(client, 
     _one_model_call(spy)
     assert body["tool_results"] == []
     assert body["answer"] == answer
-    dumped = json.dumps(body)
+    assert body["transcript"] == transcript
+    dumped = json.dumps({"answer": body["answer"], "tool_results": body["tool_results"]})
     for leak in ("7.77", "777", "FA-77", "voltage_pct", "delete_project", "hall-a"):
         assert leak not in dumped, leak
 
@@ -225,13 +241,14 @@ def test_voice_never_shows_model_written_answer_text(client, seeded, auth, leak)
     assert "7.77" not in json.dumps(body) and "{value}" not in json.dumps(body)
 
 
-def test_voice_transcript_is_sanitized_without_placeholders(client, seeded, auth):
-    """The transcript is the user's words, but it is written by the model, so it goes through sanitize with
-    placeholders off: a number the engine never ran with (here a hallucinated 7.77) is not shown."""
-    _intent(seeded, "Show me FA-01. It runs at {value} and 7.77 percent.", "focus_element", {"element_id": "FA-01"})
+def test_voice_transcript_is_the_users_own_words_unfiltered(client, seeded, auth):
+    """R13: the transcript is the user's own words, shown as "You said" and exempt from the digit allowlist,
+    so a number the user spoke is shown as spoken, even one the engine never ran with."""
+    _intent(seeded, "What if racks go to 500 kW, about 7.77 percent more?", "what_if",
+            {"param": "rack_kw", "value": 500})
     body = _voice(client, auth).json()
-    assert body["transcript"].startswith("Show me FA-01.")
-    assert "7.77" not in body["transcript"] and "{value}" not in body["transcript"]
+    assert body["transcript"] == "What if racks go to 500 kW, about 7.77 percent more?"
+    assert body["answer"] == OUT_OF_RANGE and body["tool_results"] == []
 
 
 def test_voice_a_malformed_reply_is_not_repaired_with_a_second_model_call(client, seeded, auth):
@@ -281,26 +298,91 @@ def test_voice_focus_element_does_not_wait_on_a_concurrent_slow_erp_refresh(clie
         t.join(timeout=5)
 
 
-class RaisingRunner:
-    def run(self, spec, key, message, tools=(), attachments=()):
-        raise RuntimeError("vertex down")
+# --- "why" looks back to where the check failed (coordinator ruling 2, the web co-pilot's UX-1 D1) ---
+
+def _real(real_client, transcript, tool, args, ref="seed:hall-a@r2"):
+    client, bundle = real_client
+    deps = client.app.state.deps
+    deps.runner = no_call = NoCallRunner()
+    spy = _intent(deps, transcript, tool, args)
+    body = client.post("/api/voice", files=CLIP, data={"revision_ref": ref},
+                       headers={"Authorization": "Bearer test-token"}).json()
+    _one_model_call(spy)
+    assert no_call.calls == []
+    return body, bundle
 
 
-def test_voice_explain_finding_logs_the_real_cause_when_the_runner_raises(client, seeded, auth, caplog):
-    """Fix round 2, Minor: explain_text's deadline branch (the one voice uses, bounded by the voice deadline)
-    runs the LLM call on a plain thread; if that thread's target raises, the exception does not propagate to
-    whoever joins it, so `box` stays empty. Previously `wait()` then did `return box[0]`, raising an unrelated
-    IndexError that masked the real cause in the fallback log message -- the user-facing fallback text is the
-    same template either way, so only the logged cause tells them apart."""
-    seeded.runner = RaisingRunner()
-    _intent(seeded, "Why did FA-01 fail?", "explain_finding", {"finding_id": "R05:FA-01"})
-    with caplog.at_level("WARNING", logger="kirchhoff.copilot"):
-        body = _voice(client, auth, ref="seed:hall-a@r1").json()
-    assert body["tool_results"][0]["result"]["text"] == "Voltage drop: 2.16% against a limit of 2%."
-    assert body["answer"] == "Voltage drop: 2.16% against a limit of 2%."
-    messages = " ".join(r.getMessage() for r in caplog.records)
-    assert "vertex down" in messages
-    assert "IndexError" not in messages
+def _filled(f: Finding) -> str:
+    return fill_finding(f.explanation, f.value, f.limit, f.unit)
+
+
+def _d1_parts(bundle, element: str):
+    """From the bundle's records only: the current revision, its parent, and the parent's failing finding."""
+    r2 = next(r for r in bundle.revisions if r.id == "r2")
+    r1 = next(r for r in bundle.revisions if r.id == r2.parent)
+    failed = next(f for f in bundle.findings[r1.id] if f.element_id == element and f.status == "fail")
+    return r1, r2, failed
+
+
+@pytest.mark.parametrize("args", [{"element_id": "FA-01"}, {"finding_id": "R05:FA-01"}, {"element_id": "fa01"}],
+                         ids=["by-element", "by-passing-finding-id", "spoken-spelling"])
+def test_voice_why_on_r2_cites_where_fa01_failed_and_its_fix(real_client, args):
+    """Seed hall-a r2: FA-01 passes every check, so "why did FA-01 fail?" answers from r1, where R05 failed,
+    and the parallel-cable fix that r2 applied -- every value from the bundle's records (code-authored, R14)."""
+    body, bundle = _real(real_client, "Why did FA-01 fail?", "explain_finding", args)
+    r1, r2, failed = _d1_parts(bundle, "FA-01")
+    fix = failed.fix
+    assert failed.id == "R05:FA-01" and "parallel cable" in fix["label"]
+    cost = f"+${fix['cost_delta']:,.0f}"
+    dv = f"{round(fix['deltas']['dv_pct'], 2)}%"
+    expected = (f"In {r1.id}: {_filled(failed)} Fixed in {r2.id}: {fix['label']} · Cost Δ {cost} · ΔV {dv}.")
+    assert body["answer"] == expected
+    assert f"{fmt_number(failed.value)}% against a limit of {fmt_number(failed.limit)}%" in body["answer"]
+    assert cost in body["answer"]
+    assert body["tool_results"] == [{"name": "explain_finding", "args": {"finding_id": failed.id},
+                                     "result": {"text": expected}}]
+
+
+def test_voice_why_on_r2_for_h_z2_cites_the_crossing_fix(real_client):
+    body, bundle = _real(real_client, "Why did H-Z2 fail?", "explain_finding", {"element_id": "H-Z2"})
+    r1, r2, failed = _d1_parts(bundle, "H-Z2")
+    fix = failed.fix
+    assert body["answer"].startswith(f"In {r1.id}: {_filled(failed)} Fixed in {r2.id}: ")
+    assert "pipe_low" not in body["answer"] and f"+${fix['cost_delta']:,.0f}" in body["answer"]
+
+
+def test_voice_why_on_the_failing_revision_explains_it_there(real_client):
+    body, bundle = _real(real_client, "Why did FA-01 fail?", "explain_finding", {"element_id": "FA-01"},
+                         ref="seed:hall-a@r1")
+    failed = next(f for f in bundle.findings["r1"] if f.element_id == "FA-01" and f.status == "fail")
+    assert body["answer"] == _filled(failed)
+    assert body["tool_results"][0]["args"] == {"finding_id": failed.id}
+
+
+def test_voice_why_falls_back_to_the_current_finding_when_it_never_failed(real_client):
+    client, bundle = real_client
+    never = sorted({f.element_id for f in bundle.findings["r2"] if f.element_id.startswith("FA-")}
+                   - {f.element_id for fs in bundle.findings.values() for f in fs if f.status != "pass"})[0]
+    body, _ = _real(real_client, f"Why is {never} fine?", "explain_finding", {"element_id": never})
+    first = next(f for f in bundle.findings["r2"] if f.element_id == never)
+    assert body["answer"] == _filled(first) and not body["answer"].startswith("In ")
+    assert body["tool_results"][0]["args"] == {"finding_id": first.id}
+
+
+def test_voice_why_follows_ws_revision_parents_in_the_store(real_client):
+    client, bundle = real_client
+    deps = client.app.state.deps
+    revs = {r.id: r for r in bundle.revisions}
+    for rid, parent in (("x-r1", None), ("x-r2", "x-r1")):
+        rev = revs[rid.split("-")[1]]
+        deps.store.set_doc(f"workspaces/u1/revisions/{rid}", {"id": rid, "parent": parent,
+                                                               "model": rev.model.model_dump(mode="json")})
+        for f in bundle.findings[rev.id]:
+            deps.store.set_doc(f"workspaces/u1/revisions/{rid}/findings/{f.id}", f.model_dump(mode="json"))
+    body, _ = _real(real_client, "Why did FA-01 fail?", "explain_finding", {"element_id": "FA-01"}, ref="ws:x-r2")
+    _, _, failed = _d1_parts(bundle, "FA-01")
+    assert body["answer"].startswith(f"In x-r1: {_filled(failed)} Fixed in x-r2: {failed.fix['label']} · Cost Δ +$")
+    assert body["tool_results"][0]["args"] == {"finding_id": failed.id}
 
 
 def test_voice_model_failure_falls_back_to_the_summary(client, seeded, auth):

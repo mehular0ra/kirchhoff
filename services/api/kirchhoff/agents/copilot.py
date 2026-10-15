@@ -4,9 +4,8 @@ import json
 import logging
 import math
 import re
-import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from pathlib import Path
@@ -18,6 +17,7 @@ from kirchhoff.contracts import DesignModel, Finding, ProjectBundle
 from kirchhoff.engine.whatif import PARAM_BOUNDS
 from kirchhoff.runs.revisions import load_revision_model
 
+from .fix_text import fix_line
 from .runner import Attachment, run_json
 from .specs import COPILOT, COPILOT_VOICE
 from .trust import allowed_ids_for, fill_finding, fmt_number, sanitize
@@ -95,74 +95,113 @@ def load_revision(deps, uid: str, ref: str) -> tuple[DesignModel, list[Finding]]
     raise BadRevisionRef(f"bad revision_ref {ref!r}")
 
 
-def explain_text(deps, model: DesignModel, finding: Finding, *, deadline: float | None = None) -> str:
-    """`deadline` (a `time.monotonic()` value) is passed by voice (`answer_voice`), so the explanation is
-    bounded by the voice request's one deadline. That case runs the LLM call on a plain thread rather than
-    through `_LLM_POOL` (Fix round 1, Minor: voice's tools used to run on an `_LLM_POOL` worker, where a
-    nested submit to the same fixed-size pool could deadlock it)."""
-    template = finding.explanation or f"{finding.title}: {{value}} against a limit of {{limit}}."
+def _explanation_template(finding: Finding) -> str:
+    return finding.explanation or f"{finding.title}: {{value}} against a limit of {{limit}}."
+
+
+def finding_explanation(finding: Finding) -> str:
+    """The finding's own engine explanation, filled from its record: /api/explain's fallback, and voice's
+    whole explanation (no model call; code-authored, R14)."""
+    return fill_finding(_explanation_template(finding), finding.value, finding.limit, finding.unit)
+
+
+def explain_text(deps, model: DesignModel, finding: Finding) -> str:
+    template = _explanation_template(finding)
     clauses = ", ".join(c.clause for c in finding.tender_refs if c.clause) or "none"
     standards = ", ".join(f"{c.standard} {c.clause or ''}".strip() for c in finding.clause_refs) or "none"
     msg = (f"Finding {finding.id}: {finding.title}. Rule {finding.rule_id} on element {finding.element_id}; "
            f"status {finding.status}. Formula: {finding.formula or 'n/a'}. Inputs: {json.dumps(finding.inputs)}. "
            f"Tender clauses: {clauses}. Standards: {standards}. "
            "Explain why in two sentences. Write {value} and {limit} instead of any number.")
-    if deadline is None:
-        # A single LLM attempt, submitted to the dedicated LLM pool (never the engine pool what-if uses) so
-        # a burst of explain calls can never delay a what-if request. `deps.erp()` runs on this thread while
-        # the LLM call runs in the background, so the two overlap instead of adding to the /api latency
-        # budget. Task 15 residual fix (a): one deadline, taken right after submit, covers both the
-        # (possibly slow) deps.erp() call below and the wait -- not COPILOT.timeout_s + 1 *in addition to*
-        # whatever deps.erp() already spent, which could push the total past the ~10s-per-/api budget.
-        fut = _LLM_POOL.submit(deps.runner.run, COPILOT, f"explain:{finding.id}", msg)
-        deadline = time.monotonic() + COPILOT.timeout_s + 1
-
-        def wait(t: float):
-            return fut.result(timeout=t)
-
-        cancel = fut.cancel
-    else:
-        box: list = []
-        error: list = []
-
-        def call() -> None:
-            # Fix round 2, Minor: a thread target's uncaught exception does not propagate to whoever joins
-            # it, so `box` would stay empty and `wait()` below would raise an unrelated IndexError instead
-            # of the real cause -- caught here and re-raised from `wait()` once the thread is joined.
-            try:
-                box.append(deps.runner.run(COPILOT, f"explain:{finding.id}", msg))
-            except Exception as exc:
-                error.append(exc)
-
-        thread = threading.Thread(target=call, daemon=True)
-        thread.start()
-
-        def wait(t: float):
-            thread.join(t)
-            if thread.is_alive():
-                raise FuturesTimeoutError()
-            if error:
-                raise error[0]
-            return box[0]
-
-        cancel = lambda: None  # noqa: E731 -- the thread is a daemon; it is simply abandoned on timeout
+    # A single LLM attempt, submitted to the dedicated LLM pool (never the engine pool what-if uses) so
+    # a burst of explain calls can never delay a what-if request. `deps.erp()` runs on this thread while
+    # the LLM call runs in the background, so the two overlap instead of adding to the /api latency
+    # budget. Task 15 residual fix (a): one deadline, taken right after submit, covers both the
+    # (possibly slow) deps.erp() call below and the wait -- not COPILOT.timeout_s + 1 *in addition to*
+    # whatever deps.erp() already spent, which could push the total past the ~10s-per-/api budget.
+    fut = _LLM_POOL.submit(deps.runner.run, COPILOT, f"explain:{finding.id}", msg)
+    deadline = time.monotonic() + COPILOT.timeout_s + 1
     try:
         extra_ids = [finding.element_id, *deps.erp().ids()]
-        res = wait(max(0.0, deadline - time.monotonic()))
+        res = fut.result(timeout=max(0.0, deadline - time.monotonic()))
         # The one surface that fills placeholders (fill_finding below, from this finding's engine record).
         text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template, placeholders=True)
     except Exception as exc:
-        cancel()
+        fut.cancel()
         log.warning("explain fallback for %s: %r", finding.id, exc)
         text = template
     return fill_finding(text, finding.value, finding.limit, finding.unit)
+
+
+_STATUS_RANK = {"n/a": 0, "pass": 1, "warn": 2, "fail": 3}
+
+
+def _is_problem(f: Finding | None) -> bool:
+    return f is not None and f.status in ("fail", "warn")
+
+
+def _finding_in(findings: list[Finding], finding_id: str, element: str, rule: str | None) -> Finding | None:
+    """The finding asked about in one revision: by id first, else the worst one for the element (and rule)."""
+    by_id = next((f for f in findings if finding_id and f.id == finding_id), None)
+    if by_id is not None:
+        return by_id
+    on_el = [f for f in findings if f.element_id == element and (not rule or f.rule_id == rule)]
+    return max(on_el, key=lambda f: _STATUS_RANK.get(f.status, 0), default=None)
+
+
+def _ancestors(deps, uid: str, ref: str, limit: int = 32) -> Iterator[tuple[str, list[Finding]]]:
+    """(revision id, findings) for each earlier revision of `ref`, nearest first: a ws revision's parents in
+    the store, or a seed bundle's earlier revisions."""
+    seen: set[str] = set()
+    if m := WS_REF.match(ref):
+        doc = deps.store.get_doc(f"workspaces/{uid}/revisions/{m.group(1)}") or {}
+        while (rev := doc.get("parent")) and rev not in seen and len(seen) < limit:
+            seen.add(rev)
+            doc = deps.store.get_doc(f"workspaces/{uid}/revisions/{rev}")
+            if doc is None:
+                return
+            yield rev, [Finding.model_validate(d)
+                        for d in deps.store.list_docs(f"workspaces/{uid}/revisions/{rev}/findings")]
+    elif m := SEED_REF.match(ref):
+        bundle = load_seed_bundle(deps.seed_dir, m.group(1))
+        revs = {r.id: r for r in bundle.revisions}
+        cur = revs.get(m.group(2))
+        while cur is not None and (rev := cur.parent) in revs and rev not in seen and len(seen) < limit:
+            seen.add(rev)
+            cur = revs[rev]
+            yield rev, list(bundle.findings.get(rev, []))
+
+
+def why_answer(deps, uid: str, ref: str, findings: list[Finding], finding_id: str,
+               element: str) -> tuple[Finding, str] | None:
+    """Voice's "why" answer, the web co-pilot's UX-1 D1 (apps/web/src/workspace/copilot/tools.ts `locate`):
+    when the finding on this revision is not a problem, walk back through earlier revisions to the nearest
+    one where it failed, and answer "In r1: <filled explanation> Fixed in r2: <fix> · Cost Δ ... · ...";
+    otherwise this revision's finding and its filled explanation. Code-authored from records only (R14)."""
+    rule = next((f.rule_id for f in findings if finding_id and f.id == finding_id), None)
+    here = _finding_in(findings, finding_id, element, rule)
+    if _is_problem(here):
+        return here, finding_explanation(here)
+    child_id, child_findings = _revision_id(ref), findings  # the next revision on the way back (it was fixed in)
+    for rev, earlier in _ancestors(deps, uid, ref):
+        back = _finding_in(earlier, finding_id, element, rule)
+        if _is_problem(back):
+            return back, f"In {rev}: {finding_explanation(back)}{fix_line(back, child_id, child_findings)}"
+        child_id, child_findings = rev, earlier
+    return (here, finding_explanation(here)) if here is not None else None
+
+
+def _revision_id(ref: str) -> str | None:
+    m = WS_REF.match(ref) or SEED_REF.match(ref)
+    return m.group(m.lastindex) if m else None
 
 
 # --- Task 16: /api/voice push-to-talk fallback (same three tools as WS3's Live TOOL_DECLARATIONS) ---
 # Issue #36: one model round trip. Automatic function calling cost two sequential model turns (pick and call
 # the tool, then write the reply), 7-8 s steady and 26 s with a retry, against a 9 s budget. Now the model
 # returns only {transcript, tool, args}; the server validates the tool and its args with the checks the
-# tools applied, runs the tool itself, and the answer is the code-authored engine_summary (R13/R14).
+# tools applied and runs the tool itself (explain makes no model call: the finding's own filled explanation,
+# looked back to the revision where it failed, D1). The answer is the code-authored engine_summary (R14).
 
 WHAT_IF_PARAMS = ("rack_kw", "liquid_fraction", "dv_limit_pct", "tx_loading_cap_pct")
 # The tools voice may ask the server to run, with their argument names: exactly WS3's Live TOOL_DECLARATIONS
@@ -177,8 +216,6 @@ VOICE_PROMPT = ("The attached audio is the engineer's question about the current
                 "Reply with the JSON object only.")
 NO_MATCH = "I could not match that to a design question; try a what-if chip."
 OUT_OF_RANGE = "That what-if value is outside what the engine can check; try a what-if chip."
-# sanitize's template for a transcript sentence that carries a number the engine never ran with.
-TRANSCRIPT_ELIDED = "\u2026"
 
 
 class VoiceIntent(BaseModel):
@@ -255,7 +292,6 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
     by_id = {f.id: f for f in findings}
     erp_box: list = []
     scn_box: list = []
-    verified: list[str] = []  # model-written tokens checked against the engine's records or bounds
 
     def remaining() -> float:
         return max(0.0, deadline - time.monotonic())
@@ -271,11 +307,7 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         return scn_box[0]
 
     def real(ids: Iterable[str], raw: Any) -> str | None:
-        """The real id that `raw` (model-written) names, or None; its spelling becomes a verified token."""
-        rid = _id_resolver(ids)(raw)
-        if rid:
-            verified.append(raw)
-        return rid
+        return _id_resolver(ids)(raw)  # the real id that `raw` (model-written) names, or None
 
     def ask() -> VoiceIntent:
         # One runner call: no tools (so no automatic function calling) and no JSON repair turn.
@@ -307,21 +339,18 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
             if value is None or not lo <= value <= hi:
                 answer = OUT_OF_RANGE  # the same up-front check /api/what-if makes (ruling P2-R17)
             else:
-                verified.append(fmt_number(value))
                 # Engine work runs on the engine pool, as /api/what-if's does, under the remaining deadline.
                 r = call_with_timeout(lambda: deps.engine.what_if(scn(), model, param, value, ref, erp()),
                                       remaining(), pool=_ENGINE_POOL)
                 results.append({"name": "what_if", "args": {"param": param, "value": value},
                                 "result": r.model_dump(mode="json")})
         elif intent.tool == "explain_finding":
-            # A real finding id, else the element's failing finding (or its first), as the tool did.
-            f = by_id.get(real(by_id, args.get("finding_id")) or "")
-            if f is None and (el := real({x.element_id for x in findings}, args.get("element_id"))):
-                on_el = [x for x in findings if x.element_id == el]
-                f = next((x for x in on_el if x.status == "fail"), on_el[0] if on_el else None)
-            if f is not None:
-                # The existing explain path, bounded by its own budget and by what is left of this request's.
-                text = explain_text(deps, model, f, deadline=min(deadline, time.monotonic() + COPILOT.timeout_s + 1))
+            # A real finding id, else a real element id (the element of the finding id when only that is real).
+            fid = real(by_id, args.get("finding_id")) or ""
+            el = by_id[fid].element_id if fid else real({x.element_id for x in findings}, args.get("element_id"))
+            # No second model call: the finding's own filled explanation, looked back to where it failed (D1).
+            if el and (why := why_answer(deps, uid, ref, findings, fid, el)):
+                f, text = why
                 results.append({"name": "explain_finding", "args": {"finding_id": f.id}, "result": {"text": text}})
         elif intent.tool == "focus_element":
             # Fix round 1, Critical: only an id that actually exists on the model is trusted, so an invented
@@ -339,11 +368,5 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         results = []
     if results:
         answer = engine_summary(results)
-    # The transcript is the user's words but model-written, so it goes through sanitize with placeholders off:
-    # it may show real ids and the values the server validated, never a number the engine did not run with.
-    erp_ids = erp_box[0].ids() if erp_box else ()
-    transcript = (intent.transcript or "").strip()
-    if transcript:
-        transcript = sanitize(transcript, allowed_ids_for(model, extra=[*erp_ids, *by_id, *verified]),
-                              TRANSCRIPT_ELIDED, placeholders=False)
-    return {"transcript": transcript, "answer": answer, "tool_results": results}
+    # R13: the transcript is the user's own words, shown as "You said" and exempt from the digit allowlist.
+    return {"transcript": intent.transcript or "", "answer": answer, "tool_results": results}
