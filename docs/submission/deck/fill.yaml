@@ -1,0 +1,54 @@
+# Kirchhoff deck: values only the team can fill. build_deck.py reads this file.
+#
+# An empty value keeps its slot as a highlighted [TBD] placeholder on the slide
+# (or as a [TBD: ...] line in the speaker notes). After editing, rebuild:
+#
+#     uv run --script docs/submission/deck/build_deck.py
+#
+# Never put emails, phone numbers, keys or other personal contact details here.
+# Never type an engineering value by hand: take it from the recorded run.
+
+team:
+  # Slide 15, on-slide: role and one-line background (one short sentence each).
+  mehul_role_background: ""
+  jayadratha_role_background: ""
+  # Slide 15, speaker notes: two sentences per person on what each of us built
+  # and the background that makes us credible here.
+  notes_bios: ""
+
+photos:
+  # Slide 15 headshots. Paths are relative to this folder, e.g. "photos/mehul.jpg".
+  # Square crops work best; they are shown in a circle.
+  mehul: ""
+  jayadratha: ""
+
+metrics:
+  # Slide 10, on-slide "Per design:" bullet: measured USD per full design run.
+  usd_per_run: ""
+  # Slide 10, speaker notes (full sentence): Gemini tokens and USD per full run,
+  # measured from the recorded run (spec §4, metric 4).
+  tokens_and_usd_per_run: ""
+  # Slide 12, speaker notes (full sentence): median time from upload to a
+  # checker-clean revision over 5 live runs, excluding human-gate time (spec §4, metric 1).
+  upload_to_clean_median: ""
+  # Slide 12, speaker notes (full sentence): intake accuracy against our ground truth
+  # (spec §4, metric 2).
+  intake_accuracy: ""
+
+sources:
+  # Slide 12, speaker notes: citation for the 4–8 week first-coordinated-electrical-package baseline.
+  first_package_baseline: ""
+
+links:
+  # Slide 14: full URLs. A QR code is generated for each one that is filled.
+  github_repo: ""
+  demo_video: ""
+
+spec_verified:
+  # On-slide "(spec)" markers flag numbers taken from the design spec that have not
+  # yet been measured on the running product. Set a key to true once that number is
+  # verified on the deployed product; the build then drops its marker.
+  s04_power_topologies: ""   # slide 4 grid: "2N, DR, block"
+  s06_phases_gates: ""       # slide 6: "Four phases. Three gates. One signed revision."
+  s10_warm_instance: ""      # slide 10: "1 warm Cloud Run instance"
+  s10_budget_alerts: ""      # slide 10: "USD 200 budget with alerts"
