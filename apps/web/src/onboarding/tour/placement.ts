@@ -19,6 +19,7 @@ const EDGE = 4 // spotlight never closer than this to the viewport edge
 const CARD_W = 280 // w-80 at the 14 px root size
 const CARD_H = 170 // tallest card (title wraps on two lines) plus margin
 const GAP = 16 // sideOffset plus collision padding
+const MIN_CARD_TOP = 32 // below the fictional-data banner
 
 /** The padded spotlight clamped to the visible viewport, or null when the target is entirely off-screen. */
 export function spotlightBox(r: Box, vp: Viewport): Box | null {
@@ -55,7 +56,13 @@ export function cardPlacement(spot: Box, preferred: Side, vp: Viewport): { side:
 export function placeCard(spot: Box, cardSpot: Box | null, preferred: Side, vp: Viewport): ReturnType<typeof cardPlacement> {
   if (cardSpot) {
     const p = cardPlacement(cardSpot, preferred, vp)
-    if (!p.floating && p.side === preferred) return p
+    if (!p.floating && p.side === preferred) {
+      if (p.side === 'top' || p.side === 'bottom') return p
+      // Beside a tall card target (the drawer), level the card with the spotlit chip (N2) instead of the target's
+      // top (y=12, over the fictional-data banner); never above MIN_CARD_TOP, never past the bottom edge.
+      const top = Math.max(MIN_CARD_TOP, Math.min(spot.top, vp.h - CARD_H - EDGE))
+      return { ...p, anchor: { left: cardSpot.left, top, width: cardSpot.width, height: 1 } }
+    }
   }
   return cardPlacement(spot, preferred, vp)
 }

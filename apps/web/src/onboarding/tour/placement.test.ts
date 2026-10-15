@@ -31,7 +31,22 @@ test('D3 step 3: with the drawer as the card target, the card sits left of the d
   const drawer = box(992, 0, 448, 900)
   const p = placeCard(chip, drawer, 'left', desk)
   expect(p).toMatchObject({ side: 'left', floating: false })
-  expect(p.anchor).toEqual(drawer) // the card is laid out against the drawer's left edge, so it never covers it
+  // laid out against the drawer's left edge (never over it), its top level with the chip's (N2), not pinned to y=12
+  expect(p.anchor.left).toBe(drawer.left)
+  expect(p.anchor.top).toBe(chip.top)
+})
+
+test('N2: the card beside a card target never rides up over the banner and header (at least 32 px down)', () => {
+  const chipNearTop = box(1200, 6, 105, 33)
+  const drawer = box(992, 0, 448, 900)
+  expect(placeCard(chipNearTop, drawer, 'left', desk).anchor.top).toBeGreaterThanOrEqual(32)
+})
+
+test('N2: a chip low on the screen keeps the card fully inside the viewport', () => {
+  const chipLow = box(1200, 860, 105, 33)
+  const drawer = box(992, 0, 448, 900)
+  const p = placeCard(chipLow, drawer, 'left', desk)
+  expect(p.anchor.top + 170).toBeLessThanOrEqual(desk.h)
 })
 
 test('D3 step 3 on a phone: the drawer fills the width, so the card falls back to the chip (below it)', () => {
