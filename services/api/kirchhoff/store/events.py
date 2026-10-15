@@ -110,9 +110,11 @@ class EventWriter:
                 if rearm:
                     self._arm(min(self._interval * 2 ** n, MAX_BACKOFF_S))
             if closed:
-                logger.error(
-                    "event writer trailing flush failed (%s) after close(); events are lost or close() failed",
-                    type(exc).__name__, exc_info=exc)
+                # P2 final fix wave (Task 6 minor): not an ERROR. The failed batch was requeued, and close()
+                # either flushes it itself or raises to its own caller, so nothing is lost silently here.
+                logger.warning(
+                    "event writer trailing flush failed (%s) after close(); close() will flush the requeued "
+                    "events", type(exc).__name__, exc_info=exc)
             elif fenced:
                 logger.info(
                     "event writer trailing flush failed (%s) after fence(); pending events are dropped by design",
