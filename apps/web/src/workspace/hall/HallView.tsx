@@ -225,18 +225,18 @@ function HallLabelOverlay({ labels, els, leaders }: { labels: SceneLabel[]; els:
             type="button"
             onClick={() => l.findingId && openFinding(l.findingId)}
             style={{ visibility: 'hidden' }}
-            className={`pointer-events-auto absolute left-0 top-0 flex items-center gap-1 whitespace-nowrap rounded border border-zinc-600 bg-zinc-950/95 px-1.5 py-0.5 font-mono text-[11px] shadow-md ${l.tone}`}
+            className={`pointer-events-auto absolute left-0 top-0 flex items-center gap-1 whitespace-nowrap rounded border bg-background/95 px-1.5 py-0.5 font-mono text-[11px] shadow-md ${l.tone}`}
           >
             {Icon && <Icon aria-hidden className="size-3 shrink-0" />}
             {l.text}
-            {l.clause && <span className="rounded bg-sky-500/15 px-1 text-sky-200">Tender {l.clause}</span>}
+            {l.clause && <span className="rounded bg-blue-500/15 px-1 text-blue-700">Tender {l.clause}</span>}
           </button>
         ) : (
           <span
             key={l.id}
             ref={register(l.id)}
             style={{ visibility: 'hidden' }}
-            className={`absolute left-0 top-0 whitespace-nowrap rounded bg-zinc-950/70 px-1 text-[11px] ${l.tone}`}
+            className={`absolute left-0 top-0 whitespace-nowrap rounded bg-background/80 px-1 text-[11px] ${l.tone}`}
           >
             {l.text}
           </span>
@@ -444,12 +444,12 @@ export function HallIssueOverlay() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="rounded border border-zinc-700 bg-zinc-950/90 px-2 py-1 text-zinc-300"
+        className="rounded border border-zinc-300 bg-background/90 px-2 py-1 text-zinc-700 shadow-sm"
       >
         {issues.length} issue{issues.length === 1 ? '' : 's'}
       </button>
       {open && (
-        <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded border border-zinc-700 bg-zinc-950/95 p-1">
+        <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded border border-zinc-300 bg-background/95 p-1 shadow-md">
           {issues.map(([id, status]) => {
             const Icon = STATUS_META[status].icon
             return (

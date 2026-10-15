@@ -178,12 +178,12 @@ export function TourHost() {
           })
         }}
       >
-        <p className="font-mono text-[11px] text-zinc-400">
+        <p className="font-mono text-[11px] text-muted-foreground">
           Step {step + 1} of {TOUR_STEPS.length}
         </p>
-        <h2 className="mt-1 text-sm font-semibold text-zinc-50">{s.title(ctx)}</h2>
-        <p className="mt-1 text-xs text-zinc-300">{stepBody(s, ctx)}</p>
-        {!rect && <p className="mt-1 text-xs text-zinc-400">Loading this part of the workspace…</p>}
+        <h2 className="mt-1 text-sm font-semibold text-foreground">{s.title(ctx)}</h2>
+        <p className="mt-1 text-xs text-zinc-700">{stepBody(s, ctx)}</p>
+        {!rect && <p className="mt-1 text-xs text-muted-foreground">Loading this part of the workspace…</p>}
         <div className="mt-3 flex items-center gap-2">
           <Button size="xs" variant="ghost" onClick={() => stop(false)}>
             Skip tour

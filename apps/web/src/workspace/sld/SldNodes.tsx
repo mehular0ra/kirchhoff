@@ -96,9 +96,9 @@ function Symbol({ kind }: { kind: SldKind }) {
 }
 
 const CHANGE_TAG: Record<ChangeKind, { text: string; cls: string }> = {
-  changed: { text: 'changed', cls: 'border-amber-400/60 text-amber-200' },
-  added: { text: 'added', cls: 'border-emerald-400/60 text-emerald-200' },
-  removed: { text: 'removed', cls: 'border-rose-400/60 text-rose-200' },
+  changed: { text: 'changed', cls: 'border-amber-500/60 text-amber-700' },
+  added: { text: 'added', cls: 'border-emerald-500/60 text-emerald-700' },
+  removed: { text: 'removed', cls: 'border-rose-500/60 text-rose-700' },
 }
 
 function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
@@ -116,20 +116,20 @@ function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
         data.activate()
       }}
       className={cn(
-        'flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md border bg-zinc-950/90 px-2 text-center transition-[opacity,border-color,box-shadow] duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400',
-        st ? st.border : 'border-zinc-700',
+        'flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md border bg-background px-2 text-center transition-[opacity,border-color,box-shadow] duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600',
+        st ? st.border : 'border-zinc-300',
         data.status === 'fail' && 'shadow-[0_0_14px_rgba(251,113,133,0.45)]',
-        data.change === 'changed' && 'border-dashed border-amber-400',
-        data.resolved && 'border-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.4)]',
+        data.change === 'changed' && 'border-dashed border-amber-500',
+        data.resolved && 'border-emerald-500 shadow-[0_0_14px_rgba(52,211,153,0.4)]',
         data.dim && 'opacity-35',
-        data.focused && 'ring-2 ring-sky-400',
+        data.focused && 'ring-2 ring-blue-600',
       )}
       style={ring ? { boxShadow: `0 0 0 2px ${ring}, 0 0 16px ${ring}` } : undefined}
     >
-      <Handle type="target" position={Position.Top} className="!size-1.5 !border-0 !bg-zinc-500" />
+      <Handle type="target" position={Position.Top} className="!size-1.5 !border-0 !bg-zinc-400" />
       <Symbol kind={data.kind} />
-      <span className="font-mono text-[13px] leading-tight text-zinc-100">{data.label}</span>
-      {data.sub && <span className="whitespace-nowrap font-mono text-[12px] leading-tight text-zinc-400">{data.sub}</span>}
+      <span className="font-mono text-[13px] leading-tight text-foreground">{data.label}</span>
+      {data.sub && <span className="whitespace-nowrap font-mono text-[12px] leading-tight text-muted-foreground">{data.sub}</span>}
       <span className="flex flex-wrap justify-center gap-1">
         {st && StIcon && data.status !== 'pass' && (
           <span className={cn('inline-flex items-center gap-0.5 text-[11px] font-medium', st.text)}>
@@ -140,12 +140,12 @@ function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
         {data.change && (
           <span className={cn('rounded border px-1 text-[11px]', CHANGE_TAG[data.change].cls)}>{CHANGE_TAG[data.change].text}</span>
         )}
-        {data.resolved && <span className="rounded border border-emerald-400/60 px-1 text-[11px] text-emerald-200">✓ resolved</span>}
+        {data.resolved && <span className="rounded border border-emerald-500/60 px-1 text-[11px] text-emerald-700">✓ resolved</span>}
         {data.whatIfStatus && data.whatIfStatus !== 'pass' && (
-          <span className="rounded border border-zinc-500 px-1 text-[11px] text-zinc-100">what-if: {STATUS_META[data.whatIfStatus].label}</span>
+          <span className="rounded border border-zinc-400 px-1 text-[11px] text-foreground">what-if: {STATUS_META[data.whatIfStatus].label}</span>
         )}
       </span>
-      <Handle type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-zinc-500" />
+      <Handle type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-zinc-400" />
     </div>
   )
 }

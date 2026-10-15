@@ -9,17 +9,17 @@ export interface AgentMeta {
 }
 
 export const AGENTS: Record<AgentName, AgentMeta> = {
-  intake: { label: 'Intake', color: '#94a3b8', text: 'text-slate-400' },
-  orchestrator: { label: 'Orchestrator', color: '#f4f4f5', text: 'text-zinc-100' },
-  layout: { label: 'Layout', color: '#22d3ee', text: 'text-cyan-400' },
-  power: { label: 'Power', color: '#fbbf24', text: 'text-amber-400' },
-  cooling: { label: 'Cooling', color: '#60a5fa', text: 'text-blue-400' },
-  procurement: { label: 'Procurement', color: '#4ade80', text: 'text-green-400' },
-  checker: { label: 'Checker', color: '#f87171', text: 'text-red-400' },
-  docs: { label: 'Docs', color: '#a78bfa', text: 'text-violet-400' },
-  copilot: { label: 'Co-pilot', color: 'linear-gradient(135deg,#e879f9,#38bdf8)', text: 'text-fuchsia-300' },
-  asset: { label: 'Asset', color: '#2dd4bf', text: 'text-teal-400' },
-  system: { label: 'System', color: '#71717a', text: 'text-zinc-400' },
+  intake: { label: 'Intake', color: '#94a3b8', text: 'text-slate-600' },
+  orchestrator: { label: 'Orchestrator', color: '#f4f4f5', text: 'text-foreground' },
+  layout: { label: 'Layout', color: '#22d3ee', text: 'text-cyan-700' },
+  power: { label: 'Power', color: '#fbbf24', text: 'text-amber-700' },
+  cooling: { label: 'Cooling', color: '#60a5fa', text: 'text-blue-700' },
+  procurement: { label: 'Procurement', color: '#4ade80', text: 'text-green-700' },
+  checker: { label: 'Checker', color: '#f87171', text: 'text-red-700' },
+  docs: { label: 'Docs', color: '#a78bfa', text: 'text-violet-700' },
+  copilot: { label: 'Co-pilot', color: 'linear-gradient(135deg,#e879f9,#38bdf8)', text: 'text-fuchsia-700' },
+  asset: { label: 'Asset', color: '#2dd4bf', text: 'text-teal-700' },
+  system: { label: 'System', color: '#71717a', text: 'text-muted-foreground' },
 }
 
 /** Lane order in the workspace (spec §12 layout). */

@@ -41,12 +41,12 @@ export default function PdfViewer() {
           {/* Only a citation that carries its quote is called verified (spec §6.3, final review I11). */}
           {citation.quote ? (
             <DialogDescription className="flex items-start gap-1.5">
-              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-400" />
+              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-700" />
               <span>Verified quote: “{citation.quote}”</span>
             </DialogDescription>
           ) : (
             <DialogDescription className="flex items-start gap-1.5">
-              <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+              <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <span>
                 {label} PDF · page {citation.page}
               </span>
@@ -85,7 +85,7 @@ export default function PdfViewer() {
             </div>
           </Document>
         </div>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <Button variant="ghost" size="xs" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             <ChevronLeft aria-hidden /> Previous
           </Button>

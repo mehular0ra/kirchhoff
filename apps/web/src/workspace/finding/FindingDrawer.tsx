@@ -18,9 +18,9 @@ function FixCard({ title, fix, tone }: { title: string; fix: FixView; tone: stri
   return (
     <div className="flex flex-col gap-1 rounded border p-2 text-xs">
       <span className={`text-[11px] font-medium uppercase tracking-wide ${tone}`}>{title}</span>
-      <span className="text-zinc-100">{fix.label}</span>
-      {fix.reason && <span className="text-zinc-400">{fix.reason}</span>}
-      <ul className="mt-1 flex flex-col gap-0.5 font-mono text-zinc-200">
+      <span className="text-foreground">{fix.label}</span>
+      {fix.reason && <span className="text-muted-foreground">{fix.reason}</span>}
+      <ul className="mt-1 flex flex-col gap-0.5 font-mono text-foreground">
         {fix.deltas.map(([k, v]) => (
           <li key={k}>{fmtKeyValue(k, v)}</li>
         ))}
@@ -51,12 +51,12 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
             <SheetHeader>
               <div className="flex items-center gap-2">
                 <StatusBadge status={f.status} />
-                <span className="font-mono text-xs text-zinc-400">{f.rule_id}</span>
-                <span className="text-xs text-zinc-400">{ruleName(f.rule_id)}</span>
+                <span className="font-mono text-xs text-muted-foreground">{f.rule_id}</span>
+                <span className="text-xs text-muted-foreground">{ruleName(f.rule_id)}</span>
               </div>
               <SheetTitle>{f.title}</SheetTitle>
               <SheetDescription>
-                Element <span className="font-mono text-zinc-200">{f.element_id}</span>
+                Element <span className="font-mono text-foreground">{f.element_id}</span>
                 {view.rev && (
                   <>
                     {' '}
@@ -79,7 +79,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
                   <Crosshair aria-hidden /> Show on canvas
                 </Button>
               ) : (
-                <p className="text-xs text-zinc-400">{f.element_id} is checked as a whole; it is not drawn on the 3D hall or the SLD.</p>
+                <p className="text-xs text-muted-foreground">{f.element_id} is checked as a whole; it is not drawn on the 3D hall or the SLD.</p>
               )}
 
               {/* A boolean, not a length: React renders a bare 0 when both lists are empty. */}
@@ -96,17 +96,17 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
 
               {f.formula && (
                 <section aria-label="Formula" className="flex flex-col gap-1">
-                  <pre className="whitespace-pre-wrap break-words rounded bg-zinc-900 p-2 font-mono text-xs text-zinc-100">{f.formula}</pre>
+                  <pre className="whitespace-pre-wrap break-words rounded bg-muted p-2 font-mono text-xs text-foreground">{f.formula}</pre>
                   {f.inputs && Object.keys(f.inputs).length > 0 && (
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                       {Object.entries(f.inputs).map(([k, v]) => {
                         const input = fmtInput(k, v)
                         return (
                           <div key={k} className="contents">
-                            <dt className="text-zinc-400" title={k}>
+                            <dt className="text-muted-foreground" title={k}>
                               {input.label}
                             </dt>
-                            <dd className="font-mono text-zinc-100">
+                            <dd className="font-mono text-foreground">
                               <Num>{input.value}</Num>
                             </dd>
                           </div>
@@ -118,7 +118,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
               )}
 
               <section aria-label="Explanation" className="flex flex-col gap-2">
-                <p className="text-zinc-200">{tidyTokens(fillPlaceholders(f.explanation || f.title, f))}</p>
+                <p className="text-foreground">{tidyTokens(fillPlaceholders(f.explanation || f.title, f))}</p>
                 {view.revRef && (
                   <Button
                     variant="ghost"
@@ -134,10 +134,10 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
                     <MessageSquare aria-hidden /> Ask the co-pilot why
                   </Button>
                 )}
-                {explain && 'text' in explain && <p className="rounded border border-fuchsia-400/30 bg-fuchsia-500/5 p-2 text-zinc-200">{explain.text}</p>}
+                {explain && 'text' in explain && <p className="rounded border border-fuchsia-500/30 bg-fuchsia-500/5 p-2 text-foreground">{explain.text}</p>}
                 {explain && 'error' in explain && (
                   // Reassurance, not an error (the engine explanation above is still complete): Info + role="status".
-                  <p role="status" className="flex items-center gap-1.5 text-xs text-zinc-400">
+                  <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Info aria-hidden className="size-3.5 shrink-0" /> {explain.error}
                   </p>
                 )}
@@ -145,8 +145,8 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
 
               {(fix || rejected) && (
                 <section aria-label="Fix" className="grid grid-cols-2 gap-2">
-                  {fix && <FixCard title="Chosen fix" fix={fix} tone="text-emerald-300" />}
-                  {rejected && <FixCard title="Rejected alternative" fix={rejected} tone="text-zinc-400" />}
+                  {fix && <FixCard title="Chosen fix" fix={fix} tone="text-emerald-700" />}
+                  {rejected && <FixCard title="Rejected alternative" fix={rejected} tone="text-muted-foreground" />}
                 </section>
               )}
               <IllustrativeLabel />

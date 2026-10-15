@@ -74,9 +74,9 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
           {KEYS.map(([k, v]) => (
             <div key={k} className="contents">
               <dt>
-                <kbd className="rounded border border-zinc-600 bg-zinc-800 px-1.5 font-mono text-xs">{k}</kbd>
+                <kbd className="rounded border border-zinc-300 bg-zinc-100 px-1.5 font-mono text-xs">{k}</kbd>
               </dt>
-              <dd className="text-zinc-300">{v}</dd>
+              <dd className="text-zinc-700">{v}</dd>
             </div>
           ))}
         </dl>
@@ -101,7 +101,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
           )}
         </div>
         {resetFailure && (
-          <p role="alert" className="flex items-center gap-1.5 text-xs text-amber-200">
+          <p role="alert" className="flex items-center gap-1.5 text-xs text-amber-700">
             <CircleX aria-hidden className="size-3.5 shrink-0" />
             <span>{resetFailure.message}</span>
             <Button size="xs" variant="ghost" className="ml-auto" onClick={dismissFailure}>

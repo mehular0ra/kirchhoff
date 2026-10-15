@@ -22,8 +22,8 @@ export function LedgerList({ ledger }: { ledger: LedgerEntry[] }) {
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       {(Object.keys(LEDGER_TITLES) as LedgerEntry['kind'][]).map((k) => (
         <section key={k} aria-label={LEDGER_TITLES[k]} className="flex flex-col gap-1">
-          <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-400">{LEDGER_TITLES[k]}</h4>
-          <ul className="flex flex-col gap-1 text-xs text-zinc-300">
+          <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{LEDGER_TITLES[k]}</h4>
+          <ul className="flex flex-col gap-1 text-xs text-zinc-700">
             {ledger
               .filter((e) => e.kind === k)
               .map((e, i) => (
@@ -98,8 +98,8 @@ export function DocsTab() {
     <div className="flex h-full flex-col gap-5 overflow-auto p-3 text-sm">
       {run && !atLivePlanGate && <PlanGate run={run} interactive={false} />}
       <section aria-label="Inputs" className="flex flex-col gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Inputs</h3>
-        {!docs.length && <p className="text-xs text-zinc-400">The tender and drawing appear here once Intake has read them.</p>}
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Inputs</h3>
+        {!docs.length && <p className="text-xs text-muted-foreground">The tender and drawing appear here once Intake has read them.</p>}
         {docs.map((d) => (
           <Button
             key={d.id}
@@ -113,7 +113,7 @@ export function DocsTab() {
         ))}
       </section>
       <section aria-label="Exports" className="flex flex-col gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Exports</h3>
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Exports</h3>
         {exports.length ? (
           exports.map((x) =>
             x.ref.startsWith('/') || x.ref.startsWith('http') ? (
@@ -129,18 +129,18 @@ export function DocsTab() {
             ),
           )
         ) : docsFailed ? (
-          <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-300">
+          <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-700">
             <CircleX aria-hidden className="size-3.5 shrink-0" /> The Docs agent couldn't publish the calc report and BOQ for this run.
           </p>
         ) : (
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-muted-foreground">
             {source === 'live' ? 'The Docs agent publishes the calc report and BOQ before the review gate.' : 'No exports are recorded for this design.'}
           </p>
         )}
       </section>
       {rev && (
         <section aria-label="Assumptions ledger" className="flex flex-col gap-2">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Assumptions ledger · {rev.id}</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assumptions ledger · {rev.id}</h3>
           <LedgerList ledger={rev.ledger ?? []} />
         </section>
       )}

@@ -15,22 +15,22 @@ export function StoryStrip() {
   if (bundle.revisions.length < 2 && !signed) return null
   const approval = signed ? approvalFor(bundle, signed.id) : null
   return (
-    <div role="group" aria-label="Revision story" className="flex min-w-0 flex-wrap items-center gap-y-0.5 whitespace-pre text-xs text-zinc-300">
+    <div role="group" aria-label="Revision story" className="flex min-w-0 flex-wrap items-center gap-y-0.5 whitespace-pre text-xs text-zinc-700">
       {bundle.revisions.map((r, i) => {
         const findings = findingsFor(bundle, r.id)
         return (
           <Fragment key={r.id}>
-            {i > 0 && <span className="text-zinc-500"> → </span>}
-            <span className="font-mono text-zinc-100">{r.id}</span>
-            <span className="text-zinc-400">{findings.length > 0 ? ` · ${findings.length} checks · ` : ' · '}</span>
+            {i > 0 && <span className="text-muted-foreground"> → </span>}
+            <span className="font-mono text-foreground">{r.id}</span>
+            <span className="text-muted-foreground">{findings.length > 0 ? ` · ${findings.length} checks · ` : ' · '}</span>
             <RevisionVerdict findings={findings} />
           </Fragment>
         )
       })}
       {approval && (
         <>
-          <span className="text-zinc-400"> · </span>
-          <span className="inline-flex items-center gap-1 text-emerald-300">
+          <span className="text-muted-foreground"> · </span>
+          <span className="inline-flex items-center gap-1 text-emerald-700">
             <Stamp aria-hidden className="size-3.5" />
             {`signed by ${approval.approver_name}`}
           </span>

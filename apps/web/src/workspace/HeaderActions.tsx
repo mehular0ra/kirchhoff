@@ -23,7 +23,7 @@ export function HeaderActions() {
     <>
       <AutonomySwitch value={run?.autonomy ?? autonomy} onChange={setAutonomy} locked={!!run} />
       {latest && signed ? (
-        <Button asChild size="sm" variant="outline" data-tour="sign-off" className="text-emerald-200">
+        <Button asChild size="sm" variant="outline" data-tour="sign-off" className="text-emerald-700">
           <Link to={`/app/p/${bundle.project.id}/review/${latest.id}${runQ}`}>
             <Stamp aria-hidden /> Signed · view review
           </Link>

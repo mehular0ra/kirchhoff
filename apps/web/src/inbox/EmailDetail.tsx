@@ -31,7 +31,7 @@ export function VerdictBadge({ triage, className }: { triage: TriageResult; clas
 }
 
 function AttachmentChips({ email, triage }: { email: InboxEmail; triage: TriageResult | null }) {
-  if (!email.attachments.length) return <p className="text-xs text-zinc-400">No attachments.</p>
+  if (!email.attachments.length) return <p className="text-xs text-muted-foreground">No attachments.</p>
   const byId = new Map((triage?.attachments ?? []).map((a) => [a.attachment_id, a]))
   const rank = (id: string) => KIND_ORDER.indexOf(byId.get(id)?.kind ?? 'other')
   const sorted = [...email.attachments].sort((a, b) => rank(a.id) - rank(b.id))
@@ -45,13 +45,13 @@ function AttachmentChips({ email, triage }: { email: InboxEmail; triage: TriageR
               href={a.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-xs text-zinc-200 hover:border-zinc-500 focus-visible:outline-2 focus-visible:outline-sky-400"
+              className="inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-zinc-100 px-2 py-1 text-xs text-foreground hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-blue-600"
             >
               <Paperclip aria-hidden className="size-3.5" />
               <span className="font-medium">{t ? KIND_LABEL[t.kind] : 'Unclassified'}</span>
-              <span className="text-zinc-400">{a.name}</span>
+              <span className="text-muted-foreground">{a.name}</span>
               {t?.scanned && (
-                <span className="inline-flex items-center gap-0.5 text-amber-300">
+                <span className="inline-flex items-center gap-0.5 text-amber-700">
                   <ScanLine aria-hidden className="size-3" />
                   scan
                 </span>
@@ -73,9 +73,9 @@ function crmText(crm: CrmLink): string {
 function CrmLine({ crm }: { crm: CrmLink }) {
   return (
     <p className="flex flex-wrap items-center gap-2 text-sm">
-      <Handshake aria-hidden className="size-4 text-zinc-400" />
-      <span className="text-zinc-400">CRM:</span>
-      <Link to="/app/integrations" className="text-sky-300 underline-offset-2 hover:underline">
+      <Handshake aria-hidden className="size-4 text-muted-foreground" />
+      <span className="text-muted-foreground">CRM:</span>
+      <Link to="/app/integrations" className="text-blue-700 underline-offset-2 hover:underline">
         {crmText(crm)}
       </Link>
       <SandboxLabel />
@@ -86,7 +86,7 @@ function CrmLine({ crm }: { crm: CrmLink }) {
 function FieldsTable({ triage }: { triage: TriageResult }) {
   return (
     <table aria-label="Extracted fields" className="w-full text-left text-sm">
-      <thead className="text-xs text-zinc-400">
+      <thead className="text-xs text-muted-foreground">
         <tr>
           <th className="py-1 pr-3 font-medium">Field</th>
           <th className="py-1 pr-3 font-medium">Value</th>
@@ -99,20 +99,20 @@ function FieldsTable({ triage }: { triage: TriageResult }) {
           const m = VERIFICATION_META[f.verification]
           const Icon = m.icon
           return (
-            <tr key={f.key} className="border-t border-zinc-800 align-top">
-              <th scope="row" className="py-1.5 pr-3 font-normal text-zinc-400">
+            <tr key={f.key} className="border-t border-border align-top">
+              <th scope="row" className="py-1.5 pr-3 font-normal text-muted-foreground">
                 {f.label}
               </th>
-              <td className="py-1.5 pr-3 font-mono tabular-nums text-zinc-100">{f.display}</td>
+              <td className="py-1.5 pr-3 font-mono tabular-nums text-foreground">{f.display}</td>
               <td className="py-1.5 pr-3">
                 <span className={cn('inline-flex items-center gap-1 text-xs', m.cls)}>
                   <Icon aria-hidden className="size-3.5" />
                   {m.label}
                 </span>
               </td>
-              <td className="py-1.5 text-xs text-zinc-400">
+              <td className="py-1.5 text-xs text-muted-foreground">
                 {f.source_label}
-                {f.quote && <q className="mt-0.5 block text-zinc-300">{f.quote}</q>}
+                {f.quote && <q className="mt-0.5 block text-zinc-700">{f.quote}</q>}
               </td>
             </tr>
           )
@@ -127,24 +127,24 @@ function FitCard({ triage }: { triage: TriageResult }) {
     <section aria-label="Fit verdict" className="flex flex-col gap-2 rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-center gap-2">
         <VerdictBadge triage={triage} />
-        <p className="text-sm font-medium text-zinc-100">{triage.fit.headline}</p>
+        <p className="text-sm font-medium text-foreground">{triage.fit.headline}</p>
       </div>
       <ul className="flex flex-col gap-1.5 text-sm">
         {triage.fit.reasons.map((r) => (
           <li
             key={r.rule}
-            className={cn('flex items-start gap-2', r.rule === 'supply' && 'rounded border border-sky-500/30 bg-sky-500/5 p-2')}
+            className={cn('flex items-start gap-2', r.rule === 'supply' && 'rounded border border-blue-500/30 bg-blue-500/5 p-2')}
           >
             <StatusBadge status={r.status} compact className="shrink-0" />
-            {r.rule === 'supply' && <Truck aria-hidden className="mt-0.5 size-4 shrink-0 text-sky-300" />}
-            <span className="text-zinc-300">
-              {r.rule === 'supply' && <span className="font-medium text-zinc-100">Day-zero supply: </span>}
+            {r.rule === 'supply' && <Truck aria-hidden className="mt-0.5 size-4 shrink-0 text-blue-700" />}
+            <span className="text-zinc-700">
+              {r.rule === 'supply' && <span className="font-medium text-foreground">Day-zero supply: </span>}
               {r.text}
             </span>
           </li>
         ))}
       </ul>
-      <p className="text-[11px] text-zinc-400">Deterministic rules from the firm's appetite, the engine and the ERP; no AI in the verdict.</p>
+      <p className="text-[11px] text-muted-foreground">Deterministic rules from the firm's appetite, the engine and the ERP; no AI in the verdict.</p>
     </section>
   )
 }
@@ -153,17 +153,17 @@ function PursueCard({ result, name }: { result: PursueResult; name: string }) {
   const was = result.previous_stage && result.previous_stage !== result.stage ? ` (was ${result.previous_stage})` : ''
   return (
     <section aria-label="Pursued" className="flex flex-col gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-      <p className="flex items-center gap-1.5 font-medium text-emerald-300">
+      <p className="flex items-center gap-1.5 font-medium text-emerald-700">
         <CircleCheck aria-hidden className="size-4" />
         Pursued
       </p>
-      <p className="flex flex-wrap items-center gap-2 text-zinc-300">
+      <p className="flex flex-wrap items-center gap-2 text-zinc-700">
         CRM: {result.opportunity_name} → {result.stage}
         {was}
         {result.opportunity_created ? ' · new opportunity' : ''}
         <SandboxLabel />
       </p>
-      <p className="text-zinc-300">
+      <p className="text-zinc-700">
         {result.project_created ? `Project created in your workspace: ${result.project_name} (draft)` : `Project: ${name}`}
       </p>
       {result.open && (
@@ -188,7 +188,7 @@ function PursueAction({ email, triage }: { email: InboxEmail; triage: TriageResu
   const pursuable = (triage.fit.verdict === 'pursue' || triage.fit.verdict === 'clarify') && PACKS.includes(String(asset?.value))
   if (!pursuable)
     return (
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-muted-foreground">
         {triage.fit.verdict === null ? 'Not a bid: nothing to pursue.' : triage.fit.verdict === 'decline' ? 'Declined by the fit rules.' : 'Pursue needs a verified asset type in one of our packs.'}
       </p>
     )
@@ -210,13 +210,13 @@ function PursueAction({ email, triage }: { email: InboxEmail; triage: TriageResu
         Pursue
       </Button>
       {note && (
-        <p role="status" className="text-xs text-amber-200">
+        <p role="status" className="text-xs text-amber-700">
           {note}
           {email.project_id ? ' You can still open the project; the CRM was not updated.' : ''}
         </p>
       )}
       {note && email.project_id && (
-        <Link to={`/app/p/${email.project_id}`} className="inline-flex items-center gap-1 text-sm text-sky-300 hover:underline">
+        <Link to={`/app/p/${email.project_id}`} className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline">
           Open {name} <ArrowRight aria-hidden className="size-3.5" />
         </Link>
       )}
@@ -228,37 +228,37 @@ export function EmailDetail({ email }: { email: InboxEmail }) {
   const triage = email.triage
   return (
     <article aria-labelledby={`subject-${email.id}`} className="flex flex-col gap-5 p-6">
-      <Link to="/app/inbox" className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 lg:hidden">
+      <Link to="/app/inbox" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground lg:hidden">
         <ArrowLeft aria-hidden className="size-3.5" /> All emails
       </Link>
       <header className="flex flex-col gap-1">
-        <h2 id={`subject-${email.id}`} className="text-base font-semibold text-zinc-100">
+        <h2 id={`subject-${email.id}`} className="text-base font-semibold text-foreground">
           {email.subject}
         </h2>
-        <p className="text-sm text-zinc-300">
+        <p className="text-sm text-zinc-700">
           {email.from_name} &lt;{email.from_addr}&gt; · {email.from_org}
         </p>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-muted-foreground">
           To {email.to} · {fmtTs(email.received_at)}
         </p>
       </header>
       <AttachmentChips email={email} triage={triage} />
-      <div className="whitespace-pre-wrap rounded-lg border bg-zinc-900/50 p-4 text-sm text-zinc-300">{email.body}</div>
+      <div className="whitespace-pre-wrap rounded-lg border bg-muted/50 p-4 text-sm text-zinc-700">{email.body}</div>
       {triage ? (
         <>
           <section aria-label="Triage" className="flex flex-col gap-3">
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-muted-foreground">
               Inbox agent · {triage.source === 'live' ? 'live triage' : 'recorded triage'} · {triage.quotes_verified}/
               {triage.quotes_total} quotes verified
             </p>
-            <p className="text-sm text-zinc-200">{triage.summary}</p>
+            <p className="text-sm text-foreground">{triage.summary}</p>
             <CrmLine crm={triage.crm} />
             {triage.fields.length > 0 && <FieldsTable triage={triage} />}
           </section>
           <FitCard triage={triage} />
         </>
       ) : (
-        <p className="text-sm text-zinc-400">Not triaged yet. Triage results for this email are not in this demo snapshot.</p>
+        <p className="text-sm text-muted-foreground">Not triaged yet. Triage results for this email are not in this demo snapshot.</p>
       )}
       <div className="flex flex-wrap items-start gap-6">
         {triage && <PursueAction email={email} triage={triage} />}

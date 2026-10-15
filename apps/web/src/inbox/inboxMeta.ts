@@ -9,10 +9,10 @@ interface Meta {
 }
 
 export const VERDICT_META: Record<'pursue' | 'clarify' | 'decline' | 'none', Meta> = {
-  pursue: { label: 'Pursue', icon: CircleCheck, cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' },
-  clarify: { label: 'Clarify', icon: CircleQuestionMark, cls: 'border-amber-400/50 bg-amber-500/10 text-amber-300' },
-  decline: { label: 'Decline', icon: CircleX, cls: 'border-rose-500/50 bg-rose-500/10 text-rose-300' },
-  none: { label: 'Not a bid', icon: CircleMinus, cls: 'border-zinc-600 bg-zinc-500/10 text-zinc-300' },
+  pursue: { label: 'Pursue', icon: CircleCheck, cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700' },
+  clarify: { label: 'Clarify', icon: CircleQuestionMark, cls: 'border-amber-500/50 bg-amber-500/10 text-amber-700' },
+  decline: { label: 'Decline', icon: CircleX, cls: 'border-rose-500/50 bg-rose-500/10 text-rose-700' },
+  none: { label: 'Not a bid', icon: CircleMinus, cls: 'border-zinc-300 bg-zinc-500/10 text-zinc-700' },
 }
 
 export function verdictMeta(t: TriageResult): Meta {
@@ -20,9 +20,9 @@ export function verdictMeta(t: TriageResult): Meta {
 }
 
 export const VERIFICATION_META: Record<Verification, Meta> = {
-  verified: { label: 'quote verified', icon: CircleCheck, cls: 'text-emerald-400' },
-  unverified_scan: { label: 'unverified (scan)', icon: ScanLine, cls: 'text-amber-300' },
-  unverified: { label: 'not verified', icon: TriangleAlert, cls: 'text-amber-300' },
+  verified: { label: 'quote verified', icon: CircleCheck, cls: 'text-emerald-700' },
+  unverified_scan: { label: 'unverified (scan)', icon: ScanLine, cls: 'text-amber-700' },
+  unverified: { label: 'not verified', icon: TriangleAlert, cls: 'text-amber-700' },
 }
 
 export const KIND_ORDER: AttachmentKind[] = ['tender', 'drawing', 'addendum', 'boq', 'brochure', 'other']

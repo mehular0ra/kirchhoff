@@ -12,7 +12,7 @@ export function DemoBanner() {
   return (
     <div
       role="note"
-      className="flex items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-1 text-xs text-amber-200"
+      className="flex items-center justify-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-1 text-xs text-amber-800"
     >
       <Info aria-hidden className="size-3.5" />
       {FICTIONAL_TEXT}
@@ -22,7 +22,7 @@ export function DemoBanner() {
 
 export function SandboxLabel({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-300', className)}>
+    <span className={cn('inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700', className)}>
       <FlaskConical aria-hidden className="size-3" />
       {SANDBOX_TEXT}
     </span>
@@ -30,7 +30,7 @@ export function SandboxLabel({ className }: { className?: string }) {
 }
 
 export function IllustrativeLabel({ className }: { className?: string }) {
-  return <span className={cn('text-[11px] uppercase tracking-wide text-zinc-400', className)}>{ILLUSTRATIVE_TEXT}</span>
+  return <span className={cn('text-[11px] uppercase tracking-wide text-muted-foreground', className)}>{ILLUSTRATIVE_TEXT}</span>
 }
 
 export function AgentDot({ agent, className }: { agent: AgentName; className?: string }) {
@@ -49,9 +49,9 @@ export function Num({ children, className }: { children: ReactNode; className?: 
 }
 
 const EMPTY_TONE: Record<'info' | 'error' | 'loading', { icon: LucideIcon; cls: string }> = {
-  info: { icon: Info, cls: 'text-zinc-400' },
-  error: { icon: CircleX, cls: 'text-rose-400' },
-  loading: { icon: LoaderCircle, cls: 'animate-spin text-zinc-400 motion-reduce:animate-none' },
+  info: { icon: Info, cls: 'text-muted-foreground' },
+  error: { icon: CircleX, cls: 'text-rose-700' },
+  loading: { icon: LoaderCircle, cls: 'animate-spin text-muted-foreground motion-reduce:animate-none' },
 }
 
 /** Empty, loading and error states: always an icon with the text (status is never colour alone, M1). */
@@ -78,8 +78,8 @@ export function EmptyState({
       className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center"
     >
       <Icon aria-hidden className={cn('size-5', EMPTY_TONE[t].cls)} />
-      <p className="text-sm font-medium text-zinc-200">{title}</p>
-      {children && <div className="max-w-md text-sm text-zinc-400">{children}</div>}
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {children && <div className="max-w-md text-sm text-muted-foreground">{children}</div>}
       {action}
     </div>
   )

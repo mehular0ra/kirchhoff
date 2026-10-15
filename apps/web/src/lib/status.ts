@@ -12,10 +12,10 @@ export interface StatusMeta {
 
 // Status is always icon + text; colour is a third, redundant cue (spec §12, WCAG AA on #0b0d10).
 export const STATUS_META: Record<FindingStatus, StatusMeta> = {
-  pass: { label: 'Pass', icon: CircleCheck, text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', hex: '#34d399' },
-  fail: { label: 'Fail', icon: CircleX, text: 'text-rose-400', bg: 'bg-rose-500/15', border: 'border-rose-500/60', hex: '#fb7185' },
-  warn: { label: 'Warn', icon: TriangleAlert, text: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-400/50', hex: '#fcd34d' },
-  'n/a': { label: 'N/A', icon: CircleMinus, text: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-600', hex: '#a1a1aa' },
+  pass: { label: 'Pass', icon: CircleCheck, text: 'text-emerald-700', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', hex: '#34d399' },
+  fail: { label: 'Fail', icon: CircleX, text: 'text-rose-700', bg: 'bg-rose-500/15', border: 'border-rose-500/60', hex: '#fb7185' },
+  warn: { label: 'Warn', icon: TriangleAlert, text: 'text-amber-700', bg: 'bg-amber-500/10', border: 'border-amber-500/50', hex: '#fcd34d' },
+  'n/a': { label: 'N/A', icon: CircleMinus, text: 'text-muted-foreground', bg: 'bg-zinc-500/10', border: 'border-zinc-300', hex: '#a1a1aa' },
 }
 
 const RANK: Record<FindingStatus, number> = { 'n/a': 0, pass: 1, warn: 2, fail: 3 }

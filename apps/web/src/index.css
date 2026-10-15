@@ -1,29 +1,35 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Light is the only theme: no `.dark` class is ever set, so shadcn's dark: variants never apply (and the
+   variant is pinned to that class so an OS dark setting cannot switch them on either). */
 @custom-variant dark (&:is(.dark *));
 
-/* Dark-only, dense, Linear/Vercel-like (spec §12). Contrast of text tokens on --background ≥ 4.5:1. */
+/* Light, dense, Linear/Vercel-like (spec §12): white surfaces, near-black text, hairline borders and one blue
+   accent. Text tokens are WCAG AA (≥ 4.5:1) on --background, --surface and --muted. */
 :root {
   --radius: 0.5rem;
-  --background: #0b0d10;
-  --foreground: #e4e4e7;
-  --card: #111418;
-  --card-foreground: #e4e4e7;
-  --popover: #14181d;
-  --popover-foreground: #e4e4e7;
-  --primary: #e4e4e7;
-  --primary-foreground: #0b0d10;
-  --secondary: #1c2127;
-  --secondary-foreground: #e4e4e7;
-  --muted: #1c2127;
-  --muted-foreground: #a1a1aa;
-  --accent: #222831;
-  --accent-foreground: #f4f4f5;
+  --background: #ffffff;
+  --foreground: #0b0d10;
+  --surface: #fafbfc;
+  --card: #ffffff;
+  --card-foreground: #0b0d10;
+  --popover: #ffffff;
+  --popover-foreground: #0b0d10;
+  --primary: #0b0d10;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f5f7;
+  --secondary-foreground: #0b0d10;
+  --muted: #f4f5f7;
+  --muted-foreground: #5b6270;
+  --accent: #f1f3f5;
+  --accent-foreground: #0b0d10;
+  --brand: #2563eb;
+  --brand-foreground: #ffffff;
   --destructive: #e11d48;
-  --border: #262c34;
-  --input: #2a313a;
-  --ring: #60a5fa;
+  --border: #e5e7eb;
+  --input: #d9dce1;
+  --ring: #2563eb;
 }
 
 @theme inline {
@@ -35,6 +41,9 @@
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -59,7 +68,7 @@
   }
   html {
     font-size: 14px;
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
@@ -91,22 +100,24 @@ html[data-present="1"] [data-dev] {
   }
 }
 
-/* Spotlight-tour cut-out. */
+/* Spotlight-tour cut-out: a slate scrim (reads as dimming on white) around a ring in the accent blue. */
 .tour-spotlight {
   position: fixed;
   z-index: 60;
   border-radius: 8px;
-  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.62);
-  outline: 2px solid #60a5fa;
+  box-shadow: 0 0 0 9999px rgb(15 23 42 / 0.5);
+  outline: 2px solid var(--brand);
   pointer-events: none;
   transition: all 200ms ease;
 }
 
-/* React Flow dark tweaks. */
+/* React Flow on white: hairline controls, quiet default edges. */
 .react-flow {
   --xy-background-color: transparent;
-  --xy-edge-stroke: #52525b;
-  --xy-controls-button-background-color: #14181d;
-  --xy-controls-button-color: #e4e4e7;
-  --xy-controls-button-border-color: #262c34;
+  --xy-edge-stroke: #a1a1aa;
+  --xy-controls-button-background-color: #ffffff;
+  --xy-controls-button-background-color-hover: #f4f5f7;
+  --xy-controls-button-color: #3f3f46;
+  --xy-controls-button-color-hover: #0b0d10;
+  --xy-controls-button-border-color: #e5e7eb;
 }

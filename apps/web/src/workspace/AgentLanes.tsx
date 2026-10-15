@@ -27,11 +27,11 @@ import { useUi } from '@/store/ui'
 import { useWorkspace } from './WorkspaceContext'
 
 const LANE_STATUS: Record<LaneStatus, { label: string; icon: LucideIcon; cls: string }> = {
-  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-zinc-400' },
-  running: { label: 'Working', icon: LoaderCircle, cls: 'text-sky-300' },
-  waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-300' },
-  done: { label: 'Done', icon: CircleCheck, cls: 'text-emerald-400' },
-  failed: { label: 'Failed', icon: CircleX, cls: 'text-rose-400' },
+  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-muted-foreground' },
+  running: { label: 'Working', icon: LoaderCircle, cls: 'text-blue-700' },
+  waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-700' },
+  done: { label: 'Done', icon: CircleCheck, cls: 'text-emerald-700' },
+  failed: { label: 'Failed', icon: CircleX, cls: 'text-rose-700' },
 }
 
 const KIND_ICON: Record<RunEvent['kind'], LucideIcon> = {
@@ -55,7 +55,7 @@ function EventLine({ ev }: { ev: RunEvent }) {
     return (
       <button
         type="button"
-        className="flex w-full items-center gap-2 text-left hover:text-zinc-100"
+        className="flex w-full items-center gap-2 text-left hover:text-foreground"
         onClick={() => {
           if (f.rev) setViewRev(f.rev)
           openFinding(f.finding_id)
@@ -63,7 +63,7 @@ function EventLine({ ev }: { ev: RunEvent }) {
       >
         <StatusBadge status={f.status} compact />
         <span className="font-mono">{f.rule_id}</span>
-        <span className="truncate font-mono text-zinc-400">{f.element_id}</span>
+        <span className="truncate font-mono text-muted-foreground">{f.element_id}</span>
       </button>
     )
   }
@@ -82,10 +82,10 @@ function EventLine({ ev }: { ev: RunEvent }) {
   if (artifact) text = `${artifact.type}: ${ev.title}`
   return (
     <div className="flex items-start gap-2">
-      <Icon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-zinc-500" />
+      <Icon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0">
         <span className="break-words">{text}</span>
-        {ev.detail && <span className="block truncate text-zinc-400">{ev.detail}</span>}
+        {ev.detail && <span className="block truncate text-muted-foreground">{ev.detail}</span>}
       </span>
     </div>
   )
@@ -101,7 +101,7 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
   const header = (
     <>
       <AgentDot agent={lane.agent} />
-      <span className="font-medium text-zinc-100">{meta.label}</span>
+      <span className="font-medium text-foreground">{meta.label}</span>
       {/* A recorded design without agent events has no lane activity to report (M3): no status chip. */}
       {!(recordedOnly && lane.status === 'idle') && (
         <span className={cn('ml-auto inline-flex items-center gap-1 text-xs', st.cls)}>
@@ -112,12 +112,12 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
     </>
   )
   return (
-    <li className="border-b border-zinc-800/80 px-3 py-2" style={{ boxShadow: `inset 2px 0 0 0 ${lane.status === 'idle' ? 'transparent' : meta.color.startsWith('#') ? meta.color : '#a78bfa'}` }}>
+    <li className="border-b border-border px-3 py-2" style={{ boxShadow: `inset 2px 0 0 0 ${lane.status === 'idle' ? 'transparent' : meta.color.startsWith('#') ? meta.color : '#a78bfa'}` }}>
       {/* A lane with no events has nothing to expand (D10): a plain header, no chevron. */}
       {lane.events.length > 0 ? (
         <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left text-sm">
           {header}
-          <ChevronDown aria-hidden className={cn('size-3.5 text-zinc-400 transition-transform', open && 'rotate-180')} />
+          <ChevronDown aria-hidden className={cn('size-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>
       ) : (
         <div className="flex w-full items-center gap-2 text-sm">{header}</div>
@@ -125,7 +125,7 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
       {lane.counters.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-1" aria-label={`${meta.label} summary`}>
           {lane.counters.map((c) => (
-            <li key={c} className="rounded bg-zinc-800/70 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">
+            <li key={c} className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700">
               {c}
             </li>
           ))}
@@ -137,7 +137,7 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="mt-2 flex flex-col gap-1.5 overflow-hidden text-xs text-zinc-300"
+            className="mt-2 flex flex-col gap-1.5 overflow-hidden text-xs text-zinc-700"
           >
             {shown.map((ev) => (
               <li key={ev.seq}>
@@ -146,7 +146,7 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
             ))}
             {lane.events.length > 5 && (
               <li>
-                <button type="button" className="text-zinc-400 underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
+                <button type="button" className="text-muted-foreground underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
                   {all ? 'Show recent' : `Show all ${lane.events.length}`}
                 </button>
               </li>
@@ -165,12 +165,12 @@ export function AgentLanes() {
   return (
     <nav aria-label="Agent lanes" data-tour="lanes" className="h-full overflow-y-auto">
       <Hint id="lanes" text="One lane per agent: its tool calls, results, findings and logged assumptions. Click a finding to open it.">
-        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
+        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Agents
         </h2>
       </Hint>
       {recordedOnly && (
-        <p className="px-3 pb-2 text-xs text-zinc-400">
+        <p className="px-3 pb-2 text-xs text-muted-foreground">
           This sample shows the recorded result: the checked design, its findings and the sign-off. Each agent&rsquo;s tool
           calls and findings appear here during a live run.
         </p>

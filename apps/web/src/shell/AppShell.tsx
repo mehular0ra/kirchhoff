@@ -27,7 +27,7 @@ export function AppShell() {
     <div className="flex h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only z-[80] rounded bg-zinc-100 px-3 py-1.5 text-sm text-zinc-900 focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        className="sr-only z-[80] rounded bg-foreground px-3 py-1.5 text-sm text-background focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
       >
         Skip to content
       </a>
@@ -44,7 +44,7 @@ export function AppShell() {
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
-                cn('rounded px-2 py-1 whitespace-nowrap text-zinc-400 hover:text-zinc-100', isActive && 'bg-accent text-zinc-100')
+                cn('rounded px-2 py-1 whitespace-nowrap text-muted-foreground hover:text-foreground', isActive && 'bg-accent text-foreground')
               }
               aria-label={n.short ? n.label : undefined}
             >
