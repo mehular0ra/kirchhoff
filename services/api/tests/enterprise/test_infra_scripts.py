@@ -37,6 +37,9 @@ def test_env_files():
     assert api["GOOGLE_CLOUD_PROJECT"] == "ordinal-mep" and api["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
     assert api["GOOGLE_CLOUD_LOCATION"] == "global" and api["GOOGLE_CLOUD_QUOTA_PROJECT"] == "ordinal-mep"
     assert api["KIRCHHOFF_SCENARIOS_DIR"] == "/app/scenarios" and api["KIRCHHOFF_SEED_DIR"] == "/app/seed"
+    # #15 ordering: debug token, then a green e2e on the deployed site with it, and only then this flag "1" plus a redeploy;
+    # Firestore, Storage and AI Logic are enforced (infra/appcheck.sh) on Mehul's "go" after the golden capture. So it is "0"
+    # until then. Both values are valid here, so the flip needs no test edit (this is the one assertion on the switch).
     assert api["KIRCHHOFF_REQUIRE_APPCHECK"] in ("0", "1")
     assert "KIRCHHOFF_ENTERPRISE_URL" not in api  # injected by deploy_api.sh from the live service URL
     assert all(isinstance(v, str) for v in api.values())
