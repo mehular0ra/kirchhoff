@@ -47,6 +47,31 @@ test('Hall B: its three attachments are listed and Pursue opens Hall B with the 
   await expect(page).toHaveURL(/\/app\/p\/hall-b/)
 })
 
+test('Hall B: Triage live with the API down says so (icon and text), keeps the recorded triage and can be retried', async ({ page, request }) => {
+  for (const pattern of OFFLINE) await page.route(pattern, (route) => route.abort('connectionrefused'))
+  const hallB = (await load(request)).emails.find((e) => e.id === 'em-hall-b')!
+  await page.goto('/app/inbox/em-hall-b')
+  const detail = page.getByRole('region', { name: 'Email' })
+  const button = detail.getByRole('button', { name: 'Triage live' })
+  await expect(button).toBeVisible()
+  await button.focus() // reachable and usable from the keyboard
+  await page.keyboard.press('Enter')
+  const status = detail.getByRole('status')
+  await expect(status).toContainText('Live triage unavailable:')
+  await expect(status.locator('svg[aria-hidden="true"]')).toHaveCount(1) // an icon beside the text, never colour alone
+  await expect(button).toBeEnabled() // a failed run can be retried
+  if (hallB.triage !== null) {
+    await expect(status).toContainText('The recorded triage stays on screen.')
+    await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('Pursue')
+  }
+})
+
+test('only the Hall B email has a Triage button', async ({ page }) => {
+  await page.goto('/app/inbox/em-vindhya-boq')
+  await expect(page.getByRole('region', { name: 'Email' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Triage/ })).toHaveCount(0)
+})
+
 test('the scanned BOQ is marked as a scan, never verified', async ({ page, request }) => {
   const vindhya = (await load(request)).emails.find((e) => e.id === 'em-vindhya-boq')!
   await page.goto('/app/inbox/em-vindhya-boq')
