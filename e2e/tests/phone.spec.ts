@@ -27,8 +27,9 @@ test.describe('first visit on a phone', () => {
   test.use({ welcomed: false })
 
   test('phone: every tour card stays inside the viewport', async ({ page }) => {
-    // Known bug (issue #10): the cards of steps 1, 3 and 4 are outside the viewport.
-    test.fail(true, 'issue #10: tour cards of steps 1, 3 and 4 are off-screen')
+    // Known bug (issue #20, follow-up to #10): on a 412 px phone the cards of steps 3 and 4 are still partly off-screen.
+    // Playwright reports "expected to fail but passed" once it is fixed: then delete this line.
+    test.fail(true, 'issue #20: tour cards of steps 3 and 4 are off-screen at 412 px')
     await startTour(page)
     const cards = await tourCardPositions(page)
     expect(cards.filter((c) => !c.inView), 'cards outside the viewport').toEqual([])

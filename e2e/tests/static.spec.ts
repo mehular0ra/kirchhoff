@@ -17,9 +17,6 @@ test.describe('first visit', () => {
   test.use({ welcomed: false })
 
   test('landing → welcome → all seven tour steps', async ({ page }) => {
-    // Known bug (issue #10): at 1440x900 the tour card of step 1 is placed above the viewport, so Next cannot be
-    // pressed. Playwright reports "expected to fail but passed" once it is fixed: then delete this line.
-    test.fail(true, 'issue #10: tour card off-screen on step 1')
     await page.goto('/')
     await page.getByRole('link', { name: 'Enter the demo workspace (no login)' }).click()
     await expect(page.getByRole('note').filter({ hasText: BANNER })).toBeVisible()
@@ -36,9 +33,7 @@ test.describe('first visit', () => {
   })
 
   test('every tour card stays inside the viewport (desktop)', async ({ page }) => {
-    // Known bug (issue #10): the cards of steps 1, 3 and 4 are outside the viewport.
-    test.fail(true, 'issue #10: tour cards of steps 1, 3 and 4 are off-screen')
-    await startTour(page)
+    await startTour(page) // issue #10 (fixed by the UX-0 wave): the cards of steps 1, 3 and 4 used to be off-screen
     const cards = await tourCardPositions(page)
     expect(cards.filter((c) => !c.inView), 'cards outside the viewport').toEqual([])
   })
