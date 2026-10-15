@@ -74,6 +74,12 @@ from kirchhoff.store.memory import MemoryStore  # noqa: E402
 
 UID, RID, T0 = "Zq8vAnonUid00000000000000ab", "a1b2c3d4e5f6", 1792000000.0
 
+# What the option gate writes to the run (phase2.py:42, run_patch={"options": ...}) -- every real run that
+# reaches "done" has passed through P2, so the golden fixture must carry this too (P3-R6: OptionCards reads it).
+RUN_OPTIONS = [TopologyOption(id=t, installed_mva=12.6, normal_loading_pct=38.0, failover_loading_pct=76.0,
+                              cost=1.0e6, losses_kw=100.0, max_lead_time_weeks=12, spof_count=0)
+               for t in ("2N", "DR", "BLOCK")]
+
 
 class Blobs:
     def __init__(self):
@@ -88,7 +94,8 @@ def make_hall_b_workspace(stub_engine) -> tuple:
     store, blobs = MemoryStore(), Blobs()
     ws, rp = f"workspaces/{UID}", f"workspaces/{UID}/runs/{RID}"
     run = RunRecord(id=RID, project_id="hall-b", status="done", autonomy="ask", phase="p4", started_at=T0,
-                    finished_at=T0 + 1000, lease={"owner": None, "attempt": 3, "heartbeat_at": 0.0})
+                    finished_at=T0 + 1000, lease={"owner": None, "attempt": 3, "heartbeat_at": 0.0},
+                    options=RUN_OPTIONS, selected_option="2N")
     store.set_doc(rp, {**run.model_dump(mode="json"), "message": "extra key the capture ignores"})
     for sid, ph, att, s, f in (("p1.intake", "p1", 1, T0, T0 + 20), ("p2.place_racks", "p2", 2, T0 + 700, T0 + 710),
                                ("p3.check.1", "p3", 2, T0 + 720, T0 + 730), ("p4.create_prs", "p4", 3, T0 + 900, T0 + 905)):
