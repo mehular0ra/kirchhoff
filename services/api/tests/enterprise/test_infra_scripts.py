@@ -37,6 +37,8 @@ def test_env_files():
     assert api["GOOGLE_CLOUD_PROJECT"] == "ordinal-mep" and api["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
     assert api["GOOGLE_CLOUD_LOCATION"] == "global" and api["GOOGLE_CLOUD_QUOTA_PROJECT"] == "ordinal-mep"
     assert api["KIRCHHOFF_SCENARIOS_DIR"] == "/app/scenarios" and api["KIRCHHOFF_SEED_DIR"] == "/app/seed"
+    # #15 ordering: the flag stays "0" until Firestore, Storage and AI Logic are enforced (infra/appcheck.sh) and checked in a
+    # real browser; only then is it flipped to "1". Both values are valid here so that flip needs no test edit.
     assert api["KIRCHHOFF_REQUIRE_APPCHECK"] in ("0", "1")
     assert "KIRCHHOFF_ENTERPRISE_URL" not in api  # injected by deploy_api.sh from the live service URL
     assert all(isinstance(v, str) for v in api.values())
