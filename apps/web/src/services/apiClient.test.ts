@@ -56,6 +56,23 @@ test('voice sends multipart audio plus the revision ref', async () => {
   expect(body.get('audio')).toBeInstanceOf(Blob)
 })
 
+test('voice has its own 25 s client timeout, above the 12 s /api default (issue #36)', async () => {
+  vi.useFakeTimers()
+  const hanging: Fetcher = () => new Promise<Response>(() => {})
+  const api = httpApiClient(hanging)
+  const voice = api.voice(new Blob(['x'], { type: 'audio/webm' }), 'ws:r2').catch((e: unknown) => e)
+  const other = api.erpPrs().catch((e: unknown) => e)
+  let settled = false
+  void voice.then(() => (settled = true))
+  await vi.advanceTimersByTimeAsync(12_000)
+  expect(await other).toMatchObject({ detail: 'client_timeout' }) // every other call keeps the 12 s bound
+  await vi.advanceTimersByTimeAsync(24_999 - 12_000)
+  expect(settled).toBe(false) // the server's 20 s voice budget answers well before this
+  await vi.advanceTimersByTimeAsync(1)
+  expect(await voice).toMatchObject({ detail: 'client_timeout' })
+  vi.useRealTimers()
+})
+
 test('fileBlob asks for the signed URL, then fetches it without auth headers', async () => {
   const { calls, fetcher } = recorder(json({ url: 'https://storage.example/x?sig=1', expires_in: 600 }))
   const plain = vi.fn(async () => new Response('a,b'))

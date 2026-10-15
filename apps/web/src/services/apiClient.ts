@@ -1,5 +1,6 @@
 // Typed client for the HTTP API table in plans/2026-10-13-interfaces.md. Every mutation goes
-// through /api (clients never write Firestore). Every call is aborted after 12 s (API budget < 10 s).
+// through /api (clients never write Firestore). Every call is aborted after 12 s (API budget < 10 s),
+// except voice, aborted after 25 s (its server budget is 20 s; issue #36).
 import type {
   AssetResult,
   Autonomy,
@@ -61,6 +62,8 @@ export interface ApiClient {
 }
 
 const TIMEOUT_MS = 12_000
+/** Push-to-talk (issue #36): the server's /api/voice budget is 20 s (one model round trip plus the tool). */
+const VOICE_TIMEOUT_MS = 25_000
 
 /** WS2 error codes (`detail`) → sentences for the UI (ruling R23). No digits: limits are WS2's to state. */
 const DETAIL_TEXT: Record<string, string> = {
@@ -104,16 +107,16 @@ export function httpApiClient(
    * The 12 s budget covers the whole call — `fetcher` first awaits Firebase sign-in and an App Check
    * token, and either can hang when reCAPTCHA is blocked — not just the fetch (final review I4).
    */
-  function bounded<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  function bounded<T>(run: (signal: AbortSignal) => Promise<T>, timeoutMs = TIMEOUT_MS): Promise<T> {
     const ctrl = new AbortController()
-    return withTimeout(run(ctrl.signal), TIMEOUT_MS, () => {
+    return withTimeout(run(ctrl.signal), timeoutMs, () => {
       ctrl.abort()
       return new ApiError(0, 'client_timeout')
     })
   }
 
-  function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-    return bounded((signal) => send<T>(path, { ...init, signal }))
+  function call<T>(path: string, init: RequestInit = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
+    return bounded((signal) => send<T>(path, { ...init, signal }), timeoutMs)
   }
 
   async function send<T>(path: string, init: RequestInit): Promise<T> {
@@ -158,7 +161,7 @@ export function httpApiClient(
       const form = new FormData()
       form.append('audio', audio, audio.type.includes('ogg') ? 'clip.ogg' : 'clip.webm')
       form.append('revision_ref', revisionRef)
-      return call('/api/voice', { method: 'POST', body: form })
+      return call('/api/voice', { method: 'POST', body: form }, VOICE_TIMEOUT_MS)
     },
     asset: (pack) => post(`/api/asset/${pack}`),
     erpMaterials: () => call('/api/enterprise/erp/materials'),
