@@ -7,6 +7,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useStoreApi,
   type Edge,
 } from '@xyflow/react'
 import { useReducedMotion } from 'motion/react'
@@ -21,8 +22,8 @@ import { Legend } from '../Legend'
 import { legendKeys } from '../legendKeys'
 import { useWorkspace } from '../WorkspaceContext'
 import { nodeTypes, type SldFlowNode } from './SldNodes'
-import { edgeAppearance, initialFit } from './sldFit'
-import { buildSldGraph, layoutSld, MAX_LEVEL, NODE_SIZE } from './sldGraph'
+import { edgeAppearance, initialFit, LEGIBLE_ZOOM, topAnchoredViewport } from './sldFit'
+import { buildSldGraph, layoutSld, MAX_LEVEL, NODE_SIZE, type SldGraph } from './sldGraph'
 
 /** Accessible name with status (M11): "A-01: Pass, feeder FA-01: Fail". */
 function nodeLabel(label: string, own: FindingStatus | null, feeders: (readonly [string, FindingStatus | undefined])[]): string {
@@ -31,13 +32,32 @@ function nodeLabel(label: string, own: FindingStatus | null, feeders: (readonly 
   return parts.join(', ')
 }
 
+/** The laid-out diagram's bounding box, from ELK positions and the node sizes (geometry only). */
+function diagramBounds(graph: SldGraph, pos: Map<string, { x: number; y: number }>) {
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  for (const n of graph.nodes) {
+    const p = pos.get(n.id)
+    if (!p) continue
+    const size = NODE_SIZE[n.kind]
+    x0 = Math.min(x0, p.x)
+    y0 = Math.min(y0, p.y)
+    x1 = Math.max(x1, p.x + size.w)
+    y1 = Math.max(y1, p.y + size.h)
+  }
+  return Number.isFinite(x0) ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : { x: 0, y: 0, width: 1, height: 1 }
+}
+
 function SldCanvas() {
   const view = useWorkspace()
   const focusId = useUi((s) => s.focusId)
   const openFinding = useUi((s) => s.openFinding)
   const focus = useUi((s) => s.focus)
   const reduce = useReducedMotion()
-  const { fitView } = useReactFlow()
+  const { fitView, setViewport } = useReactFlow()
+  const store = useStoreApi()
   const graph = useMemo(() => (view.model ? buildSldGraph(view.model) : null), [view.model])
   const [pos, setPos] = useState<Map<string, { x: number; y: number }> | null>(null)
   const [reveal, setReveal] = useState(MAX_LEVEL)
@@ -71,19 +91,24 @@ function SldCanvas() {
   // First fit (D8): frame the revision's worst failure on the SLD, else the whole diagram at a legible zoom.
   const plan = useMemo(() => (graph ? initialFit(graph, view.findings) : null), [graph, view.findings])
   useEffect(() => {
-    if (!pos || !plan) return
-    const raf = requestAnimationFrame(() =>
-      fitView({
-        includeHiddenNodes: true,
-        padding: plan.padding,
-        minZoom: plan.minZoom,
-        maxZoom: plan.maxZoom,
-        nodes: plan.nodes?.map((id) => ({ id })),
-        duration: 0,
-      }),
-    )
+    if (!pos || !plan || !graph) return
+    const raf = requestAnimationFrame(() => {
+      // N3: a diagram that only fits below the legible zoom starts at its top (MV bus, transformers), not mid-way.
+      const { width, height } = store.getState()
+      const top = plan.anchorTop && width > 0 && height > 0 ? topAnchoredViewport(diagramBounds(graph, pos), { width, height }, plan.minZoom ?? LEGIBLE_ZOOM, 24) : null
+      if (top) void setViewport(top, { duration: 0 })
+      else
+        void fitView({
+          includeHiddenNodes: true,
+          padding: plan.padding,
+          minZoom: plan.minZoom,
+          maxZoom: plan.maxZoom,
+          nodes: plan.nodes?.map((id) => ({ id })),
+          duration: 0,
+        })
+    })
     return () => cancelAnimationFrame(raf)
-  }, [pos, plan, fitView])
+  }, [pos, plan, graph, fitView, setViewport, store])
 
   const whatIfActive = view.highlights.size > 0
   const levelOf = useMemo(() => new Map(graph?.nodes.map((n) => [n.id, n.level]) ?? []), [graph])
