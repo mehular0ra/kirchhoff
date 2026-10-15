@@ -5,37 +5,14 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { ClauseChip, TenderChip } from '@/components/TenderChip'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { fillPlaceholders, fmtInput, fmtKeyValue } from '@/lib/format'
+import { fillPlaceholders, fmtInput, fmtKeyValue, tidyTokens } from '@/lib/format'
 import { canvasesFor } from '@/lib/model'
 import { ruleName } from '@/lib/status'
-import type { Finding } from '@/lib/types'
 import { useServices } from '@/services/services'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
+import { readFix, type FixView } from './fixView'
 import { ValueLimitBar } from './ValueLimitBar'
-
-export interface FixView {
-  label: string
-  reason: string
-  deltas: [string, unknown][]
-}
-
-/**
- * Reads the engine's fix dict: {candidate|label, reason, cost_delta?, deltas: {dv_pct, ...}}. The
- * shipped bundles carry `cost_delta` beside `deltas` (not inside it); it leads the card because the
- * cost is what explains the choice ("voltage-drop margin per dollar", final review I3).
- */
-export function readFix(fix: Finding['fix']): FixView | null {
-  if (!fix) return null
-  const inner = fix.deltas && typeof fix.deltas === 'object' ? Object.entries(fix.deltas as Record<string, unknown>) : []
-  const cost = typeof fix.cost_delta === 'number' && !inner.some(([k]) => k === 'cost_delta') ? [['cost_delta', fix.cost_delta] as [string, unknown]] : []
-  const deltas = [...cost, ...inner]
-  return {
-    label: String(fix.label ?? fix.candidate ?? 'Fix'),
-    reason: typeof fix.reason === 'string' ? fix.reason : '',
-    deltas,
-  }
-}
 
 function FixCard({ title, fix, tone }: { title: string; fix: FixView; tone: string }) {
   return (
@@ -89,19 +66,24 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
               </SheetDescription>
             </SheetHeader>
             <div className="flex flex-col gap-4 px-4 pb-6 text-sm">
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start"
-                onClick={() => {
-                  focus(f.element_id, canvasesFor(view.model, f.element_id)) // switches away from Matrix (I5)
-                  close()
-                }}
-              >
-                <Crosshair aria-hidden /> Show on canvas
-              </Button>
+              {canvasesFor(view.model, f.element_id).length ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => {
+                    focus(f.element_id, canvasesFor(view.model, f.element_id)) // switches away from Matrix (I5)
+                    close()
+                  }}
+                >
+                  <Crosshair aria-hidden /> Show on canvas
+                </Button>
+              ) : (
+                <p className="text-xs text-zinc-400">{f.element_id} is checked as a whole; it is not drawn on the 3D hall or the SLD.</p>
+              )}
 
-              {(f.clause_refs?.length || f.tender_refs?.length) && (
+              {/* A boolean, not a length: React renders a bare 0 when both lists are empty. */}
+              {(f.clause_refs?.length ?? 0) + (f.tender_refs?.length ?? 0) > 0 && (
                 <section aria-label="Sources" className="flex flex-wrap gap-1.5">
                   {f.clause_refs?.map((c) => <ClauseChip key={`${c.standard}${c.clause}`} standard={c.standard} clause={c.clause} />)}
                   {f.tender_refs?.map((c) => <TenderChip key={`${c.page}${c.clause}`} citation={c} onOpen={onCitation} />)}
@@ -114,7 +96,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
 
               {f.formula && (
                 <section aria-label="Formula" className="flex flex-col gap-1">
-                  <pre className="overflow-x-auto rounded bg-zinc-900 p-2 font-mono text-xs text-zinc-100">{f.formula}</pre>
+                  <pre className="whitespace-pre-wrap break-words rounded bg-zinc-900 p-2 font-mono text-xs text-zinc-100">{f.formula}</pre>
                   {f.inputs && Object.keys(f.inputs).length > 0 && (
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                       {Object.entries(f.inputs).map(([k, v]) => {
@@ -136,7 +118,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
               )}
 
               <section aria-label="Explanation" className="flex flex-col gap-2">
-                <p className="text-zinc-200">{fillPlaceholders(f.explanation || f.title, f)}</p>
+                <p className="text-zinc-200">{tidyTokens(fillPlaceholders(f.explanation || f.title, f))}</p>
                 {view.revRef && (
                   <Button
                     variant="ghost"

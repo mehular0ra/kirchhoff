@@ -3,9 +3,11 @@
 import { Bell, Boxes, Cloud, CloudOff, Handshake, LoaderCircle, Puzzle, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { EmptyState, Num, SandboxLabel } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { loadIntegrationsSnapshot } from '@/data/staticData'
+import { useWorld } from '@/data/useWorld'
 import { fmtQty, fmtRelative, fmtTs, fmtUsd } from '@/lib/format'
 import type { IntegrationsSnapshot } from '@/lib/types'
 import { useServices } from '@/services/services'
@@ -69,10 +71,11 @@ function Card({
 }) {
   return (
     <article aria-label={title} data-tour={tour} className="flex flex-col gap-2 rounded-lg border bg-card p-4">
-      <header className="flex items-center gap-2">
+      {/* The badge wraps under a long title instead of being squashed (D18). */}
+      <header className="flex flex-wrap items-center gap-2">
         <Icon aria-hidden className="size-4 text-zinc-400" />
         <h2 className="font-medium text-zinc-100">{title}</h2>
-        {sandbox && <SandboxLabel className="ml-auto" />}
+        {sandbox && <SandboxLabel className="ml-auto shrink-0 whitespace-nowrap" />}
       </header>
       <p className="text-xs text-zinc-400">{kind}</p>
       <p className="text-xs text-zinc-300">{status}</p>
@@ -111,9 +114,14 @@ function DataSheet({ title, label, children }: { title: string; label: string; c
 const th = 'border-b px-2 py-1 text-left font-medium text-zinc-400'
 const td = 'border-b border-zinc-800/70 px-2 py-1'
 
+/** "6 × TX-3150, 30 × UPS-500" — the PR's own lines, as the review page shows them (D5). */
+const prLines = (lines: { qty: number; material_id: string }[]) => lines.map((l) => `${l.qty} × ${l.material_id}`).join(', ')
+
 export function IntegrationsPage() {
   const { data, live, connecting, syncedAt, error } = useIntegrations()
-  if (error && !data) return <EmptyState tone="error" title="Integrations snapshot unavailable">{error}</EmptyState>
+  const { world } = useWorld()
+  const projectName = (id: string) => world?.projects.find((p) => p.id === id)?.name ?? id
+  if (error && !data) return <LoadError error={error} what="the integrations" notFoundTitle="Integrations snapshot not found" />
   if (!data) return <EmptyState title="Loading integrations…" />
   const status = live
     ? `Connected · last sync ${syncedAt ? fmtRelative(syncedAt) : 'now'}`
@@ -140,22 +148,26 @@ export function IntegrationsPage() {
         )}
       </div>
       <section aria-label="Latest handoff" data-tour="integrations-prs" className="flex flex-col gap-2 rounded-lg border bg-card p-4">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Latest handoff from signed designs</h2>
-        <ul className="flex flex-col gap-1 text-sm">
+        {/* One sandbox label for the section, not one per row (D5). */}
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Latest handoff from signed designs</h2>
+          <SandboxLabel className="ml-auto" />
+        </div>
+        <ul className="flex flex-col gap-1.5 text-sm">
           {handoffPrs.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center gap-2">
+            <li key={p.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="font-mono text-zinc-100">{p.id}</span>
-              <span className="text-zinc-400">
-                {p.project_id} · revision {p.revision} · {p.lines.length} {p.lines.length === 1 ? 'line' : 'lines'} · {p.status}
+              <span className="text-zinc-300">
+                {projectName(p.project_id)} · <span className="font-mono">{p.revision}</span>
               </span>
-              <SandboxLabel />
+              <span className="font-mono text-xs text-zinc-200">{prLines(p.lines)}</span>
+              <span className="text-xs text-zinc-400">{p.status}</span>
             </li>
           ))}
           {handoffOpps.map((o) => (
-            <li key={o.id} className="flex flex-wrap items-center gap-2">
+            <li key={o.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="text-zinc-100">{o.name}</span>
               <span className="text-zinc-400">CRM stage: {o.stage}</span>
-              <SandboxLabel />
             </li>
           ))}
         </ul>
@@ -213,7 +225,7 @@ export function IntegrationsPage() {
                 {data.erp.prs.map((p) => (
                   <tr key={p.id}>
                     <td className={`${td} font-mono`}>{p.id}</td>
-                    <td className={td}>{p.project_id}</td>
+                    <td className={td}>{projectName(p.project_id)}</td>
                     <td className={`${td} font-mono`}>{p.revision}</td>
                     <td className={td}>{p.lines.map((l) => `${l.qty} × ${l.material_id}`).join(', ')}</td>
                     <td className={td}>{p.status}</td>

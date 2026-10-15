@@ -31,17 +31,25 @@ export function CoPilotPanel() {
   const { run: runWhatIf } = useWhatIf()
   const focusUi = useUi((s) => s.focus)
   // Co-pilot "show H-Z2" switches to a canvas that draws the element (I5).
-  const focus = useCallback((id: string) => focusUi(id, canvasesFor(view.model, id)), [focusUi, view.model])
+  const focus = useCallback(
+    (id: string) => {
+      const drawnOn = canvasesFor(view.model, id)
+      focusUi(id, drawnOn)
+      return drawnOn.length > 0
+    },
+    [focusUi, view.model],
+  )
   const openFinding = useUi((s) => s.openFinding)
+  const setViewRev = useUi((s) => s.setViewRev)
   const setWhatIf = useUi((s) => s.setWhatIf)
   const [text, setText] = useState('')
   const [log, setLog] = useState<LogEntry[]>([])
   const seq = useRef(0)
-  const ctx: ToolContext = { view, api, runWhatIf, focus, openFinding }
+  const ctx: ToolContext = { view, api, runWhatIf, focus, openFinding, setViewRev }
   const ctxRef = useRef(ctx)
   useEffect(() => {
-    ctxRef.current = { view, api, runWhatIf, focus, openFinding }
-  }, [view, api, runWhatIf, focus, openFinding])
+    ctxRef.current = { view, api, runWhatIf, focus, openFinding, setViewRev }
+  }, [view, api, runWhatIf, focus, openFinding, setViewRev])
 
   const add = (who: LogEntry['who'], via: LogEntry['via'], t: string) =>
     setLog((l) => [...l.slice(-7), { id: ++seq.current, who, via, text: t }])

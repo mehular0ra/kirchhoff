@@ -134,3 +134,10 @@ test('keyboard: the email rows are reachable with Tab and open with Enter; openi
   expect(within(screen.getAllByRole('link', { name: /Deccan Compute/ })[0]).queryByText('New')).not.toBeInTheDocument()
   expect(JSON.parse(localStorage.getItem('kirchhoff.inbox.read') ?? '[]')).toEqual(['em-hall-b'])
 })
+
+test('D2: inbox times read against the snapshot\'s as_of (labelled), never "in N hours"', async () => {
+  inboxAt('/app/inbox')
+  const list = await screen.findByRole('list', { name: 'Emails' })
+  expect(screen.getByText('Demo world as of 16 Oct 2026, 12:00 IST')).toBeInTheDocument()
+  expect(within(list).queryByText(/^in \d/)).not.toBeInTheDocument()
+})

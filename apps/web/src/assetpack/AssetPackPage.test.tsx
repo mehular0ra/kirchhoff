@@ -5,6 +5,7 @@ import grid from '@/test/fixtures/grid-132kv.json'
 import gridReal from '@/test/fixtures/grid-132kv-real.json'
 import solarReal from '@/test/fixtures/solar-5mwp.json'
 import { fakeApi, fakeServices, renderWithProviders, STATIC_FILES } from '@/test/render'
+import { useWorldStore } from '@/data/useWorld'
 import { assetResultFrom, chosenOption, geometryShapes, miniSld, optionColumns } from './assetResult'
 import { AssetPackPage } from './AssetPackPage'
 
@@ -138,4 +139,15 @@ test('backlog [7]: boolean *_ok/passes columns are hidden (the Checker section c
   expect(within(table).getByText('DC/AC ratio')).toBeInTheDocument()
   // STR-30 fails Voc in the engine's option dict: icon + text next to the option name.
   expect(within(within(table).getAllByText('STR-30')[0].closest('tr')!).getByText('Fail')).toBeInTheDocument()
+})
+
+test('D11: with the demo world unavailable the title is the pack label, never the raw slug', async () => {
+  useWorldStore.setState({ world: null, error: null, loading: false })
+  renderWithProviders(<AssetPackPage pack="grid" pid="grid-132kv" />, {
+    services: fakeServices({ getJson: vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))) }),
+  })
+  expect(await screen.findByRole('heading', { level: 1, name: 'Grid asset pack' })).toBeInTheDocument()
+  expect(screen.queryByText('grid-132kv')).not.toBeInTheDocument()
+  expect(await screen.findByText("Couldn't load the recorded result")).toBeInTheDocument()
+  expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument()
 })

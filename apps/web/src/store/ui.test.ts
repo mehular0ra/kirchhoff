@@ -37,5 +37,12 @@ test('canvasesFor knows which canvas draws which element', () => {
   expect(canvasesFor(model, 'CB-A1')).toEqual(['sld'])
   expect(canvasesFor(model, 'CDU-1')).toEqual(['hall'])
   expect(canvasesFor(model, 'L-MV-TA1')).toEqual(['sld'])
-  expect(canvasesFor(model, 'nope')).toEqual(['hall', 'sld'])
+  expect(canvasesFor(model, 'nope')).toEqual([]) // not in the model: no canvas draws it
+})
+
+test('residual: focus() with no canvas that draws the element leaves the tab alone', () => {
+  useUi.getState().resetWorkspaceUi()
+  useUi.getState().setTab('matrix')
+  useUi.getState().focus('BOQ', [])
+  expect(useUi.getState().tab).toBe('matrix')
 })

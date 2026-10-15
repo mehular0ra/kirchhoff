@@ -19,7 +19,8 @@ const useDock = create<{ docked: number; add(n: number): void }>()((set) => ({
 export function Checklist({ docked = false }: { docked?: boolean }) {
   const done = useChecklist((s) => s.done)
   const dockedCount = useDock((s) => s.docked)
-  const [open, setOpen] = useState(true)
+  // Below md it starts as a one-line pill, so it never covers the last email, a signature or table rows (D14).
+  const [open, setOpen] = useState(() => !window.matchMedia?.('(max-width: 767px)').matches)
   useEffect(() => {
     if (!docked) return
     useDock.getState().add(1)

@@ -88,3 +88,12 @@ test('backlog [4]: the "API unreachable" note carries an icon as well as text', 
   const note = await screen.findByText(/API unreachable/)
   expect(note.closest('[role="status"]')!.querySelector('svg')).not.toBeNull()
 })
+
+test('D5: the handoff names the project, lists each PR\'s material lines, and labels the sandbox once', async () => {
+  renderWithProviders(<IntegrationsPage />)
+  const handoff = await screen.findByRole('region', { name: 'Latest handoff' })
+  expect(await within(handoff).findByText(/Deccan AI Campus · Hall A/)).toBeInTheDocument() // from world.json, not the slug
+  expect(within(handoff).queryByText(/hall-a/)).not.toBeInTheDocument()
+  expect(within(handoff).getByText(/2 × TX-3150/)).toBeInTheDocument()
+  expect(within(handoff).getAllByText('sandbox (simulated)')).toHaveLength(1)
+})

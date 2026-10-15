@@ -4,6 +4,7 @@ import { ArrowLeft, CircleX, Download } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { EmptyState, IllustrativeLabel, Num, SandboxLabel } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -236,6 +237,6 @@ export function ReviewPage() {
   const runId = params.get('run')
   const project = useWorldProject(pid)
   const data = useProjectData(pid, { runId, project })
-  if (!data.bundle) return <EmptyState tone={data.status === 'error' ? 'error' : 'loading'} title={data.status === 'error' ? 'This project is not available' : 'Loading review…'}>{data.error}</EmptyState>
+  if (!data.bundle) return data.status === 'error' ? <LoadError error={data.error} /> : <EmptyState title="Loading review…" />
   return <ReviewView bundle={data.bundle} source={data.source} revId={rev} runQuery={runId ? `?run=${runId}` : ''} />
 }

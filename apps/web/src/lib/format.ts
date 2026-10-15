@@ -21,10 +21,31 @@ export function fmtNum(v: number | null | undefined): string {
   return v === null || v === undefined || Number.isNaN(v) ? DASH : NUM.format(v)
 }
 
+/** Units that count things: a value of one takes the singular ("1 crossing", D9). */
+const COUNT_UNITS = new Set(['crossings', 'lines', 'systems', 'elements', 'pipes', 'clashes', 'checks', 'findings', 'weeks'])
+
 export function fmtQty(v: number | null | undefined, unit?: string | null): string {
   if (v === null || v === undefined) return DASH
   if (!unit) return fmtNum(v)
-  return unit === '%' ? `${fmtNum(v)}%` : `${fmtNum(v)} ${unit}`
+  if (unit === '%') return `${fmtNum(v)}%`
+  return `${fmtNum(v)} ${Math.abs(v) === 1 && COUNT_UNITS.has(unit) ? unit.slice(0, -1) : unit}`
+}
+
+/**
+ * A count-type rule (R11 crossings, R12 lines, R06 single points of failure): a value-vs-limit bar for
+ * "1 against 0" means nothing, so the drawer states it in words instead (D9).
+ */
+export function isCountRule(unit: string | null | undefined, limit: number | null | undefined): boolean {
+  return limit === 0 || (!!unit && COUNT_UNITS.has(unit) && unit !== 'weeks')
+}
+
+/** Engine tier ids in display text read as words: "pipe_low" → "the low pipe tier" (D9; a label map, no value changes). */
+const TOKEN_LABELS: Record<string, string> = {
+  pipe_low: 'the low pipe tier',
+  pipe_high: 'the high pipe tier',
+}
+export function tidyTokens(text: string): string {
+  return text.replace(/\b(pipe_low|pipe_high)\b/g, (t) => TOKEN_LABELS[t] ?? t)
 }
 
 export function fmtUsd(v: number | null | undefined, signed = false): string {
@@ -38,10 +59,35 @@ export function fmtTs(ts: number | null | undefined): string {
   return ts === null || ts === undefined ? DASH : DATE.format(new Date(ts * 1000))
 }
 
+/**
+ * The demo world's clock (UX-1 D2): WS4 anchored the seed data at 16 Oct 2026, 12:00 IST (`inbox.as_of`,
+ * `integrations.synced_at`). Seed timestamps read against this fixed, labelled clock, so they never run
+ * ahead of real time while recording and never drift to "3 weeks ago" during judging. Visitor-owned
+ * items (a live run, a live sync) keep the browser clock.
+ */
+export const DEMO_AS_OF = 1792132200
+
+/** The demo clock in ms; `world.as_of` wins once WS4's generator writes one. */
+export function demoNowMs(world?: { as_of?: number | null } | null): number {
+  return (world?.as_of ?? DEMO_AS_OF) * 1000
+}
+
+export function demoClockLabel(world?: { as_of?: number | null } | null): string {
+  return `Demo world as of ${fmtTs(demoNowMs(world) / 1000)} IST`
+}
+
+/** Display-only plural fix for generator text: "(1 lines)" → "(1 line)" (UX-1 D2; WS4 to pluralise at source). */
+export function tidyPlurals(text: string): string {
+  return text.replace(/(^|[^\d.,])1 (line|PR|element|pipe|check|crossing|finding)s\b/g, '$11 $2')
+}
+
+/** Relative time; anything later than `nowMs` shows its date instead of "in 2 hours" (D2 clamp). */
 export function fmtRelative(ts: number, nowMs: number = Date.now()): string {
-  const diffS = ts - nowMs / 1000
+  const ahead = ts - nowMs / 1000
+  if (ahead > 60) return fmtTs(ts)
+  const diffS = Math.min(ahead, 0)
   const abs = Math.abs(diffS)
-  if (abs < 60) return REL.format(Math.round(diffS), 'second')
+  if (abs < 60) return abs < 1 ? 'now' : REL.format(Math.round(diffS), 'second')
   if (abs < 3600) return REL.format(Math.round(diffS / 60), 'minute')
   if (abs < 86400) return REL.format(Math.round(diffS / 3600), 'hour')
   if (abs < 86400 * 14) return REL.format(Math.round(diffS / 86400), 'day')
@@ -98,6 +144,9 @@ const KEY_LABELS: Record<string, { label: string; unit?: string; usd?: boolean }
   finding_id: { label: 'Finding' },
   ok: { label: 'OK' },
   i_a: { label: 'Current I', unit: 'A' },
+  at_x: { label: 'At x', unit: 'm' },
+  at_y: { label: 'At y', unit: 'm' },
+  at_z: { label: 'At z', unit: 'm' },
   n1_current_a: { label: 'N-1 current', unit: 'A' },
   dc_kwp: { label: 'DC capacity', unit: 'kWp' },
   dc_ac: { label: 'DC/AC ratio' },
@@ -184,6 +233,8 @@ export function fmtKeyValue(key: string, value: unknown): string {
 /** A finding's formula input as label and value with its unit ("i_a", 1546.43 → "Current I", "1,546.43 A"). */
 export function fmtInput(key: string, value: unknown): { label: string; value: string } {
   const d = describeKey(key)
+  // An explicit empty value from the engine (R12 "mismatched": "") reads as "none", not a blank (null stays "—").
+  if (value === '' || (Array.isArray(value) && value.length === 0)) return { label: d.label, value: 'none' }
   if (typeof value === 'number') return { label: d.label, value: d.usd ? fmtUsd(value) : fmtQty(value, d.unit === 'USD' ? null : d.unit) }
   if (Array.isArray(value) && value.every(isScalar)) return { label: d.label, value: value.map((x) => (typeof x === 'number' ? fmtNum(x) : String(x))).join(', ') }
   if (value !== null && typeof value === 'object') {

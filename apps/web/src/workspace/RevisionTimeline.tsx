@@ -1,35 +1,15 @@
 import { cn } from 'cn'
-import { CircleCheck, CircleDashed, CircleX, GitCompareArrows, Stamp, TriangleAlert } from 'lucide-react'
+import { GitCompareArrows, Stamp } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 import { Switch } from '@/components/ui/switch'
-import { approvalFor, countByStatus, findingsFor } from '@/lib/select'
-import type { Finding } from '@/lib/types'
+import { approvalFor, findingsFor } from '@/lib/select'
 import { useUi } from '@/store/ui'
+import { RevisionVerdict } from './RevisionVerdict'
 import { useWorkspace } from './WorkspaceContext'
 
-/** Worst outcome of a revision's checks, icon + text (M7: warnings and "not checked yet" are not "all pass"). */
-function RevisionVerdict({ findings }: { findings: Finding[] }) {
-  const c = countByStatus(findings)
-  const v = !findings.length
-    ? { icon: CircleDashed, cls: 'text-zinc-400', text: 'not checked yet' }
-    : c.fail > 0
-      ? { icon: CircleX, cls: 'text-rose-400', text: `${c.fail} fail` }
-      : c.warn > 0
-        ? { icon: TriangleAlert, cls: 'text-amber-300', text: `${c.warn} warn` }
-        : { icon: CircleCheck, cls: 'text-emerald-400', text: 'all pass' }
-  const Icon = v.icon
-  return (
-    <span className={cn('inline-flex items-center gap-0.5', v.cls)}>
-      <Icon aria-hidden className="size-3.5" />
-      {v.text}
-    </span>
-  )
-}
-
 export function RevisionTimeline() {
-  const { bundle, rev, parent } = useWorkspace()
+  const { bundle, rev, parent, compare } = useWorkspace()
   const setViewRev = useUi((s) => s.setViewRev)
-  const compare = useUi((s) => s.compare)
   const setCompare = useUi((s) => s.setCompare)
   const runId = new URLSearchParams(useLocation().search).get('run')
   if (!bundle.revisions.length) {
@@ -40,7 +20,7 @@ export function RevisionTimeline() {
     )
   }
   return (
-    <footer aria-label="Revisions" className="flex h-11 items-center gap-3 overflow-x-auto border-t px-4 text-xs">
+    <footer aria-label="Revisions" className="flex h-11 items-center gap-3 overflow-x-auto whitespace-nowrap border-t px-4 text-xs">
       <span className="font-medium uppercase tracking-wide text-zinc-400">Revisions</span>
       <ol className="flex items-center gap-2">
         {bundle.revisions.map((r, i) => {
@@ -64,7 +44,7 @@ export function RevisionTimeline() {
               {approval && (
                 <span className="inline-flex items-center gap-1 text-emerald-300">
                   <Stamp aria-hidden className="size-3.5" />
-                  signed by {approval.approver_name} ({approval.role})
+                  {`signed by ${approval.approver_name} · ${approval.role}`}
                 </span>
               )}
             </li>
@@ -74,7 +54,7 @@ export function RevisionTimeline() {
       <label className="ml-auto inline-flex items-center gap-2 text-zinc-400">
         <GitCompareArrows aria-hidden className="size-3.5" />
         Compare with parent
-        <Switch checked={compare && !!parent} disabled={!parent} onCheckedChange={setCompare} aria-label="Compare with parent" />
+        <Switch checked={compare} disabled={!parent} onCheckedChange={setCompare} aria-label="Compare with parent" />
       </label>
       {rev && (
         <Link to={`/app/p/${bundle.project.id}/review/${rev.id}${runId ? `?run=${runId}` : ''}`} className="rounded border border-zinc-700 px-2 py-1 text-zinc-200 hover:border-zinc-500">

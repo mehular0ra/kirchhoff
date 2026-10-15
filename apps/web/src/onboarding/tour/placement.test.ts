@@ -1,4 +1,4 @@
-import { cardPlacement, spotlightBox } from './placement'
+import { cardPlacement, placeCard, spotlightBox } from './placement'
 
 const desk = { w: 1440, h: 900 }
 const phone = { w: 412, h: 915 }
@@ -24,4 +24,25 @@ test('issue #10 step 1: a target taller than the screen is clamped, and the card
   expect(s.top + s.height).toBeLessThanOrEqual(desk.h)
   expect(cardPlacement(s, 'bottom', desk)).toMatchObject({ side: 'right', floating: false }) // beside it, on screen
   expect(cardPlacement(box(175, 193, 817, 292), 'bottom', desk)).toMatchObject({ side: 'bottom', floating: false })
+})
+
+test('D3 step 3: with the drawer as the card target, the card sits left of the drawer (over the dimmed matrix), not on the evidence', () => {
+  const chip = box(1200, 148, 105, 33)
+  const drawer = box(992, 0, 448, 900)
+  const p = placeCard(chip, drawer, 'left', desk)
+  expect(p).toMatchObject({ side: 'left', floating: false })
+  expect(p.anchor).toEqual(drawer) // the card is laid out against the drawer's left edge, so it never covers it
+})
+
+test('D3 step 3 on a phone: the drawer fills the width, so the card falls back to the chip (below it)', () => {
+  const chip = box(172, 148, 105, 33)
+  const drawer = box(0, 0, 412, 915)
+  const p = placeCard(chip, drawer, 'left', phone)
+  expect(p).toMatchObject({ side: 'bottom', floating: false })
+  expect(p.anchor).toEqual(chip)
+})
+
+test('D3: without a card target the card is placed against the spotlight as before', () => {
+  const chip = box(1200, 148, 105, 33)
+  expect(placeCard(chip, null, 'left', desk)).toEqual(cardPlacement(chip, 'left', desk))
 })

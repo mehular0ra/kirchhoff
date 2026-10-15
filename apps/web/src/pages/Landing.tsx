@@ -3,7 +3,8 @@ import { ArrowRight, CirclePlay, Zap } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { KirchhoffMark } from '@/components/KirchhoffMark'
-import { FICTIONAL_TEXT } from '@/components/Labels'
+import { FICTIONAL_TEXT, ILLUSTRATIVE_TEXT } from '@/components/Labels'
+import { useRecordedRun } from '@/data/useRecordedRun'
 
 // Effects live only here (spec §12). The background traces are decorative and static under reduced motion.
 const TRACES = ['M 0 40 H 140 V 120 H 240', 'M 0 150 H 90 V 260 H 220', 'M 0 300 H 170 V 380 H 260', 'M 40 0 V 70 H 120']
@@ -16,6 +17,7 @@ const NODES: [number, number][] = [
 
 export function Landing() {
   const reduce = useReducedMotion()
+  const recorded = useRecordedRun()
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden">
       <div
@@ -52,11 +54,11 @@ export function Landing() {
         <KirchhoffMark />
         Kirchhoff <span className="font-normal text-zinc-400">by Ordinal</span>
       </header>
-      <main className="relative z-10 mx-auto flex max-w-3xl flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+      <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 px-6 pt-16 pb-12 text-center sm:pt-20">
         <p className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400">
           AI designs. Physics checks. An engineer signs.
         </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-50 sm:text-5xl">
+        <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-zinc-50 sm:text-5xl">
           Weeks of senior-engineer design work, in one reviewed, signed session.
         </h1>
         <p className="max-w-xl text-base text-zinc-400">
@@ -74,13 +76,36 @@ export function Landing() {
               <Zap aria-hidden /> Run it live
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/app/p/hall-a?replay=1">
-              <CirclePlay aria-hidden /> Replay a recorded run
-            </Link>
-          </Button>
+          {/* Only when Hall A carries a recorded run (residual): the provisional bundle has no events to replay. */}
+          {recorded === true && (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/app/p/hall-a?replay=1">
+                <CirclePlay aria-hidden /> Replay a recorded run
+              </Link>
+            </Button>
+          )}
         </div>
-        <ol className="mt-6 grid w-full grid-cols-1 gap-3 text-left text-sm sm:grid-cols-3" aria-label="How it works">
+        {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, lazy and ~90 kB. */}
+        <figure className="mt-6 w-full">
+          <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-sky-950/40">
+            <div aria-hidden className="flex items-center gap-1.5 border-b border-zinc-800 px-3 py-2">
+              <span className="size-2.5 rounded-full bg-zinc-700" />
+              <span className="size-2.5 rounded-full bg-zinc-700" />
+              <span className="size-2.5 rounded-full bg-zinc-700" />
+            </div>
+            <img
+              src="/landing/hall-a-r2.webp"
+              width={1440}
+              height={900}
+              loading="lazy"
+              decoding="async"
+              alt="Hall A (sample) in Kirchhoff's 3D view: the signed revision with each fixed check called out as resolved, the revision story, the agent lanes and the co-pilot's what-if chips."
+              className="block aspect-[16/10] h-auto w-full bg-zinc-900"
+            />
+          </div>
+          <figcaption className="mt-2 text-xs text-zinc-400">Hall A (sample): the first revision’s failures, fixed and signed.</figcaption>
+        </figure>
+        <ol className="mt-4 grid w-full max-w-3xl grid-cols-1 gap-3 text-left text-sm sm:grid-cols-3" aria-label="How it works">
           {[
             ['Agents design', 'Gemini agents read the tender with verified citations and design power and cooling together.'],
             ['Physics checks', 'A deterministic rule pack checks every number; the AI cannot mark its own homework.'],
@@ -93,8 +118,12 @@ export function Landing() {
             </li>
           ))}
         </ol>
+        <p className="text-xs text-zinc-400">Built on Gemini · ADK · Cloud Run · Firestore · Firebase</p>
       </main>
-      <footer className="relative z-10 p-4 text-center text-xs text-zinc-400">{FICTIONAL_TEXT}</footer>
+      <footer className="relative z-10 flex flex-col items-center gap-1 p-4 text-center text-xs text-zinc-400">
+        <span>{FICTIONAL_TEXT}</span>
+        <span>{ILLUSTRATIVE_TEXT}</span>
+      </footer>
     </div>
   )
 }

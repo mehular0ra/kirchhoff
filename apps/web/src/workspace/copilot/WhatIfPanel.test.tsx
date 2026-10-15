@@ -51,7 +51,7 @@ test('a precomputed chip works offline and lights the two-colour impact chain', 
   const chain = screen.getByRole('list', { name: 'Impact chain' })
   expect(within(chain).getByText('R1-01 → A-01 → CB-A1 → A1 → T-A1')).toBeInTheDocument()
   expect(within(chain).getByText('Cooling:')).toBeInTheDocument()
-  expect(container.querySelector('[style*="rgb(59, 130, 246)"]')).not.toBeNull()
+  expect(container.querySelector('[style*="rgb(192, 132, 252)"]')).not.toBeNull() // cooling violet (D6)
   expect(useChecklist.getState().done.run_whatif).toBe(true)
   await user.click(screen.getByRole('button', { name: 'Clear what-if' }))
   expect(useUi.getState().whatIf).toBeNull()

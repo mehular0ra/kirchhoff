@@ -128,21 +128,21 @@ function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
     >
       <Handle type="target" position={Position.Top} className="!size-1.5 !border-0 !bg-zinc-500" />
       <Symbol kind={data.kind} />
-      <span className="font-mono text-[11px] leading-tight text-zinc-100">{data.label}</span>
-      {data.sub && <span className="font-mono text-[10px] leading-tight text-zinc-400">{data.sub}</span>}
+      <span className="font-mono text-[13px] leading-tight text-zinc-100">{data.label}</span>
+      {data.sub && <span className="whitespace-nowrap font-mono text-[12px] leading-tight text-zinc-400">{data.sub}</span>}
       <span className="flex flex-wrap justify-center gap-1">
         {st && StIcon && data.status !== 'pass' && (
-          <span className={cn('inline-flex items-center gap-0.5 text-[10px]', st.text)}>
-            <StIcon aria-hidden className="size-3" />
+          <span className={cn('inline-flex items-center gap-0.5 text-[11px] font-medium', st.text)}>
+            <StIcon aria-hidden className="size-3.5" />
             {st.label}
           </span>
         )}
         {data.change && (
-          <span className={cn('rounded border px-1 text-[10px]', CHANGE_TAG[data.change].cls)}>{CHANGE_TAG[data.change].text}</span>
+          <span className={cn('rounded border px-1 text-[11px]', CHANGE_TAG[data.change].cls)}>{CHANGE_TAG[data.change].text}</span>
         )}
-        {data.resolved && <span className="rounded border border-emerald-400/60 px-1 text-[10px] text-emerald-200">✓ resolved</span>}
+        {data.resolved && <span className="rounded border border-emerald-400/60 px-1 text-[11px] text-emerald-200">✓ resolved</span>}
         {data.whatIfStatus && data.whatIfStatus !== 'pass' && (
-          <span className="rounded border border-zinc-500 px-1 text-[10px] text-zinc-100">what-if: {STATUS_META[data.whatIfStatus].label}</span>
+          <span className="rounded border border-zinc-500 px-1 text-[11px] text-zinc-100">what-if: {STATUS_META[data.whatIfStatus].label}</span>
         )}
       </span>
       <Handle type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-zinc-500" />

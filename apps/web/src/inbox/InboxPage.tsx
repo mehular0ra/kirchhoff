@@ -5,13 +5,14 @@ import { Handshake, Inbox, Mail, Paperclip } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, useParams } from 'react-router'
 import { EmptyState, SandboxLabel } from '@/components/Labels'
-import { fmtRelative } from '@/lib/format'
+import { LoadError } from '@/components/LoadError'
+import { demoClockLabel, demoNowMs, fmtRelative } from '@/lib/format'
 import type { InboxEmail } from '@/lib/types'
 import { EmailDetail, VerdictBadge } from './EmailDetail'
 import { appetiteLine } from './inboxMeta'
 import { markRead, useInbox } from './useInbox'
 
-function EmailRow({ email, unread, active }: { email: InboxEmail; unread: boolean; active: boolean }) {
+function EmailRow({ email, unread, active, nowMs }: { email: InboxEmail; unread: boolean; active: boolean; nowMs: number }) {
   return (
     <li className={cn('border-b', active && 'bg-accent')}>
       <Link
@@ -27,7 +28,7 @@ function EmailRow({ email, unread, active }: { email: InboxEmail; unread: boolea
             </span>
           )}
           <span className={cn('truncate', unread ? 'font-semibold text-zinc-100' : 'text-zinc-300')}>{email.from_org}</span>
-          <span className="ml-auto shrink-0 text-xs text-zinc-400">{fmtRelative(email.received_at)}</span>
+          <span className="ml-auto shrink-0 text-xs text-zinc-400">{fmtRelative(email.received_at, nowMs)}</span>
         </span>
         <span className="truncate text-sm text-zinc-300">{email.subject}</span>
         <span className="flex items-center gap-2 text-xs text-zinc-400">
@@ -56,9 +57,12 @@ export function InboxPage() {
   useEffect(() => {
     if (emailId) markRead(emailId)
   }, [emailId])
-  if (error) return <EmptyState tone="error" title="Could not load the bids inbox">{error}</EmptyState>
+  if (error) return <LoadError error={error} what="the bids inbox" notFoundTitle="Bids inbox not found" />
   if (!data) return <EmptyState title="Loading the bids inbox…" />
   const selected = data.emails.find((e) => e.id === emailId) ?? null
+  // Seed emails read against the snapshot's own "now" (D2), labelled in the header.
+  const clock = { as_of: data.as_of }
+  const nowMs = demoNowMs(clock)
   return (
     <div className="mx-auto grid h-full max-w-7xl grid-cols-1 lg:grid-cols-[24rem_1fr]">
       <section aria-labelledby="inbox-h" className={cn('flex min-h-0 flex-col border-r', emailId && 'hidden lg:flex')}>
@@ -72,11 +76,12 @@ export function InboxPage() {
           </div>
           <p className="font-mono text-xs text-zinc-400">{data.mailbox}</p>
           <p className="text-xs text-zinc-400">{live ? 'Live · your workspace' : 'Recorded triage (static)'}</p>
+          <p className="text-xs text-zinc-400">{demoClockLabel(clock)}</p>
           <p className="text-xs text-zinc-400">{appetiteLine(data.appetite)}</p>
         </header>
         <ol aria-label="Emails" className="min-h-0 flex-1 overflow-auto">
           {data.emails.map((e) => (
-            <EmailRow key={e.id} email={e} unread={!read.includes(e.id)} active={e.id === emailId} />
+            <EmailRow key={e.id} email={e} unread={!read.includes(e.id)} active={e.id === emailId} nowMs={nowMs} />
           ))}
         </ol>
       </section>

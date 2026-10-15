@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { CHAIN_COLORS } from '@/lib/agents'
 import { fixtureBundle } from '@/test/fixtures'
 import { resetStores } from '@/test/render'
 import { useUi } from '@/store/ui'
@@ -181,4 +182,55 @@ test('M13: in what-if view the header counts what-if findings, not "checks"', ()
   act(() => useUi.getState().setWhatIf({ result: fixtureBundle().what_ifs[0], origin: 'precomputed' }))
   expect(screen.getByText('3 what-if findings')).toBeInTheDocument()
   expect(screen.queryByText(/^\d+ checks$/)).not.toBeInTheDocument()
+})
+
+test('D6: in what-if view the header shows only non-zero counts and says only failing checks are listed', async () => {
+  const b = fixtureBundle()
+  resetStores()
+  const result = b.what_ifs.find((w) => w.param === 'rack_kw' && w.value === 200)!
+  act(() => useUi.getState().setWhatIf({ result, origin: 'precomputed' }))
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="static">
+        <ComplianceMatrix />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  const fails = result.findings.filter((f) => f.status === 'fail').length
+  expect(screen.getByText(`${fails} fail`)).toBeInTheDocument()
+  expect(screen.queryByText('0 pass')).not.toBeInTheDocument()
+  expect(screen.queryByText('0 warn')).not.toBeInTheDocument()
+  expect(screen.getByText('(only failing checks are listed)')).toBeInTheDocument()
+})
+
+test('D6: impact-chain colours stay clear of the pipe blue and the status hues', () => {
+  expect(CHAIN_COLORS).toEqual({ electrical: '#fb923c', cooling: '#c084fc' })
+})
+
+test('residual: a not-checked cell has an accessible name without adding an element per blank cell', () => {
+  renderMatrix()
+  const table = screen.getByRole('table', { name: 'Compliance matrix' })
+  const blank = within(table).getAllByRole('cell', { name: /: not checked$/ })
+  expect(blank.length).toBeGreaterThan(0)
+  expect(blank[0]).toBeEmptyDOMElement() // still the CSS dot, no child nodes
+  expect(blank[0].getAttribute('aria-label')).toMatch(/^R\d{2}b? [A-Z0-9-]+: not checked$/)
+})
+
+test('residual: an element no canvas draws (R12 "BOQ") opens its finding instead of switching to an empty 3D view', async () => {
+  const user = userEvent.setup()
+  resetStores()
+  const b = fixtureBundle()
+  const f0 = b.findings.r2[0]
+  b.findings.r2 = [...b.findings.r2, { ...f0, id: 'R12:BOQ', rule_id: 'R12', element_id: 'BOQ', status: 'pass', inputs: {} }]
+  act(() => useUi.getState().setTab('matrix'))
+  render(
+    <TooltipProvider>
+      <WorkspaceProvider bundle={b} source="static">
+        <ComplianceMatrix />
+      </WorkspaceProvider>
+    </TooltipProvider>,
+  )
+  await user.click(screen.getByRole('button', { name: 'BOQ' }))
+  expect(useUi.getState().tab).toBe('matrix')
+  expect(useUi.getState().findingId).toBe('R12:BOQ')
 })

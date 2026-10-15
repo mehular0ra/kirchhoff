@@ -8,7 +8,8 @@ export type Intent =
   | { tool: 'focus_element'; element: string }
 
 const NUM = '(\\d+(?:\\.\\d+)?)'
-const ELEMENT = /\b([A-Z]{1,3}\d?-[A-Z]?\d{1,2}(?:-\d{2})?|[A-Z]\d)\b/i
+// Model ids (FA-01, H-Z2, R1-01, A1) plus the two whole-design check targets, R12's BOQ and R06's HALL.
+const ELEMENT = /\b([A-Z]{1,3}\d?-[A-Z]?\d{1,2}(?:-\d{2})?|[A-Z]\d|BOQ|HALL)\b/i
 const RULE = /\b(R\d{2}b?)\b/i
 
 export function parseIntent(text: string): Intent | null {

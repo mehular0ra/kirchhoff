@@ -12,9 +12,15 @@ export interface TourStep {
   route: (ctx: TourContext) => string
   target: string
   title: (ctx: TourContext) => string
-  body: string
+  /** Card text; a function when it depends on the data (step 3's "highlighted" needs a pdfplumber box, D7). */
+  body: string | ((ctx: TourContext) => string)
   /** Preferred popover side (Radix flips/shifts it to stay on screen). Default "bottom". */
   side?: 'top' | 'right' | 'bottom' | 'left'
+  /**
+   * Places the card beside this element instead of the spotlit target (D3): step 3 spotlights the tender
+   * chip but keeps its card off the drawer, so the value bar and formula stay visible.
+   */
+  cardTarget?: string
 }
 
 /** The earliest revision with a failing finding, and that finding (tour step 3 opens it). */
@@ -24,6 +30,17 @@ export function firstFailure(b: Bundle | null): { rev: string; id: string } | nu
     if (f) return { rev: r.id, id: f.id }
   }
   return null
+}
+
+export function stepBody(step: Pick<TourStep, 'body'>, ctx: TourContext): string {
+  return typeof step.body === 'function' ? step.body(ctx) : step.body
+}
+
+/** True when the first failure's tender citation carries a pdfplumber box, so the PDF can highlight it. */
+function firstFailureHasBox(b: Bundle | null): boolean {
+  const f = firstFailure(b)
+  const finding = f ? (b!.findings[f.rev] ?? []).find((x) => x.id === f.id) : null
+  return !!finding?.tender_refs?.some((c) => Array.isArray(c.bbox) && c.bbox.length === 4)
 }
 
 export const TOUR_STEPS: TourStep[] = [
@@ -48,9 +65,12 @@ export const TOUR_STEPS: TourStep[] = [
       return f ? `/app/p/hall-a?tab=matrix&rev=${f.rev}&finding=${encodeURIComponent(f.id)}` : '/app/p/hall-a?tab=matrix'
     },
     target: '[data-tour="tender-chip"]',
+    cardTarget: '[data-slot="sheet-content"]',
     side: 'left',
     title: () => 'Open a finding and its source',
-    body: 'This failure was caught on the first revision. Click the tender chip: the PDF opens at the clause, highlighted.',
+    // "highlighted" only when the citation carries a pdfplumber box (UX-1 D7); otherwise the dialog still shows the verified quote.
+    body: (ctx) =>
+      `This failure was caught on the first revision. Click the tender chip: the PDF opens at the clause${firstFailureHasBox(ctx.hallA) ? ', highlighted' : ''}.`,
   },
   {
     id: 'lanes',
@@ -82,6 +102,8 @@ export const TOUR_STEPS: TourStep[] = [
     route: () => '/app',
     target: '[data-tour="hall-b"]',
     title: () => 'Now run it live yourself',
-    body: "Hall B is Hall A's twin. Start a live run in your own workspace, or watch a recorded one.",
+    // "or watch a recorded one" only when Hall A's bundle carries a recorded run (D10).
+    body: (ctx) =>
+      `Hall B is Hall A's twin. Start a live run in your own workspace${ctx.hallA && !ctx.hallA.events.length ? '' : ', or watch a recorded one'}.`,
   },
 ]

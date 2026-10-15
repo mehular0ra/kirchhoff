@@ -13,7 +13,8 @@ import { useShortcuts } from './useShortcuts'
 
 const nav = [
   { to: '/app', label: 'Projects', end: true },
-  { to: '/app/inbox', label: 'Bids inbox', end: false },
+  // "Inbox" below sm so the nav fits a 390 px phone on one line (D14); the link's name stays "Bids inbox".
+  { to: '/app/inbox', label: 'Bids inbox', short: 'Inbox', end: false },
   { to: '/app/integrations', label: 'Integrations', end: false },
 ]
 
@@ -45,8 +46,16 @@ export function AppShell() {
               className={({ isActive }) =>
                 cn('rounded px-2 py-1 whitespace-nowrap text-zinc-400 hover:text-zinc-100', isActive && 'bg-accent text-zinc-100')
               }
+              aria-label={n.short ? n.label : undefined}
             >
-              {n.label}
+              {n.short ? (
+                <>
+                  <span className="sm:hidden">{n.short}</span>
+                  <span className="hidden sm:inline">{n.label}</span>
+                </>
+              ) : (
+                n.label
+              )}
             </NavLink>
           ))}
         </nav>

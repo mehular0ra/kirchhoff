@@ -123,7 +123,29 @@ test('docs tab mounts the read-only plan with the resolved open question for a r
 })
 
 test('header actions: sign-off links to the latest revision; autonomy is locked to the run', () => {
-  wrap(<HeaderActions />)
+  const b = fixtureBundle()
+  b.approvals = [] // not signed yet
+  wrap(<HeaderActions />, { bundle: b })
   expect(screen.getByRole('link', { name: /request sign-off/i })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
   expect(screen.getByRole('radio', { name: /^Ask/ })).toBeDisabled()
+})
+
+test('D4: a signed latest revision shows "Signed · view review", never "Request sign-off"', () => {
+  wrap(<HeaderActions />)
+  expect(screen.getByRole('link', { name: 'Signed · view review' })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
+  expect(screen.queryByRole('link', { name: /request sign-off/i })).not.toBeInTheDocument()
+})
+
+test('D10: a signed recorded design without options says the sample does not include them; a live run keeps "No options yet"', () => {
+  const b = fixtureBundle()
+  b.runs = []
+  const { unmount } = wrap(<OptionCards />, { bundle: b })
+  expect(screen.getByText('Topology options are not part of this sample')).toBeInTheDocument()
+  expect(screen.queryByText('No options yet')).not.toBeInTheDocument()
+  unmount()
+  const live = fixtureBundle()
+  live.runs = []
+  live.approvals = []
+  wrap(<OptionCards />, { bundle: live, source: 'live' })
+  expect(screen.getByText('No options yet')).toBeInTheDocument()
 })

@@ -3,18 +3,23 @@
 // Summaries are built from engine records only (spec §6.3): the one piece of LLM-sourced text
 // (the engine's own explanation, or /api/explain's answer) is passed through fillPlaceholders,
 // the same digit-insertion mechanism FindingDrawer.tsx already uses for displaying finding text.
-import { fillPlaceholders, fmtQty } from '@/lib/format'
+import { fillPlaceholders, fmtKeyValue, fmtQty } from '@/lib/format'
+import { findingsFor, parentRevision, revisionRef } from '@/lib/select'
 import { statusRank } from '@/lib/status'
-import type { Finding, WhatIfParam, WhatIfResult } from '@/lib/types'
+import type { Finding, Revision, WhatIfParam, WhatIfResult } from '@/lib/types'
 import type { ApiClient } from '@/services/apiClient'
+import { readFix } from '../finding/fixView'
 import type { WorkspaceView } from '../WorkspaceContext'
 
 export interface ToolContext {
   view: WorkspaceView
   api: ApiClient
   runWhatIf: (param: WhatIfParam, value: number) => Promise<WhatIfResult | null>
-  focus: (id: string) => void
+  /** Focuses the element; false when no canvas draws it (R12 "BOQ"), so the answer says so. */
+  focus: (id: string) => boolean
   openFinding: (id: string) => void
+  /** Switches the workspace to another revision (the "why" answer opens the revision where the check failed, D1). */
+  setViewRev: (rev: string) => void
 }
 
 export interface ToolOutcome {
@@ -31,6 +36,46 @@ function worstFindingFor(findings: Finding[], element: string, rule?: string): F
       .filter((f) => f.element_id.toUpperCase() === element.toUpperCase() && (!rule || f.rule_id === rule))
       .sort((a, b) => statusRank(b.status) - statusRank(a.status))[0] ?? null
   )
+}
+
+const isProblem = (f: Finding | null): f is Finding => !!f && (f.status === 'fail' || f.status === 'warn')
+
+/** The finding asked about in one revision: by id first, else the worst one for the element (and rule). */
+function findingIn(findings: Finding[], id: string, element: string, rule?: string): Finding | null {
+  return findings.find((f) => f.id === id) ?? worstFindingFor(findings, element, rule)
+}
+
+interface Located {
+  finding: Finding
+  rev: Revision | null
+  /** The next revision on the path back from the one on screen (where the check was fixed), when it is not `rev`. */
+  child: Revision | null
+}
+
+/**
+ * "Why did FA-01 fail?" on a signed revision where FA-01 now passes must explain the check that failed,
+ * not the passing one (UX-1 D1). When the finding on screen is pass or n/a, walk back through the
+ * parent revisions to the nearest fail or warn on the same finding id, or the same element and rule.
+ */
+function locate(view: WorkspaceView, id: string, element: string, rule?: string): Located | null {
+  const here = findingIn(view.findings, id, element, rule)
+  if (isProblem(here)) return { finding: here, rev: view.rev, child: null }
+  let child = view.rev
+  for (let rev = parentRevision(view.bundle, view.rev); rev; child = rev, rev = parentRevision(view.bundle, rev)) {
+    const back = findingIn(findingsFor(view.bundle, rev.id), id, element, rule)
+    if (isProblem(back)) return { finding: back, rev, child }
+  }
+  return here ? { finding: here, rev: view.rev, child: null } : null
+}
+
+/** One line from the chosen-fix record: "Fixed in r2: <label> · Cost Δ +$15,580 · ΔV 0.84%". Values from the record only. */
+function fixLine(located: Located, view: WorkspaceView): string {
+  const fix = readFix(located.finding.fix ?? null)
+  if (!fix) return ''
+  const after = located.child ? findingsFor(view.bundle, located.child.id).find((f) => f.id === located.finding.id) : null
+  const lead = after && !isProblem(after) && located.child ? `Fixed in ${located.child.id}` : 'Chosen fix'
+  const deltas = fix.deltas.slice(0, 2).map(([k, v]) => fmtKeyValue(k, v))
+  return ` ${lead}: ${[fix.label, ...deltas].join(' · ')}.`
 }
 
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutcome> {
@@ -57,24 +102,33 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   }
   if (name === 'explain_finding') {
     const id = String(args.finding_id ?? '')
-    const finding =
-      ctx.view.findings.find((f) => f.id === id) ??
-      worstFindingFor(ctx.view.findings, String(args.element_id ?? id.split(':')[1] ?? ''), (args.rule_id as string | undefined) ?? id.split(':')[0])
-    if (!finding) return { summary: `No finding for ${id || String(args.element_id)} in this revision.`, data: { error: 'not_found' } }
+    const element = String(args.element_id ?? id.split(':')[1] ?? '')
+    const rule = (args.rule_id as string | undefined) ?? (id.includes(':') ? id.split(':')[0] : undefined)
+    const located = locate(ctx.view, id, element, rule)
+    if (!located) return { summary: `No finding for ${id || element} in this revision.`, data: { error: 'not_found' } }
+    const { finding, rev } = located
+    const elsewhere = !!rev && rev.id !== ctx.view.rev?.id
+    if (elsewhere) ctx.setViewRev(rev.id)
     ctx.openFinding(finding.id)
     let text = fillPlaceholders(finding.explanation || finding.title, finding)
-    if (ctx.view.revRef) {
+    const ref = rev ? revisionRef(ctx.view.bundle, rev.id, ctx.view.source) : ctx.view.revRef
+    if (ref) {
       try {
-        text = fillPlaceholders((await ctx.api.explain(ctx.view.revRef, finding.id)).text, finding)
+        text = fillPlaceholders((await ctx.api.explain(ref, finding.id)).text, finding)
       } catch {
         // engine explanation stands
       }
     }
-    return { summary: text, data: { finding_id: finding.id, status: finding.status, value: finding.value, limit: finding.limit, unit: finding.unit, text } }
+    const summary = `${elsewhere ? `In ${rev.id}: ` : ''}${text}${elsewhere ? fixLine(located, ctx.view) : ''}`
+    return {
+      summary,
+      data: { finding_id: finding.id, revision: rev?.id ?? null, status: finding.status, value: finding.value, limit: finding.limit, unit: finding.unit, text: summary },
+    }
   }
   if (name === 'focus_element') {
     const id = String(args.element_id ?? '').toUpperCase()
-    ctx.focus(id)
+    if (!ctx.focus(id))
+      return { summary: `${id} is not drawn on the 3D hall or the SLD; its checks are in the Matrix.`, data: { element_id: id, drawn: false } }
     return { summary: `Showing ${id}.`, data: { element_id: id } }
   }
   return { summary: `Unknown tool ${name}.`, data: { error: 'unknown_tool' } }

@@ -45,3 +45,17 @@ export function cardPlacement(spot: Box, preferred: Side, vp: Viewport): { side:
   // No room beside the target (it fills the screen): pin the card to the bottom edge, over the spotlight.
   return { side: 'top', anchor: { left: Math.max(EDGE, Math.min(spot.left + 12, vp.w - CARD_W - 12)), top: vp.h - 12, width: 1, height: 1 }, floating: true }
 }
+
+/**
+ * The card's placement when a step names a separate `cardTarget` (UX-1 D3): tour step 3 spotlights the
+ * tender chip inside the finding drawer, but its card goes beside the drawer so it never covers the
+ * value-vs-limit bar and formula the step is about. When the card target leaves no room (the drawer is
+ * full width on a phone), it falls back to the spotlight.
+ */
+export function placeCard(spot: Box, cardSpot: Box | null, preferred: Side, vp: Viewport): ReturnType<typeof cardPlacement> {
+  if (cardSpot) {
+    const p = cardPlacement(cardSpot, preferred, vp)
+    if (!p.floating && p.side === preferred) return p
+  }
+  return cardPlacement(spot, preferred, vp)
+}

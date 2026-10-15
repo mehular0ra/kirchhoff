@@ -6,8 +6,8 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useBundleStore } from '@/store/bundles'
 import { useUi } from '@/store/ui'
 import { useTour } from './tour'
-import { cardPlacement, spotlightBox } from './placement'
-import { TOUR_STEPS } from './tourSteps'
+import { placeCard, spotlightBox } from './placement'
+import { stepBody, TOUR_STEPS } from './tourSteps'
 
 const STABLE_FRAMES = 8 // consecutive identical rects before tracking stops
 const MIN_TRACK_MS = 600 // keep measuring at least this long after the target appears
@@ -21,6 +21,7 @@ export function TourHost() {
   const location = useLocation()
   const hallA = useBundleStore((s) => s.entries['hall-a:static']?.bundle ?? null)
   const [rect, setRect] = useState<DOMRect | null>(null)
+  const [cardRect, setCardRect] = useState<DOMRect | null>(null)
   const s = TOUR_STEPS[step]
   const ctx = { hallA }
   const route = s.route(ctx)
@@ -69,10 +70,14 @@ export function TourHost() {
     let tries = 0
     let el: Element | null = null
     let last: DOMRect | null = null
+    let lastCard: DOMRect | null = null
     let stable = 0
     let foundAt = 0
     let ro: ResizeObserver | null = null
     setRect(null)
+    setCardRect(null)
+    // The card's own anchor (D3), measured alongside the target: the drawer slides in with the chip.
+    const cardBox = () => (s.cardTarget ? (document.querySelector(s.cardTarget)?.getBoundingClientRect() ?? null) : null)
     const track = () => {
       if (!el?.isConnected) {
         el = null
@@ -82,11 +87,15 @@ export function TourHost() {
         return
       }
       const r = el.getBoundingClientRect()
-      if (last && sameRect(r, last)) stable += 1
+      const cr = cardBox()
+      const cardSame = cr === lastCard || (!!cr && !!lastCard && sameRect(cr, lastCard))
+      if (last && sameRect(r, last) && cardSame) stable += 1
       else {
         last = r
+        lastCard = cr
         stable = 0
         setRect(r)
+        setCardRect(cr)
       }
       if (stable < STABLE_FRAMES || performance.now() - foundAt < MIN_TRACK_MS) raf = requestAnimationFrame(track)
     }
@@ -123,7 +132,7 @@ export function TourHost() {
       document.removeEventListener('transitionend', remeasure, true)
       document.removeEventListener('animationend', remeasure, true)
     }
-  }, [active, step, location.key, s.target])
+  }, [active, step, location.key, s.target, s.cardTarget])
 
   useEffect(() => {
     if (!active) return
@@ -138,7 +147,8 @@ export function TourHost() {
   if (!active) return null
   const vp = { w: window.innerWidth, h: window.innerHeight }
   const spot = rect ? spotlightBox(rect, vp) : null
-  const place = spot ? cardPlacement(spot, s.side ?? 'bottom', vp) : null
+  const cardSpot = cardRect ? spotlightBox(cardRect, vp) : null
+  const place = spot ? placeCard(spot, cardSpot, s.side ?? 'bottom', vp) : null
   const box = spot ?? { left: vp.w / 2, top: vp.h / 3, width: 1, height: 1 }
   const last = step === TOUR_STEPS.length - 1
   return (
@@ -172,7 +182,7 @@ export function TourHost() {
           Step {step + 1} of {TOUR_STEPS.length}
         </p>
         <h2 className="mt-1 text-sm font-semibold text-zinc-50">{s.title(ctx)}</h2>
-        <p className="mt-1 text-xs text-zinc-300">{s.body}</p>
+        <p className="mt-1 text-xs text-zinc-300">{stepBody(s, ctx)}</p>
         {!rect && <p className="mt-1 text-xs text-zinc-400">Loading this part of the workspace…</p>}
         <div className="mt-3 flex items-center gap-2">
           <Button size="xs" variant="ghost" onClick={() => stop(false)}>

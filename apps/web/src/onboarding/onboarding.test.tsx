@@ -10,7 +10,7 @@ import { fakeApi, fakeServices, renderWithProviders } from '@/test/render'
 import { fixtureBundle } from '@/test/fixtures'
 import { completeItem, useChecklist } from './checklist/checklistStore'
 import { useTour } from './tour/tour'
-import { firstFailure, TOUR_STEPS } from './tour/tourSteps'
+import { firstFailure, stepBody, TOUR_STEPS } from './tour/tourSteps'
 
 /** window.location.assign cannot be spied directly in jsdom (its descriptor forbids redefining
  * the method in place), so swap the whole `location` object for the duration of one test. */
@@ -85,6 +85,24 @@ test('tour step 3 opens the first failing finding; step 4 counts agents from the
   expect(TOUR_STEPS[3].title({ hallA: b })).toBe("8 agents designed this; here's what each did")
   expect(TOUR_STEPS[4].target).toBe('[data-tour="whatif-chip"]')
   expect(TOUR_STEPS).toHaveLength(7)
+})
+
+test('D10: step 7 offers the recorded run only when Hall A carries one', () => {
+  const b = fixtureBundle()
+  expect(stepBody(TOUR_STEPS[6], { hallA: b })).toMatch(/or watch a recorded one/)
+  expect(stepBody(TOUR_STEPS[6], { hallA: { ...b, events: [] } })).not.toMatch(/recorded/)
+  expect(stepBody(TOUR_STEPS[6], { hallA: { ...b, events: [] } })).toMatch(/Start a live run in your own workspace\.$/)
+})
+
+test('D7: step 3 promises a highlight only when the cited quote carries a pdfplumber box', () => {
+  const b = fixtureBundle()
+  const withBox = b.findings.r1.find((f) => f.id === 'R05:FA-01')!
+  withBox.tender_refs = (withBox.tender_refs ?? []).map((c) => ({ ...c, bbox: [10, 20, 200, 40] }))
+  expect(stepBody(TOUR_STEPS[2], { hallA: b })).toMatch(/opens at the clause, highlighted/)
+  withBox.tender_refs = (withBox.tender_refs ?? []).map((c) => ({ ...c, bbox: null }))
+  expect(stepBody(TOUR_STEPS[2], { hallA: b })).toMatch(/opens at the clause\.$/)
+  expect(stepBody(TOUR_STEPS[2], { hallA: b })).not.toMatch(/highlighted/)
+  expect(stepBody(TOUR_STEPS[2], { hallA: null })).not.toMatch(/highlighted/)
 })
 
 const rectAt = (x: number, y: number, width: number, height: number) =>

@@ -191,6 +191,8 @@ export function AssetPackPage({ pack, pid }: { pack: 'grid' | 'solar'; pid: stri
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const Icon = pack === 'grid' ? UtilityPole : SunMedium
+  const packLabel = pack === 'grid' ? 'Grid asset pack' : 'Solar asset pack'
+  const name = project?.name ?? data.bundle?.project.name ?? null
   const result = override ?? (data.bundle ? assetResultFrom(data.bundle) : null)
   const recorded = data.bundle
     ? [...data.bundle.events].reverse().find((e) => e.agent === 'asset' && e.kind === 'message')?.title ?? null
@@ -218,10 +220,9 @@ export function AssetPackPage({ pack, pid }: { pack: 'grid' | 'solar'; pid: stri
         </Link>
         <span className="text-zinc-600">/</span>
         <Icon aria-hidden className="size-4 text-teal-300" />
-        <h1 className="text-lg font-semibold">{project?.name ?? data.bundle?.project.name ?? pid}</h1>
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-300">
-          {pack === 'grid' ? 'Grid asset pack' : 'Solar asset pack'}
-        </span>
+        {/* The project name when known, else the pack label — never the raw slug (D11). */}
+        <h1 className="text-lg font-semibold">{name ?? packLabel}</h1>
+        {name && <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-300">{packLabel}</span>}
       </header>
       {error && (
         <p role="alert" className="flex items-center gap-2 text-xs text-amber-200">
@@ -234,14 +235,15 @@ export function AssetPackPage({ pack, pid }: { pack: 'grid' | 'solar'; pid: stri
         <EmptyState title="Loading…" />
       ) : (
         <EmptyState
-          title="No recorded result for this asset pack"
+          tone={data.error ? 'error' : 'info'}
+          title={data.error ? "Couldn't load the recorded result" : 'No recorded result for this asset pack'}
           action={
             <Button size="sm" onClick={() => void rerun()} disabled={busy}>
               Run the {pack} engine
             </Button>
           }
         >
-          {data.error ?? 'The static bundle has no evaluate_grid/evaluate_solar result.'}
+          {data.error ? 'Check your connection and reload, or run the engine.' : 'The static bundle has no evaluate_grid/evaluate_solar result.'}
         </EmptyState>
       )}
     </div>

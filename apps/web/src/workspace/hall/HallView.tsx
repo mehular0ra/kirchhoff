@@ -12,6 +12,7 @@ import { STATUS_META, statusRank } from '@/lib/status'
 import type { Finding } from '@/lib/types'
 import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
+import { legendKeys } from '../legendKeys'
 import { useWorkspace, type WorkspaceView } from '../WorkspaceContext'
 import { buildLabels, layoutLabels, type LayoutItem, type SceneLabel } from './hallLabels'
 import { buildHallScene, midpoint, resample, type HallScene, type SceneBox, type SceneTube, type V3 } from './hallScene'
@@ -508,7 +509,7 @@ export default function HallView() {
       <HallLabelOverlay labels={labels} els={labelEls} leaders={leaders} />
       <HallIssueOverlay />
       <div className="pointer-events-none absolute bottom-2 left-2">
-        <Legend diff={!!v.diff} whatIf={v.highlights.size > 0} />
+        <Legend {...legendKeys(v)} />
       </div>
     </div>
   )

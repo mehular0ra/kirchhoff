@@ -2,6 +2,7 @@ import { TriangleAlert } from 'lucide-react'
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/Labels'
+import { LoadError } from '@/components/LoadError'
 import { useProjectData } from '@/data/useProjectData'
 import { useWorldProject } from '@/data/useWorld'
 import type { Project } from '@/lib/types'
@@ -9,8 +10,10 @@ import { Checklist } from '@/onboarding/checklist/Checklist'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import { CANVAS_TABS, useUi, type CanvasTab } from '@/store/ui'
 import { AgentLanes } from './AgentLanes'
+import { ArchivedSummary } from './ArchivedSummary'
 import { CanvasTabs } from './CanvasTabs'
 import { CoPilotPanel } from './copilot/CoPilotPanel'
+import { DesktopNote } from './DesktopNote'
 import { DocsTab } from './docs/DocsTab'
 import { FindingDrawer } from './finding/FindingDrawer'
 import { GateBanner } from './gates/GateBanner'
@@ -21,6 +24,7 @@ import { RevisionTimeline } from './RevisionTimeline'
 import { RunBar } from './RunBar'
 import { SldView } from './sld/SldView'
 import { LIVE_TARGET, StartRunPanel } from './StartRunPanel'
+import { StoryStrip } from './StoryStrip'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceProvider } from './WorkspaceContext'
 
@@ -63,14 +67,11 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
     if (signed) completeItem('open_signed')
   }, [signed])
 
-  if (data.status === 'error' && !data.bundle) {
-    return (
-      <EmptyState tone="error" title="This project's data is not available">
-        {data.error}. Seed projects load from static files; live runs need the backend.
-      </EmptyState>
-    )
-  }
+  if (data.status === 'error' && !data.bundle) return <LoadError error={data.error} notFoundTitle={runId ? 'Run not found' : 'Project not found'} />
   if (!data.bundle) return <EmptyState title="Loading workspace…" />
+  // An archived project with no design revisions is read-only history, not an empty workspace (D12).
+  if (data.source === 'static' && data.bundle.project.state === 'archived' && !data.bundle.revisions.length)
+    return <ArchivedSummary bundle={data.bundle} />
 
   const panes: Record<CanvasTab, ReactNode> = {
     hall: (
@@ -86,9 +87,14 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
 
   return (
     <WorkspaceProvider bundle={data.bundle} source={data.source}>
-      <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto]">
-        <WorkspaceHeader actions={<HeaderActions />} />
-        <div className="grid min-h-0 grid-cols-[16rem_minmax(0,1fr)_20rem]">
+      {/* One column that may shrink below its content, so a phone never widens the page: the panes scroll
+          sideways inside their own frame instead, and the tour's cards stay on the visible screen (D13). */}
+      <div className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
+        <div className="min-w-0">
+          <WorkspaceHeader actions={<HeaderActions />} />
+          <DesktopNote reviewHref={data.bundle.revisions.length ? `/app/p/${pid}/review/${data.bundle.revisions[data.bundle.revisions.length - 1].id}${runId ? `?run=${runId}` : ''}` : null} />
+        </div>
+        <div className="grid min-h-0 grid-cols-[16rem_minmax(22rem,1fr)_20rem] overflow-x-auto">
           <aside className="flex min-h-0 flex-col border-r">
             <div className="min-h-0 flex-1">
               <AgentLanes />
@@ -108,7 +114,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
             )}
             <GateBanner />
             <div className="min-h-0 flex-1">
-              <CanvasTabs panes={panes} />
+              <CanvasTabs panes={panes} aside={<StoryStrip />} />
             </div>
           </section>
           <aside aria-label="Co-pilot" className="min-h-0 overflow-y-auto border-l">
