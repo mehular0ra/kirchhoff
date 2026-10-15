@@ -87,6 +87,9 @@ class FailingExporter:
         raise RuntimeError("blob store is unreachable")
 
 
+EXPORT_FAILED = "Calc report and BOQ exports could not be published; the checked revision is unaffected."
+
+
 def test_docs_export_failure_degrades_to_a_failed_status_without_failing_the_run(p123, make_run):
     p123.exporter = FailingExporter()
     rid = _to_review(p123, make_run)
@@ -97,6 +100,30 @@ def test_docs_export_failure_degrades_to_a_failed_status_without_failing_the_run
     evs = _events(p123, rid)
     assert [e["title"] for e in evs if e["step"] == "p3.docs" and e["kind"] == "status"] == \
         ["calc-report.pdf failed", "boq.csv failed"]
+    # P2 final fix wave (Task 18 minor): the degraded export is on the audit trail, in the run's ledger events
+    # and in the final revision's own stored ledger (the sign-off record).
+    assert [e["title"] for e in evs if e["step"] == "p3.docs" and e["kind"] == "ledger"] == [EXPORT_FAILED]
+    assert {"kind": "did", "agent": "docs", "text": EXPORT_FAILED} in latest_revision(p123.store, "u1", rid)["ledger"]
+
+
+def test_a_successful_export_writes_no_failure_ledger_line(p123, make_run):
+    rid = _to_review(p123, make_run)
+    assert not [e for e in _events(p123, rid) if e["step"] == "p3.docs" and e["kind"] == "ledger"]
+    assert all(e["text"] != EXPORT_FAILED for e in latest_revision(p123.store, "u1", rid)["ledger"])
+
+
+def test_missing_intake_outputs_fail_the_docs_step_instead_of_posing_as_an_export_failure(p123, make_run):
+    """P2 final fix wave (Task 18 minor): the export arguments are built BEFORE the try, so a real bug (here the
+    committed p1.intake outputs are gone) fails the step -- resumable, and visible -- instead of being reported
+    as "calc-report.pdf failed"."""
+    rid = make_run()
+    start_phase(p123, "u1", rid, "p1")
+    resume_from_gate(p123, "u1", rid, "plan")
+    p123.store.delete_tree(f"{run_path('u1', rid)}/outputs/p1.intake")
+    resume_from_gate(p123, "u1", rid, "option", {"selected_option": "2N"})
+    assert _run(p123, rid)["status"] == "failed"
+    assert p123.store.get_doc(f"{run_path('u1', rid)}/steps/p3.docs")["status"] == "failed"
+    assert not [e for e in _events(p123, rid) if e["step"] == "p3.docs" and e["title"].endswith(" failed")]
 
 
 def test_tender_refs_get_pdfplumber_boxes(deps):
