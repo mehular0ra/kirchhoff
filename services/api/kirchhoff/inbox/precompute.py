@@ -55,11 +55,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=None, help=f"default: {default_out} (not allowed with --backend replay)")
     ap.add_argument("--backend", choices=("adk", "genai", "replay"), required=True)  # never a silent default
     args = ap.parse_args(argv)
-    if args.backend == "replay" and args.out is None:
+    if args.backend == "replay" and (args.out is None or args.out.resolve() == default_out.resolve()):
         # `make demo-world` folds the default capture into the static bundle: hand-authored replies must not land
-        # there labelled with the real model.
-        print("precompute: --backend replay needs an explicit --out (it never writes the default capture)",
-              file=sys.stderr)
+        # there labelled with the real model, however the path is spelled.
+        print("precompute: --backend replay needs an explicit --out other than the default capture "
+              f"({default_out}); it never writes the default capture", file=sys.stderr)
         return 2
     args.out = args.out or default_out
     enterprise = make_enterprise_client()

@@ -64,3 +64,14 @@ def test_replay_never_writes_the_default_capture(tmp_path, monkeypatch, capsys):
     assert main(["--backend", "replay"]) == 2
     assert not (tmp_path / "demo_world").exists()
     assert "--out" in capsys.readouterr().err
+
+
+def test_replay_cannot_be_pointed_at_the_default_capture_path_by_spelling_it_out(tmp_path, monkeypatch, capsys):
+    """Review of #8: the guard compared "no --out given", so passing the default path explicitly (or spelled with ..)
+    still wrote hand-authored replies labelled with the real model."""
+    import kirchhoff.api.deps as api_deps
+    monkeypatch.setattr(api_deps, "scenarios_dir", lambda: tmp_path)
+    spelled = tmp_path / "demo_world" / "captures" / ".." / "captures" / "inbox-triage.json"
+    assert main(["--backend", "replay", "--out", str(spelled)]) == 2
+    assert not (tmp_path / "demo_world" / "captures" / "inbox-triage.json").exists()
+    assert "default capture" in capsys.readouterr().err

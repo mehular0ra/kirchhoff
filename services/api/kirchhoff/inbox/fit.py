@@ -12,7 +12,7 @@ from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from kirchhoff.agents.trust import fill, fmt_number, fmt_value, sanitize
+from kirchhoff.agents.trust import fill, fmt_number, fmt_value, is_clean
 from kirchhoff.contracts import Material
 from kirchhoff.enterprise.world.inbox import Appetite
 from kirchhoff.intake.brief import canonical_topology
@@ -29,12 +29,15 @@ SUPPLY_FALLBACK = "The day-zero supply check ran; the figures are in the ERP."
 SupplyFn = Callable[[float | None, str | None, float | None, object], SupplyCheck]
 
 
+_SLOT = re.compile(r"\{[a-z_]+\}")
+
+
 def _say(template: str, fallback: str, **values: object) -> str:
-    """One rendered sentence: the template passes trust.sanitize, then the code-formatted values are filled in. If any
-    sentence was replaced the fallback is used whole, never a mix of the two."""
-    safe = sanitize(template, (), fallback)
-    if safe != " ".join(template.split()):
-        safe = fallback
+    """One rendered sentence: the template is checked for digits with its {slots} blanked out, then the code-formatted
+    values are filled in. A template with a digit of its own is replaced whole by the fallback, never a mix of the two.
+    It does not go through trust.sanitize: the sentence is ours, and sanitize is for agent text (the P2 fix wave makes
+    it reject braces, which would drop every slot sentence)."""
+    safe = template if is_clean(_SLOT.sub(" ", template), ()) else fallback
     return fill(safe, {k: str(v) for k, v in values.items()})
 
 

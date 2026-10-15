@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from kirchhoff.api.app import create_app
 from kirchhoff.enterprise.world.inbox import load_inbox, load_inbox_seed
+from kirchhoff.inbox.fit import warm_engine
 from kirchhoff.inbox.triage import triage_email
 from kirchhoff.runs.fakes import CheckedStore, build_fake_deps, build_fake_scenarios
 
@@ -109,6 +110,7 @@ REPO = Path(__file__).resolve().parents[4]
 def inbox_ready(deps):
     """I-1's inbox seed and rendered attachments in the fake scenarios dir (the API's file fallback). Precomputed
     triage is stripped, so the tests do not depend on whether the golden capture has been folded in yet."""
+    warm_engine()  # the live-triage tests run the engine against the real 9.5 s budget: pay the cold import here
     out = deps.scenarios_dir / "demo_world" / "out"
     out.mkdir(parents=True, exist_ok=True)
     seed = load_inbox_seed(REPO / "scenarios" / "demo_world" / "out" / "inbox_seed.json")

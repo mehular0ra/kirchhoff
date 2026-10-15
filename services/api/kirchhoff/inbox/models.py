@@ -2,7 +2,7 @@
 built by code from verified quotes, ERP records and engine results (spec §6.3, P2 ruling R14)."""
 from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 AttachmentKind = Literal["tender", "drawing", "addendum", "boq", "brochure", "other"]
 AssetType = Literal["datahall", "grid", "solar", "substation", "other"]
@@ -47,6 +47,20 @@ class RawCrm(BaseModel):
     propose_new: bool = False
 
 
+def _valid_items(model: type[BaseModel], items):
+    """The items of an agent list that validate, as model instances; one bad item must not fail the whole reply (the
+    golden capture runs the real agent over every email once)."""
+    if not isinstance(items, list):
+        return items
+    kept = []
+    for item in items:
+        try:
+            kept.append(model.model_validate(item))
+        except ValidationError:
+            continue
+    return kept
+
+
 class InboxExtraction(BaseModel):
     is_bid: bool
     summary: str = ""
@@ -56,9 +70,13 @@ class InboxExtraction(BaseModel):
 
     @field_validator("fields", mode="before")
     @classmethod
-    def _drop_unknown_keys(cls, v):
-        known = get_args(FieldKey)  # a key the UI has no row for is dropped, not an error
-        return [f for f in v if not isinstance(f, dict) or f.get("key") in known] if isinstance(v, list) else v
+    def _keep_valid_fields(cls, v):
+        return _valid_items(RawField, v)  # an unknown key or a malformed item ("page": "p.3") is dropped, not an error
+
+    @field_validator("attachments", mode="before")
+    @classmethod
+    def _keep_valid_attachments(cls, v):
+        return _valid_items(RawAttachment, v)
 
 
 # ---- triage result (code-built) ---------------------------------------------------------------------------------
@@ -72,7 +90,7 @@ class AttachmentTriage(_M):
 class ExtractedField(_M):
     key: FieldKey
     label: str
-    value: float | str | None  # None when withheld (unverified and not digit-free text)
+    value: float | str | None  # None whenever the field is not verified: an unverified value is never shown
     unit: str | None = None
     display: str  # code-formatted from the verified value
     source: str  # "body" or an attachment id

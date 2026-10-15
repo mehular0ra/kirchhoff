@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
+from kirchhoff.agents.prose_guard import prose_is_safe
 from kirchhoff.agents.runner import MODEL, AgentRunner, AgentSpec, Attachment, run_json
 from kirchhoff.agents.specs import INBOX
 from kirchhoff.agents.trust import fmt_value, sanitize
@@ -27,7 +28,7 @@ TRIAGE_PROMPT = """Triage this email from the bids@ mailbox of Meridian Power En
 halls, grid connections and solar plants. The attached PDFs follow in the order listed under "Attachments".
 Reply with JSON only:
 {"is_bid": true if the email asks Meridian to bid or quote, else false,
- "summary": one sentence with no digits,
+ "summary": one sentence with no quantity in digits or words and no braces,
  "attachments": [{"attachment_id": a listed id, "kind": "tender"|"drawing"|"addendum"|"boq"|"brochure"|"other"}],
  "fields": [{"key": a field key, "value": the value, "unit": the unit or null, "source": "body" or an attachment id,
              "page": the PDF page number from 1, or null for the body,
@@ -86,6 +87,8 @@ def _unit(key: str, requested: str | None, quote: str) -> str | None:
 
 def verify_field(raw: RawField, email: InboxEmail, pdfs: dict[str, PdfText], names: dict[str, str]) -> ExtractedField:
     value = raw.value
+    if isinstance(value, str) and not value.strip():
+        value = None  # "" is a substring of every quote: an empty value never verifies
     if raw.key in NUMERIC:
         value = _number(value)
     if raw.key == "asset_type":
@@ -164,7 +167,9 @@ def triage_email(email: InboxEmail, *, runner: AgentRunner, scenarios_dir: Path,
     crm = link_crm(raw.crm, raw.is_bid, email, opportunities)
     supply = supply_for(seen, appetite, erp, supply_fn) if raw.is_bid else None
     allowed = set(paths) | {o.id for o in opportunities}
-    summary = sanitize(raw.summary, allowed, f"{'Bid' if raw.is_bid else 'Email'} from {email.from_org}.")
+    template = f"{'Bid' if raw.is_bid else 'Email'} from {email.from_org}."
+    # The summary is agent prose: no digits (sanitize), no {slot} nothing will fill and no quantity in words (prose_guard).
+    summary = sanitize(raw.summary, allowed, template) if prose_is_safe(raw.summary) else template
     return TriageResult(
         email_id=email.id, is_bid=raw.is_bid, summary=summary, attachments=attachments, fields=fields, crm=crm,
         fit=assess_fit(is_bid=raw.is_bid, fields=seen, crm=crm, appetite=appetite, as_of=as_of, supply=supply),

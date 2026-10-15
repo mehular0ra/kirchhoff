@@ -146,3 +146,17 @@ def test_code_numbers_are_the_only_digits_in_a_sentence(inbox_seed, erp):
     for r in fit.reasons:
         for token in re.findall(r"\d+(?:\.\d+)?", r.text):
             assert token in allowed, (r.rule, token, r.text)
+
+
+def test_fit_sentences_render_even_when_sanitize_rejects_braces(monkeypatch):
+    """Review of #8: the P2 fix wave removes {name} from sanitize's always-allowed tokens and rejects braces. Our
+    sentences are templates with {placeholders} that the code fills, so they must not depend on sanitize at all."""
+    import kirchhoff.inbox.fit as fit
+
+    def strict(text, allowed, template):  # what the wave's sanitize does with a brace
+        return template if "{" in text or any(c.isdigit() for c in text) else text
+
+    monkeypatch.setattr(fit, "sanitize", strict, raising=False)
+    assert fit._say("{mw} is {where} our {lo}–{hi} MW range.", "The load is checked against our range.",
+                    mw="6.34 MW", where="inside", lo=2, hi=120) == "6.34 MW is inside our 2–120 MW range."
+    assert fit._say("Needs 3 weeks.", "fallback") == "fallback"  # a digit in the template itself still falls back

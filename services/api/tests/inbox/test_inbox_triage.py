@@ -159,3 +159,34 @@ def test_one_odd_reply_cannot_fail_the_whole_triage(inbox_seed, scenarios, erp):
     r = _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply})
     assert [k for k in _by_key(r)] == ["client", "site", "asset_type", "mw", "redundancy", "bid_due", "lead_time_weeks"]
     assert r.attachments[0].kind == "other" and (r.quotes_verified, r.quotes_total) == (7, 7)
+
+
+@pytest.mark.parametrize("empty", ["", "   "])
+def test_an_empty_value_never_verifies(inbox_seed, scenarios, erp, empty):
+    """Review of #8: "" is a substring of every quote, so client="" came out verified with a blank display."""
+    reply = _edit(_hall_b_reply(), "client", value=empty, verbatim_quote="Deccan Compute invites your bid")
+    c = _by_key(_triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply}))["client"]
+    assert (c.verification, c.value, c.display) == ("unverified", None, "Not verified")
+
+
+def test_one_malformed_item_is_dropped_and_the_rest_of_the_reply_survives(inbox_seed, scenarios, erp):
+    """Review of #8: one field with "page": "p.3" failed the whole reply, so one odd item could abort the capture."""
+    reply = _edit(_hall_b_reply(), "redundancy", page="p.3")
+    reply["text"]["attachments"].append({"kind": "tender"})  # no attachment_id
+    r = _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply})
+    assert "redundancy" not in _by_key(r) and (r.quotes_verified, r.quotes_total) == (6, 6)
+    assert len(r.attachments) == 3 and r.fit.verdict is not None
+
+
+@pytest.mark.parametrize("summary", ["Deccan Compute needs {value} of capacity.", "Deccan Compute needs twelve megawatts.",
+                                     "A {mw} MW bid from Deccan Compute."], ids=["slot", "number-word", "slot-and-unit"])
+def test_a_summary_with_a_slot_or_a_number_in_words_is_replaced(inbox_seed, scenarios, erp, summary):
+    reply = _hall_b_reply()
+    reply["text"]["summary"] = summary
+    r = _triage(inbox_seed, scenarios, erp, "em-hall-b", {"inbox:triage:em-hall-b": reply})
+    assert r.summary == "Bid from Deccan Compute." and r.fit.verdict == "pursue"
+
+
+def test_the_prompt_asks_for_a_summary_without_quantities_or_braces():
+    from kirchhoff.inbox.triage import TRIAGE_PROMPT
+    assert "no quantity in digits or words" in TRIAGE_PROMPT and "no braces" in TRIAGE_PROMPT
