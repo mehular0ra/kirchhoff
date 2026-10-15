@@ -123,7 +123,15 @@ test('docs tab mounts the read-only plan with the resolved open question for a r
 })
 
 test('header actions: sign-off links to the latest revision; autonomy is locked to the run', () => {
-  wrap(<HeaderActions />)
+  const b = fixtureBundle()
+  b.approvals = [] // not signed yet
+  wrap(<HeaderActions />, { bundle: b })
   expect(screen.getByRole('link', { name: /request sign-off/i })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
   expect(screen.getByRole('radio', { name: /^Ask/ })).toBeDisabled()
+})
+
+test('D4: a signed latest revision shows "Signed · view review", never "Request sign-off"', () => {
+  wrap(<HeaderActions />)
+  expect(screen.getByRole('link', { name: 'Signed · view review' })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
+  expect(screen.queryByRole('link', { name: /request sign-off/i })).not.toBeInTheDocument()
 })

@@ -69,3 +69,16 @@ test('?rev= and ?finding= are applied again when only the query changes (tour st
   expect(useUi.getState().findingId).toBe('R05:FA-01')
   expect(useUi.getState().viewRev).toBe('r1')
 })
+
+test('D4: a signed recorded design says so in the header, links to its review, and names the signer\'s role once', async () => {
+  open()
+  const header = (await screen.findByRole('heading', { name: /Deccan AI Campus · Hall A/ })).closest('div')!
+  expect(within(header).getByText('Recorded design')).toBeInTheDocument()
+  expect(within(header).getByText('signed r2')).toBeInTheDocument()
+  expect(within(header).queryByText('No agents working')).not.toBeInTheDocument()
+  const signed = within(header).getByRole('link', { name: 'Signed · view review' })
+  expect(signed).toHaveAttribute('href', '/app/p/hall-a/review/r2')
+  expect(within(header).queryByRole('link', { name: /Request sign-off/ })).not.toBeInTheDocument()
+  const footer = screen.getByRole('contentinfo', { name: 'Revisions' })
+  expect(within(footer).getByText('signed by Priya Raman · Lead Electrical Engineer (Reviewer)')).toBeInTheDocument()
+})

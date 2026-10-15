@@ -44,7 +44,7 @@ export function RevisionTimeline() {
               {approval && (
                 <span className="inline-flex items-center gap-1 text-emerald-300">
                   <Stamp aria-hidden className="size-3.5" />
-                  signed by {approval.approver_name} ({approval.role})
+                  {`signed by ${approval.approver_name} · ${approval.role}`}
                 </span>
               )}
             </li>

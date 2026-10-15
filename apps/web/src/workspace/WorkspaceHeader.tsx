@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Stamp } from 'lucide-react'
 import { Link } from 'react-router'
 import { AgentDot } from '@/components/Labels'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useWorld } from '@/data/useWorld'
-import { buildLanes } from '@/lib/select'
+import { buildLanes, signedRevision } from '@/lib/select'
 import type { ReactNode } from 'react'
 import { useWorkspace } from './WorkspaceContext'
 
@@ -22,6 +22,8 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
   const { world } = useWorld()
   const p = bundle.project
   const working = buildLanes(bundle).filter((l) => l.status === 'running')
+  // "No agents working" only makes sense for a live run; a recorded design says what it is (D4).
+  const signed = signedRevision(bundle)
   return (
     <div className="flex h-11 items-center gap-3 border-b px-4 text-sm">
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-zinc-400">
@@ -60,9 +62,14 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
             ))}
             {working.length} agents working
           </>
-        ) : (
+        ) : source === 'live' ? (
           'No agents working'
-        )}
+        ) : signed ? (
+          <span className="inline-flex items-center gap-1 text-emerald-300">
+            <Stamp aria-hidden className="size-3.5" />
+            {`signed ${signed.id}`}
+          </span>
+        ) : null}
       </span>
       <div className="ml-auto flex items-center gap-2">{actions}</div>
     </div>
