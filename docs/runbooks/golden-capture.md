@@ -41,6 +41,19 @@ and the video all read this data, so it has to be right the first time.
 
 ---
 
+## Step 0: dry run on the deployed stack (Thu 15 Oct evening)
+
+The P2 final review found that the real Firestore and background-thread path has never run end to end. Every earlier full run used `MemoryStore` with synchronous spawn. Before Friday, Jayadratha runs one **dry run** on the deployed API (after the P2 final fix wave is deployed):
+1. Run one Hall B run in **Ask** mode through every gate, and one in **Auto** mode.
+2. Run `capture.py export` on the Ask run, and keep the output out of git.
+3. Run `check_golden` on it.
+4. Check that the heartbeat holds over the long intake step and that resume works after a deliberate page reload.
+5. Report the run ids, timings and any errors on issue #6.
+
+**Do not commit dry-run captures.**
+
+**Plan-gate answer.** The P2 final review found that answering "Compare all three topologies" at the plan gate can put the *recommended* badge on DR. During the dry run, note which option carries the badge. If it is not 2N, the controller decides before Friday between answering `2N` at the plan gate and keeping compare-all with the engineer choosing 2N at the option gate. Update Step 3 accordingly.
+
 ## Command sequence
 
 Every step says who runs it. "Controller" never runs a command that writes to GCP; Jayadratha runs all cloud commands (per issue #6 and AGENTS.md "Do not deploy").
