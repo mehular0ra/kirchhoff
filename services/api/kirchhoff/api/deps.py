@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from kirchhoff.agents.adk_runner import AdkRunner
+from kirchhoff.agents.docs_export import BlobExporter
 from kirchhoff.agents.genai_runner import GenaiRunner
 from kirchhoff.agents.runner import RecordingRunner
 from kirchhoff.runs.blobs import GcsBlobStore, MemoryBlobStore
@@ -80,11 +81,12 @@ def build_production_deps(store=None) -> Deps:
         store = FirestoreStore()
     if os.environ.get("KIRCHHOFF_FAKES") == "1":  # local UI development before WS1/WS4/Vertex are wired
         from kirchhoff.runs.fakes import build_fake_deps
-        return build_fake_deps(store, scen, seed_dir=seed, blobs=MemoryBlobStore(public_base=None))
+        fake_blobs = MemoryBlobStore(public_base=None)
+        return build_fake_deps(store, scen, seed_dir=seed, blobs=fake_blobs, exporter=BlobExporter(fake_blobs))
     runner = GenaiRunner() if os.environ.get("KIRCHHOFF_AGENT_BACKEND") == "genai" else AdkRunner()
     if os.environ.get("KIRCHHOFF_RECORD_DIR"):
         runner = RecordingRunner(runner, Path(os.environ["KIRCHHOFF_RECORD_DIR"]))
     blobs = MemoryBlobStore(public_base=None) if os.environ.get("KIRCHHOFF_BLOBS") == "memory" else GcsBlobStore()
     return Deps(store=store, engine=LazyModule("kirchhoff.engine.api"), runner=runner, enterprise=_enterprise(scen),
                 blobs=blobs, scenarios_dir=scen, seed_dir=seed, voice_runner=GenaiRunner(),
-                asset_engines=_asset_engines())
+                asset_engines=_asset_engines(), exporter=BlobExporter(blobs))

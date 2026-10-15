@@ -1,4 +1,5 @@
 """P3: select → route → clashes → BOQ → Checker → fix loop (≤ 2, one revision each) → Docs → REVIEW GATE."""
+import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import BaseModel
@@ -12,6 +13,7 @@ from .policy import OWNER, choose_option, criterion, lead_limit_weeks, preferred
 from .revisions import build_revision, diff_elements, load_revision_model, run_revisions, with_citation_boxes
 from .steps import AGENT_LABEL, ParkAtGate, PhaseContext, PhaseOutcome, StepOutput, run_step
 
+log = logging.getLogger("kirchhoff")
 MAX_FIX_ITERATIONS = 2
 S_SELECT, S_ROUTE, S_CLASH, S_BOQ, S_DOCS = "p3.select_option", "p3.route", "p3.clashes", "p3.boq", "p3.docs"
 
@@ -249,11 +251,18 @@ def _docs(ctx: PhaseContext, chk: dict, iterations: int, stop_reason: str | None
     order += [x for x in SECTIONS if x not in order]
     summary = ctx.narrate(S_DOCS, "docs", reply.summary if reply else "", ctx.allowed(model), "the calc report",
                           template=f"Docs prepared the calc report and BOQ for {rev.id}.")
-    files = (ctx.deps.exporter or StubExporter()).export(
-        uid=ctx.uid, rev=rev, findings=findings, fixes=fixes,
-        brief=DesignBrief.model_validate(ctx.outputs("p1.intake")["brief"]),
-        options=[TopologyOption.model_validate(o) for o in ctx.run().get("options", [])],
-        pr_lines=[PRLine.model_validate(x) for x in chk["pr_lines"]], order=order, summary=summary)
+    try:
+        files = (ctx.deps.exporter or StubExporter()).export(
+            uid=ctx.uid, rev=rev, findings=findings, fixes=fixes,
+            brief=DesignBrief.model_validate(ctx.outputs("p1.intake")["brief"]),
+            options=[TopologyOption.model_validate(o) for o in ctx.run().get("options", [])],
+            pr_lines=[PRLine.model_validate(x) for x in chk["pr_lines"]], order=order, summary=summary)
+    except Exception:
+        # A broken export (e.g. an unreachable blob store) must not fail the whole run: the review
+        # gate still needs to be reachable. Degrade to a "failed" file status per file (rulings
+        # R13/R26 cover this status value on the export artifact/status event).
+        log.exception("docs export failed for revision %s", rev.id)
+        files = [{"name": n, "path": None, "status": "failed"} for n in ("calc-report.pdf", "boq.csv")]
     for f in files:
         if f.get("path"):  # storage path, served by GET /api/files/{path}
             ctx.emit(S_DOCS, "docs", "artifact", f"{f['name']} {f['status']}",

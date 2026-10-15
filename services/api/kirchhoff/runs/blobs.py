@@ -5,6 +5,11 @@ from typing import Protocol
 BUCKET = "ordinal-mep.firebasestorage.app"
 
 
+class SigningUnavailable(NotImplementedError):
+    """Raised by a BlobStore that cannot produce a signed URL (e.g. in-process MemoryBlobStore with no
+    public_base). /api/files catches exactly this type and serves the bytes inline instead."""
+
+
 class BlobStore(Protocol):
     def put(self, path: str, data: bytes, content_type: str) -> str: ...
     def get(self, path: str) -> bytes: ...
@@ -46,7 +51,7 @@ class MemoryBlobStore:
         if not self.exists(path):
             raise KeyError(path)
         if self.public_base is None:
-            raise NotImplementedError("memory blobs cannot be signed")
+            raise SigningUnavailable("memory blobs cannot be signed")
         return f"{self.public_base}/{path}?ttl={ttl_s}"
 
 

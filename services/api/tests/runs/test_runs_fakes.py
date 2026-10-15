@@ -5,7 +5,7 @@ import pytest
 
 from kirchhoff.agents.ports import ErpSnapshot
 from kirchhoff.contracts import PRLine
-from kirchhoff.runs.compat import ClashReport, FixCandidate
+from kirchhoff.contracts.extra import ClashReport, FixCandidate
 from kirchhoff.runs.fakes import FAKE_MATERIALS, FakeEngine, FakeEnterprise
 
 

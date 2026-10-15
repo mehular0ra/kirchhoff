@@ -20,6 +20,7 @@ dependencies = [
   "reportlab==5.0.1",
   "ezdxf==1.4.4",
   "httpx>=0.28",
+  "python-multipart>=0.0.20",
 ]
 
 [dependency-groups]

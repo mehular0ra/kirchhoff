@@ -82,6 +82,23 @@ def test_revision_ledger_and_stub_docs(p123, make_run):
         ["calc-report.pdf pending", "boq.csv pending"]
 
 
+class FailingExporter:
+    def export(self, **_):
+        raise RuntimeError("blob store is unreachable")
+
+
+def test_docs_export_failure_degrades_to_a_failed_status_without_failing_the_run(p123, make_run):
+    p123.exporter = FailingExporter()
+    rid = _to_review(p123, make_run)
+    run = _run(p123, rid)
+    assert (run["status"], run["gate"]) == ("at_gate", "review")
+    docs = load_outputs(p123.store, p123.blobs, run_path("u1", rid), "p3.docs")
+    assert [f["status"] for f in docs["files"]] == ["failed", "failed"]
+    evs = _events(p123, rid)
+    assert [e["title"] for e in evs if e["step"] == "p3.docs" and e["kind"] == "status"] == \
+        ["calc-report.pdf failed", "boq.csv failed"]
+
+
 def test_tender_refs_get_pdfplumber_boxes(deps):
     tender = yaml.safe_load((deps.scenarios_dir / "hall_a" / "tender.yaml").read_text(encoding="utf-8"))
     c = next(c for c in tender["clauses"] if c.get("quote"))
