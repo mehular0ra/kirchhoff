@@ -7,6 +7,7 @@ from typing import Any, Iterator
 
 from kirchhoff.contracts import (Approval, CrmOverlay, Finding, LedgerEntry, Project, ProjectBundle, PRLine,
                                  PurchaseRequisition, Revision, RunEvent, StepRecord)
+from kirchhoff.runs.revisions import with_citation_boxes
 
 from .config import HALL_A_PR_BASE, PUNE_PR_BASE, WorldConfig
 from .jsonable import jsonable
@@ -64,6 +65,11 @@ def chip_what_ifs(engine, scn, model, erp, ref: str, required: bool = False) -> 
     return []
 
 
+def boxed_what_ifs(what_ifs: list, tender_pdf: Path) -> list:
+    """The what-if chips cite the tender like any finding: add pdfplumber's box to each quote the engine left bare."""
+    return [w.model_copy(update={"findings": with_citation_boxes(w.findings, tender_pdf)}) for w in what_ifs]
+
+
 def project_record(cfg: WorldConfig, pid: str) -> Project:
     p = cfg.project(pid)
     return Project(id=p.id, name=p.name, client=p.client, asset_pack=p.asset_pack, state=p.state, sample=True,
@@ -81,7 +87,8 @@ def _ledger(engine, swaps: list[dict]) -> list[LedgerEntry]:
 
 
 def datahall_bundle(engine, scn, erp, *, project: Project, topology: str, signed_at: float, pr_ids: Iterator[str],
-                    opportunity_id: str | None = None, what_ifs: bool = False) -> ProjectBundle:
+                    opportunity_id: str | None = None, what_ifs: bool = False,
+                    tender_pdf: Path | None = None) -> ProjectBundle:
     options = engine.annotate_options(scn, engine.power_options(scn, engine.place_racks(scn)), erp)
     option, model = next((o, m) for o, m in options if o.id == topology)
     model = engine.route(scn, model)
@@ -136,6 +143,13 @@ def datahall_bundle(engine, scn, erp, *, project: Project, topology: str, signed
     crm = (CrmOverlay(opportunity_id=opportunity_id, stage="Design approved", updated_at=round(signed_at + 300.0, 3))
            if opportunity_id else None)
     wifs = chip_what_ifs(engine, scn, final, erp, f"seed:{project.id}@{signed.id}") if what_ifs else []
+    if tender_pdf is not None:  # the live pipeline's helper (runs/revisions.py): pdfplumber's box for each quote
+        by_rev = {rid: with_citation_boxes(fs, tender_pdf) for rid, fs in by_rev.items()}
+        wifs = boxed_what_ifs(wifs, tender_pdf)
+        unboxed = sorted({(r.page, r.quote) for fs in (*by_rev.values(), *(w.findings for w in wifs)) for f in fs
+                          for r in f.tender_refs if r.quote and r.page and r.bbox is None})
+        if unboxed:  # a null box must never ship (issue #11): the quote is not on that page of the tender
+            raise ValueError(f"{project.id}: no box for {len(unboxed)} cited quotes, e.g. p.{unboxed[0][0]} {unboxed[0][1]!r}")
     return ProjectBundle(project=project.model_copy(update={"updated_at": round(signed_at + 300.0, 3)}),
                          revisions=revisions, findings=by_rev, approvals=[approval], prs=prs, crm=crm, what_ifs=wifs)
 
@@ -171,12 +185,16 @@ def engine_bundles(cfg: WorldConfig, engine, scenarios_root: Path, erp,
                                         [p for p in historical_prs if p.project_id == "vindhya-lv"])}
     if all(hasattr(engine, name) for name in DESIGN_FACADE):  # skip the designs while WS1's facade is incomplete
         scn = engine.load_scenario("hall_a", scenarios_root)
+        tender = scenarios_root / "hall_a" / "out" / "tender-hall-a.pdf"  # both data halls cite this tender
+        if not tender.is_file():
+            raise FileNotFoundError(f"{tender}: the citation boxes of the engine-built bundles need the tender PDF")
         out["hall-a"] = datahall_bundle(engine, scn, erp, project=project_record(cfg, "hall-a"), topology="2N",
                                         signed_at=cfg.ts(cfg.project("hall-a").days_ago) - 300.0,
-                                        pr_ids=pr_id_seq(HALL_A_PR_BASE), opportunity_id="opp-hall-a", what_ifs=True)
+                                        pr_ids=pr_id_seq(HALL_A_PR_BASE), opportunity_id="opp-hall-a", what_ifs=True,
+                                        tender_pdf=tender)
         out["pune-edge-1"] = datahall_bundle(engine, scn, erp, project=project_record(cfg, "pune-edge-1"),
                                              topology="DR", signed_at=cfg.ts(cfg.project("pune-edge-1").days_ago) - 300.0,
-                                             pr_ids=pr_id_seq(PUNE_PR_BASE))
+                                             pr_ids=pr_id_seq(PUNE_PR_BASE), tender_pdf=tender)
     for pid, pack, module, fn in (("grid-132kv", "grid", "kirchhoff.engine.grid", "evaluate_grid"),
                                   ("solar-5mwp", "solar", "kirchhoff.engine.solar", "evaluate_solar")):
         try:

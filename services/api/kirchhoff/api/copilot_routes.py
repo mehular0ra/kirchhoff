@@ -11,6 +11,7 @@ from kirchhoff.agents.copilot import (BadRevisionRef, RevisionNotFound, answer_v
                                       load_revision)
 from kirchhoff.engine.whatif import PARAM_BOUNDS
 from kirchhoff.runs.deps import Deps
+from kirchhoff.runs.revisions import with_citation_boxes
 
 from .errors import err
 
@@ -114,6 +115,8 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
             raise  # a server bug (e.g. a malformed engine/erp record), never the caller's what-if value
         except ValueError:
             return err(422, "invalid_value")  # ruling P2-R17: the engine itself rejected the what-if value
+        # the engine cites quotes without boxes; add pdfplumber's, as phase 3 and the precomputed chips do (issue #14)
+        res = res.model_copy(update={"findings": with_citation_boxes(res.findings, deps.inputs().tender_pdf)})
         return res.model_dump(mode="json")
 
     @router.post("/api/explain")
