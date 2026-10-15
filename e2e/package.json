@@ -1,0 +1,16 @@
+{
+  "name": "kirchhoff-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:static": "playwright test --project=static",
+    "test:live": "playwright test --project=live",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "^24.10.1",
+    "typescript": "~5.9.3"
+  }
+}
