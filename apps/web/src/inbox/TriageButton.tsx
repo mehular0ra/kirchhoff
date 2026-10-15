@@ -1,7 +1,7 @@
 // Live triage (spec §20): only on the Hall B email. While it runs, a two-stage progress line (motion off under
 // prefers-reduced-motion); if the API is down or slow, the recorded triage stays on screen with a note.
-import { LoaderCircle, Zap } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { CircleCheck, LoaderCircle, TriangleAlert, Zap } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import type { InboxEmail } from '@/lib/types'
 import { describeApiError } from '@/services/apiClient'
@@ -15,8 +15,16 @@ export function TriageButton({ email }: { email: InboxEmail }) {
   const [state, setState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
   const [stage, setStage] = useState(0)
   const [note, setNote] = useState('')
+  const mounted = useRef(true)  // a late answer after the user left the page is dropped, not applied
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   useEffect(() => {
     if (state !== 'running') return
+    // A fixed 3 s swap, not a real signal: the API does not stream progress. It only keeps the line from looking stuck.
     const t = setTimeout(() => setStage(1), 3000)
     return () => clearTimeout(t)
   }, [state])
@@ -25,9 +33,12 @@ export function TriageButton({ email }: { email: InboxEmail }) {
     setState('running')
     setStage(0)
     try {
-      applyTriage(email.id, await api.triage(email.id))
+      const result = await api.triage(email.id)
+      if (!mounted.current) return
+      applyTriage(email.id, result)
       setState('done')
     } catch (e) {
+      if (!mounted.current) return
       setNote(describeApiError(e))
       setState('failed')
     }
@@ -45,13 +56,17 @@ export function TriageButton({ email }: { email: InboxEmail }) {
         </p>
       )}
       {state === 'done' && (
-        <p role="status" className="text-xs text-emerald-300">
+        <p role="status" className="flex items-center gap-1.5 text-xs text-emerald-300">
+          <CircleCheck aria-hidden className="size-3.5 shrink-0" />
           Live triage complete.
         </p>
       )}
       {state === 'failed' && (
-        <p role="status" className="text-xs text-amber-200">
-          Live triage unavailable: {note} {email.triage ? 'The recorded triage stays on screen.' : ''}
+        <p role="status" className="flex items-start gap-1.5 text-xs text-amber-200">
+          <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            Live triage unavailable: {note} {email.triage ? 'The recorded triage stays on screen.' : ''}
+          </span>
         </p>
       )}
     </div>

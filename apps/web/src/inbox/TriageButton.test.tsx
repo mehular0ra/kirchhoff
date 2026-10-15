@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { vi } from 'vitest'
@@ -7,7 +7,7 @@ import { ApiError } from '@/services/apiClient'
 import { fixtureInbox } from '@/test/fixtures'
 import { fakeApi, fakeServices, renderWithProviders, STATIC_FILES } from '@/test/render'
 import { InboxPage } from './InboxPage'
-import { resetInboxStore } from './useInbox'
+import { resetInboxStore, useInboxStore } from './useInbox'
 
 beforeEach(() => {
   useWorldStore.setState({ world: null, error: null, loading: false })
@@ -50,6 +50,43 @@ test('with the API down or slow, the recorded triage stays and says why', async 
   )
   expect(screen.getByText(/recorded triage · 7\/7 quotes verified/)).toBeInTheDocument()
   expect(within(screen.getByRole('region', { name: 'Fit verdict' })).getByText('Pursue')).toBeInTheDocument()
+})
+
+test('the done and failed status lines carry an icon as well as text (status is never colour alone)', async () => {
+  const user = userEvent.setup()
+  const live = { ...fixtureInbox().emails[0].triage!, source: 'live' as const }
+  const triage = vi.fn().mockRejectedValueOnce(new ApiError(502, 'triage_failed')).mockResolvedValueOnce(live)
+  hallB(fakeServices({ api: fakeApi({ triage }) }))
+  await user.click(await screen.findByRole('button', { name: 'Triage live' }))
+  const failed = await screen.findByRole('status')
+  expect(failed).toHaveTextContent('Live triage unavailable:')
+  const warn = failed.querySelector('svg')
+  expect(warn).toHaveAttribute('aria-hidden', 'true')
+  expect(warn).not.toHaveClass('animate-spin') // not the progress spinner
+  await user.click(screen.getByRole('button', { name: 'Triage live' }))
+  const done = await screen.findByText('Live triage complete.')
+  const tick = done.closest('[role="status"]')!.querySelector('svg')
+  expect(tick).toHaveAttribute('aria-hidden', 'true')
+  expect(tick).not.toHaveClass('animate-spin')
+  expect(tick!.getAttribute('class')).not.toEqual(warn!.getAttribute('class')) // two different icons, not one reused
+})
+
+test('leaving the page mid-request drops the late answer instead of applying it', async () => {
+  const user = userEvent.setup()
+  const live = { ...fixtureInbox().emails[0].triage!, source: 'live' as const }
+  let resolve: (v: typeof live) => void = () => {}
+  const triage = vi.fn(() => new Promise<typeof live>((r) => (resolve = r)))
+  const { unmount } = hallB(fakeServices({ api: fakeApi({ triage }) }))
+  await user.click(await screen.findByRole('button', { name: 'Triage live' }))
+  const sourceBefore = useInboxStore.getState().data?.emails[0].triage?.source
+  expect(sourceBefore).not.toBe('live')
+  unmount()
+  await act(async () => {
+    resolve(live)
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect(useInboxStore.getState().data?.emails[0].triage?.source).toBe(sourceBefore)
 })
 
 test('only the Hall B email can be triaged live', async () => {
