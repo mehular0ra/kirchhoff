@@ -30,10 +30,17 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 
 ## Jayadratha's work (GitHub issues)
 
-1. **#6 Cloud ops runbook.** Seed the sandbox, apply the bucket CORS, and deploy when the controller comments "deploy `<sha>`". GCP access is being granted.
-2. **#2 Bids inbox I-2.** The inbox agent, the fit check, the endpoints and the precompute script. Branch from `build`. Cut line Thu 16 Oct 12:00 IST.
-3. **#7 E2E tests (P4 Task 13) and exploratory QA.** Run them on the deployed site after #6.
-4. **Team assets** for the deck and video: photos, two-sentence bios, and any clips for the TEAM SLOTs in `docs/submission/video-script.md`.
+| Issue | Task | Target |
+|---|---|---|
+| #6 | Cloud ops: seed, CORS, deploy `bd9311e` (GCP access granted 15 Oct) | now |
+| #2 → PR #8 | Bids inbox I-2 (in review) | Thu 16 12:00 IST cut line |
+| #7 → PR #12 | E2E suite + exploratory QA (in review); QA issues #10, #11 | ongoing |
+| #13 | P2 Task 17: asset agent `/api/asset/{pack}` | Thu 16 18:00 |
+| #14 | Fill citation bboxes in the engine-built demo bundles | Thu 16 14:00 |
+| #15 | P4 Task 15: App Check (staged; full enforcement only on Mehul's "go") | code Thu 16; enforcement after the golden capture |
+| #16 | Secrets and PII audit of the full history before going public | Fri 17 12:00 |
+| #17 | Deck screenshots via Playwright after the UI freeze | Fri 17 afternoon |
+| (none) | Team assets for the deck and video: photos, bios, TEAM SLOT clips | Fri 17 |
 
 ## Not claimable (controller-owned, sequential)
 
