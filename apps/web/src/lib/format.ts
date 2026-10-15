@@ -38,10 +38,35 @@ export function fmtTs(ts: number | null | undefined): string {
   return ts === null || ts === undefined ? DASH : DATE.format(new Date(ts * 1000))
 }
 
+/**
+ * The demo world's clock (UX-1 D2): WS4 anchored the seed data at 16 Oct 2026, 12:00 IST (`inbox.as_of`,
+ * `integrations.synced_at`). Seed timestamps read against this fixed, labelled clock, so they never run
+ * ahead of real time while recording and never drift to "3 weeks ago" during judging. Visitor-owned
+ * items (a live run, a live sync) keep the browser clock.
+ */
+export const DEMO_AS_OF = 1792132200
+
+/** The demo clock in ms; `world.as_of` wins once WS4's generator writes one. */
+export function demoNowMs(world?: { as_of?: number | null } | null): number {
+  return (world?.as_of ?? DEMO_AS_OF) * 1000
+}
+
+export function demoClockLabel(world?: { as_of?: number | null } | null): string {
+  return `Demo world as of ${fmtTs(demoNowMs(world) / 1000)} IST`
+}
+
+/** Display-only plural fix for generator text: "(1 lines)" → "(1 line)" (UX-1 D2; WS4 to pluralise at source). */
+export function tidyPlurals(text: string): string {
+  return text.replace(/(^|[^\d.,])1 (line|PR|element|pipe|check|crossing|finding)s\b/g, '$11 $2')
+}
+
+/** Relative time; anything later than `nowMs` shows its date instead of "in 2 hours" (D2 clamp). */
 export function fmtRelative(ts: number, nowMs: number = Date.now()): string {
-  const diffS = ts - nowMs / 1000
+  const ahead = ts - nowMs / 1000
+  if (ahead > 60) return fmtTs(ts)
+  const diffS = Math.min(ahead, 0)
   const abs = Math.abs(diffS)
-  if (abs < 60) return REL.format(Math.round(diffS), 'second')
+  if (abs < 60) return abs < 1 ? 'now' : REL.format(Math.round(diffS), 'second')
   if (abs < 3600) return REL.format(Math.round(diffS / 60), 'minute')
   if (abs < 86400) return REL.format(Math.round(diffS / 3600), 'hour')
   if (abs < 86400 * 14) return REL.format(Math.round(diffS / 86400), 'day')

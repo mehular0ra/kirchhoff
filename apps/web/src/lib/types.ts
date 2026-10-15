@@ -99,6 +99,8 @@ export interface WorldActivity {
   text: string
 }
 export interface World {
+  /** The demo world's "now" (unix seconds), when WS4's generator writes one; else format.ts DEMO_AS_OF. */
+  as_of?: number | null
   org: { name: string; tagline?: string }
   people: WorldPerson[]
   projects: Project[]

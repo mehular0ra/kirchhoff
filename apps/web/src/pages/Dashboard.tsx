@@ -5,7 +5,7 @@ import { ProjectStateBadge } from '@/components/ProjectState'
 import { Button } from '@/components/ui/button'
 import { useWorld } from '@/data/useWorld'
 import { unreadCount, useInbox } from '@/inbox/useInbox'
-import { fmtRelative } from '@/lib/format'
+import { demoClockLabel, demoNowMs, fmtRelative, tidyPlurals } from '@/lib/format'
 import { readJson } from '@/lib/storage'
 import type { AssetPack, Project } from '@/lib/types'
 import { Checklist } from '@/onboarding/checklist/Checklist'
@@ -22,7 +22,7 @@ export function lastLiveRun(pid: string): string | null {
   return readJson<string | null>(`lastRun.${pid}`, null)
 }
 
-function ProjectCard({ p }: { p: Project }) {
+function ProjectCard({ p, nowMs }: { p: Project; nowMs: number }) {
   const liveRun = p.id === 'hall-b' ? lastLiveRun('hall-b') : null
   const href = liveRun ? `/app/p/${p.id}?run=${liveRun}` : `/app/p/${p.id}`
   return (
@@ -48,7 +48,7 @@ function ProjectCard({ p }: { p: Project }) {
         ) : (
           <ProjectStateBadge state={p.state} />
         )}
-        <span className="text-xs text-zinc-400">{fmtRelative(p.updated_at)}</span>
+        <span className="text-xs text-zinc-400">{fmtRelative(p.updated_at, nowMs)}</span>
       </div>
       {p.id === 'hall-b' && (
         <div className="relative z-10 flex gap-2 pt-1">
@@ -89,6 +89,7 @@ export function Dashboard() {
   if (error) return <EmptyState tone="error" title="Could not load the demo world">{error}</EmptyState>
   if (!world) return <EmptyState title="Loading projects…" />
   const activity = [...world.activity].sort((a, b) => b.ts - a.ts)
+  const nowMs = demoNowMs(world) // seed times read against the labelled demo clock (D2)
   return (
     <div className="mx-auto grid h-full max-w-7xl grid-cols-1 gap-6 overflow-auto p-6 lg:grid-cols-[1fr_18rem]">
       <Welcome onStartTour={startTour} />
@@ -97,7 +98,11 @@ export function Dashboard() {
           <h1 id="projects-h" className="text-lg font-semibold">
             Projects
           </h1>
-          <p className="text-sm text-zinc-400">{world.org.name}</p>
+          <p className="text-sm text-zinc-400">
+            {world.org.name}
+            <span aria-hidden> · </span>
+            <span className="text-xs">{demoClockLabel(world)}</span>
+          </p>
         </div>
         <InboxEntry />
         {PACKS.map((pack) => {
@@ -112,7 +117,7 @@ export function Dashboard() {
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {projects.map((p) => (
-                  <ProjectCard key={p.id} p={p} />
+                  <ProjectCard key={p.id} p={p} nowMs={nowMs} />
                 ))}
               </div>
             </div>
@@ -128,8 +133,8 @@ export function Dashboard() {
           <ol className="flex flex-col gap-2 text-sm">
             {activity.map((a) => (
               <li key={a.id} className="border-l border-zinc-700 pl-3">
-                <span className="text-zinc-200">{a.actor}</span> <span className="text-zinc-400">{a.text}</span>
-                <div className="text-xs text-zinc-400">{fmtRelative(a.ts)}</div>
+                <span className="text-zinc-200">{a.actor}</span> <span className="text-zinc-400">{tidyPlurals(a.text)}</span>
+                <div className="text-xs text-zinc-400">{fmtRelative(a.ts, nowMs)}</div>
               </li>
             ))}
           </ol>

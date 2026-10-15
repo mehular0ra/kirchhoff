@@ -1,4 +1,19 @@
-import { describeKey, fillPlaceholders, fmtElapsed, fmtInput, fmtKeyValue, fmtQty, fmtTs, fmtUsd, shortHash } from './format'
+import {
+  DEMO_AS_OF,
+  demoClockLabel,
+  demoNowMs,
+  describeKey,
+  fillPlaceholders,
+  fmtElapsed,
+  fmtInput,
+  fmtKeyValue,
+  fmtQty,
+  fmtRelative,
+  fmtTs,
+  fmtUsd,
+  shortHash,
+  tidyPlurals,
+} from './format'
 
 test('quantities keep engine values and only add grouping and units', () => {
   expect(fmtQty(2.16, '%')).toBe('2.16%')
@@ -81,4 +96,26 @@ test('M15: a formula input reads as label + value + unit', () => {
   expect(fmtInput('busway', 'A-01')).toEqual({ label: 'Busway', value: 'A-01' })
   expect(fmtInput('points', [1.2, 2.4])).toEqual({ label: 'Points', value: '1.2, 2.4' })
   expect(fmtInput('extra', { a: 1 }).value).not.toContain('[object')
+})
+
+test('D2: the demo clock is fixed at 16 Oct 2026, 12:00 IST, unless the demo world carries its own as_of', () => {
+  expect(fmtTs(DEMO_AS_OF)).toBe('16 Oct 2026, 12:00')
+  expect(demoNowMs()).toBe(DEMO_AS_OF * 1000)
+  expect(demoNowMs({ as_of: 1792218600 })).toBe(1792218600 * 1000)
+  expect(demoClockLabel()).toBe('Demo world as of 16 Oct 2026, 12:00 IST')
+})
+
+test('D2: relative times read against the demo clock and never run into the future', () => {
+  const now = demoNowMs()
+  expect(fmtRelative(DEMO_AS_OF - 3 * 3600, now)).toBe('3 hours ago')
+  expect(fmtRelative(DEMO_AS_OF - 86400, now)).toBe('yesterday')
+  // a timestamp after "now" is shown as its date, never "in 2 hours"
+  expect(fmtRelative(DEMO_AS_OF + 2 * 3600, now)).toBe('16 Oct 2026, 14:00')
+  expect(fmtRelative(DEMO_AS_OF + 30, now)).toBe('now')
+})
+
+test('D2: "(1 lines)" from the demo-world generator reads "(1 line)" on display', () => {
+  expect(tidyPlurals('submitted PR-2026-0148 to the ERP sandbox (1 lines)')).toBe('submitted PR-2026-0148 to the ERP sandbox (1 line)')
+  expect(tidyPlurals('submitted PR-2026-0146 to the ERP sandbox (2 lines)')).toBe('submitted PR-2026-0146 to the ERP sandbox (2 lines)')
+  expect(tidyPlurals('(11 lines) and 1 PRs')).toBe('(11 lines) and 1 PR')
 })

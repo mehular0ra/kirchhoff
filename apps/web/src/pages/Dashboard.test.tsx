@@ -4,7 +4,8 @@ import { Route, Routes } from 'react-router'
 import { useWorldStore } from '@/data/useWorld'
 import { resetInboxStore } from '@/inbox/useInbox'
 import { INBOX_TOUR_STEP } from '@/inbox/inboxTour'
-import { renderWithProviders } from '@/test/render'
+import { vi } from 'vitest'
+import { fakeServices, renderWithProviders } from '@/test/render'
 import { AppShell } from '@/shell/AppShell'
 import { Dashboard } from './Dashboard'
 import { Landing } from './Landing'
@@ -93,4 +94,25 @@ test('M12: a stored live run does not claim the run is still "Running" (it may b
   const card = (await screen.findByText('Deccan AI Campus · Hall B')).closest('article')!
   expect(within(card).queryByText('Running')).not.toBeInTheDocument()
   expect(within(card).getByText('Your live run')).toBeInTheDocument()
+})
+
+test('D2: dashboard times read against the labelled demo clock, not the browser clock', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  const world = {
+    org: { name: 'Meridian Power Engineering' },
+    people: [],
+    projects: [
+      { id: 'hall-b', name: 'Deccan AI Campus · Hall B', client: 'Deccan Compute', asset_pack: 'datahall', state: 'not_started', sample: true, updated_at: 1792132200 + 3600 },
+    ],
+    activity: [{ id: 'a1', ts: 1792132200 - 2 * 3600, actor: 'Procurement agent', text: 'submitted PR-2026-0148 to the ERP sandbox (1 lines)' }],
+  }
+  renderWithProviders(<Dashboard />, {
+    services: fakeServices({ getJson: vi.fn(async (url: string) => (url === '/demo/world.json' ? world : Promise.reject(new Error('404')))) }),
+  })
+  expect(await screen.findByText('Demo world as of 16 Oct 2026, 12:00 IST')).toBeInTheDocument()
+  expect(screen.getByText('2 hours ago')).toBeInTheDocument()
+  expect(screen.getByText('submitted PR-2026-0148 to the ERP sandbox (1 line)')).toBeInTheDocument()
+  // later than the demo clock: a date, never "in 1 hour"
+  expect(screen.getByText('16 Oct 2026, 13:00')).toBeInTheDocument()
+  expect(screen.queryByText(/^in \d/)).not.toBeInTheDocument()
 })
