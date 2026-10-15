@@ -23,7 +23,9 @@ function shell() {
 test('the main navigation lists Projects, Bids inbox and Integrations', () => {
   shell()
   const nav = screen.getByRole('navigation', { name: 'Main' })
-  expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Projects', 'Bids inbox', 'Integrations'])
+  // Accessible names, not textContent: the inbox link renders a short "Inbox" label below sm (D14)
+  // beside "Bids inbox", and its aria-label keeps the name "Bids inbox" at every width.
+  expect(within(nav).getAllByRole('link').map((a) => a.getAttribute('aria-label') ?? a.textContent)).toEqual(['Projects', 'Bids inbox', 'Integrations'])
 })
 
 // jsdom has no layout, so this guards the classes that keep every link on one line at phone width. Measured in a
