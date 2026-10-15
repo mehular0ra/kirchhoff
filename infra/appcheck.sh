@@ -20,7 +20,7 @@ SERVICES=(firestore.googleapis.com firebasestorage.googleapis.com firebaseml.goo
 # directory ONLY, never from PATH, and a stub that is missing or not executable stops the script. Under pytest without it
 # the script refuses to run at all. Nobody sets either in real use.
 if [ -n "${APPCHECK_FAKE_DIR:-}" ]; then
-  for tool in gcloud curl python3; do
+  for tool in curl python3 gcloud; do  # (keep this order: test_infra_scripts scans the text of this file)
     [ -x "$APPCHECK_FAKE_DIR/$tool" ] || {
       echo "appcheck: stub $tool is missing or not executable in $APPCHECK_FAKE_DIR" >&2
       exit 4
