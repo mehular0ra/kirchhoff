@@ -37,5 +37,23 @@ export default defineConfig({
     ...(process.env.E2E_SHOTS === '1'
       ? [{ name: 'shots', testDir: './shots', testMatch: /capture\.spec\.ts$/, use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } } }]
       : []),
+    // Video footage (issue #25): opt-in, one WebM clip per storyboard beat at 1920 x 1080. See shots/footage.spec.ts.
+    ...(process.env.E2E_FOOTAGE === '1'
+      ? [
+          {
+            name: 'footage',
+            testDir: './shots',
+            testMatch: /footage(-live)?\.spec\.ts$/,
+            use: {
+              ...devices['Desktop Chrome'],
+              viewport: { width: 1920, height: 1080 },
+              deviceScaleFactor: 1,
+              video: { mode: 'on' as const, size: { width: 1920, height: 1080 } },
+              screenshot: 'off' as const,
+              trace: 'off' as const,
+            },
+          },
+        ]
+      : []),
   ],
 })
