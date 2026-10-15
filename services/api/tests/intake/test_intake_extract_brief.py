@@ -371,3 +371,44 @@ def test_requirement_ids_clauses_and_unverified_units_carry_no_model_digits(tend
     assert good.id == "REQ-rack_kw" and good.verified and good.citation.clause == "§3.1"
     assert bad.id == "REQ-made_up" and not bad.verified and bad.unit is None and bad.citation.clause is None
     assert not wrong_page.verified and wrong_page.citation.clause is None  # §4.6 is not printed on page 7
+
+
+# --- P2 final fix wave (Minor 6): one bad item no longer costs the whole extraction -----------------------------
+
+
+def test_a_null_clause_keeps_every_other_requirement_and_the_contradiction(tender_pdf):
+    import copy
+
+    from kirchhoff.runs.fakes import _EXTRACTION
+
+    reply = copy.deepcopy(_EXTRACTION)
+    reply["requirements"][4]["clause"] = None  # §4.3 transformer loading, clause label missing
+    reply["requirements"][5]["page"] = "four"  # §4.6: an unusable item, dropped on its own
+    runner = ReplayRunner({"intake:p1.extract": {"text": reply}})  # no "#repair" fixture: a repair would raise
+    extraction, _ = extract_tender(runner, tender_pdf.read_bytes())
+    assert runner.calls == ["intake:p1.extract"]
+    assert [r.key for r in extraction.requirements] == [
+        "max_lead_time_weeks", "racks", "rack_kw", "redundancy", "tx_loading_normal_max_pct",
+        "pipe_velocity_max_mps", "ups_autonomy_min"]
+    assert extraction.requirements[4].clause is None
+    (c,) = extraction.contradictions
+    assert (c.clause_a, c.clause_b) == ("§4.2", "App. B")
+    brief = _brief(tender_pdf, extraction)
+    tx = next(r for r in brief.requirements if r.id == "REQ-tx_loading_normal_max_pct")
+    assert tx.verified and tx.citation.clause is None
+    (q,) = brief.open_questions
+    assert q.id == "Q-redundancy" and q.default_resolution == "2N"
+
+
+def test_a_contradiction_with_null_labels_and_values_still_verifies(tender_pdf):
+    c = ExtractedContradiction.model_validate({
+        "topic": "redundancy", "clause_a": None, "page_a": 4, "quote_a": "The critical power distribution shall be 2N",
+        "value_a": None, "clause_b": "App. B", "page_b": 7, "quote_b": "Block or distributed redundancy acceptable",
+        "value_b": None, "summary": None})
+    (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
+    assert q.default_resolution == "2N" and [x.clause for x in q.citations] == [None, "App. B"]
+
+
+def test_requirements_that_are_not_a_list_still_fail_the_extraction():
+    with pytest.raises(Exception):
+        TenderExtraction.model_validate({"requirements": "none found"})

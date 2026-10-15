@@ -87,7 +87,8 @@ def _intake(ctx: PhaseContext) -> StepOutput:
 
 
 def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
-    reqs = "\n".join(f"- {r.id} cites {r.citation.clause}" for r in brief.requirements if r.verified)
+    reqs = "\n".join(f"- {r.id} cites {r.citation.clause or 'an unlabelled clause'}"
+                     for r in brief.requirements if r.verified)
     qs = "\n".join(f"- {q.id}: {q.text} Options: {', '.join(q.options)}. Default: {q.default_resolution}."
                    for q in brief.open_questions) or "- none"
     msg = (f"Design brief for an AI data hall.\nVerified requirements:\n{reqs}\nOpen questions:\n{qs}\n"
