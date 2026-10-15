@@ -3,6 +3,7 @@ import { CircleQuestionMark } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { KirchhoffMark } from '@/components/KirchhoffMark'
 import { DemoBanner } from '@/components/Labels'
 import { Button } from '@/components/ui/button'
 import { Checklist } from '@/onboarding/checklist/Checklist'
@@ -32,9 +33,7 @@ export function AppShell() {
       <DemoBanner />
       <header className="flex h-11 shrink-0 items-center gap-6 border-b px-4">
         <Link to="/app" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span aria-hidden className="grid size-5 place-items-center rounded bg-zinc-100 text-[11px] font-bold text-zinc-900">
-            K
-          </span>
+          <KirchhoffMark />
           Kirchhoff
         </Link>
         <nav aria-label="Main" className="flex items-center gap-1 text-sm">

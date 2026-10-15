@@ -14,6 +14,8 @@ export interface SldNodeSpec {
   level: number
   /** Element ids whose findings colour this node (a rack group carries its racks). */
   members: string[]
+  /** Feeders that end at this node: edges are mouse-only, so their findings are reached from here by keyboard. */
+  feeders: string[]
 }
 export interface SldEdgeSpec {
   id: string
@@ -57,7 +59,7 @@ export const NODE_SIZE: Record<SldKind, { w: number; h: number }> = {
   board: { w: 132, h: 64 },
   ups: { w: 132, h: 64 },
   sts: { w: 120, h: 60 },
-  busway: { w: 120, h: 60 },
+  busway: { w: 118, h: 60 },
   rackgroup: { w: 132, h: 64 },
 }
 
@@ -69,11 +71,13 @@ export function buildSldGraph(model: DesignModel): SldGraph {
     sub: [e.rating != null ? fmtQty(e.rating, e.unit) : null, e.catalogue_id].filter(Boolean).join(' · '),
     level: LEVEL[e.kind],
     members: [e.id],
+    feeders: [] as string[],
   }))
   const ids = new Set(nodes.map((n) => n.id))
   const edges: SldEdgeSpec[] = model.connections
     .filter((c) => ids.has(c.src) && ids.has(c.dst))
     .map((c) => ({ id: c.id, source: c.src, target: c.dst, label: c.kind === 'internal' ? null : c.id }))
+  for (const e of edges) if (e.label) nodes.find((n) => n.id === e.target)?.feeders.push(e.id)
 
   // Racks grouped per row when the model has no explicit rack_group equipment (spec §12 "racks grouped").
   if (!model.equipment.some((e) => e.kind === 'rack_group')) {
@@ -89,6 +93,7 @@ export function buildSldGraph(model: DesignModel): SldGraph {
         sub: kws.length === 1 ? `${fmtQty(kws[0], 'kW')} each` : '',
         level: MAX_LEVEL,
         members: racks.map((r) => r.id),
+        feeders: [],
       })
       const feeders = new Set(racks.flatMap((r) => r.feeds))
       for (const busway of feeders) if (ids.has(busway)) edges.push({ id: `${busway}->${id}`, source: busway, target: id, label: null })
@@ -128,8 +133,9 @@ export async function layoutSld(g: SldGraph): Promise<Map<string, { x: number; y
       'elk.direction': 'DOWN',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.partitioning.activate': 'true',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '56',
-      'elk.spacing.nodeNode': '28',
+      // Compact spacing so the first fit renders node text at a readable size (M11).
+      'elk.layered.spacing.nodeNodeBetweenLayers': '40',
+      'elk.spacing.nodeNode': '12',
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
     },
     children: g.nodes.map((n) => ({

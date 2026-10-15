@@ -19,7 +19,7 @@ export const AGENTS: Record<AgentName, AgentMeta> = {
   docs: { label: 'Docs', color: '#a78bfa', text: 'text-violet-400' },
   copilot: { label: 'Co-pilot', color: 'linear-gradient(135deg,#e879f9,#38bdf8)', text: 'text-fuchsia-300' },
   asset: { label: 'Asset', color: '#2dd4bf', text: 'text-teal-400' },
-  system: { label: 'System', color: '#71717a', text: 'text-zinc-500' },
+  system: { label: 'System', color: '#71717a', text: 'text-zinc-400' },
 }
 
 /** Lane order in the workspace (spec §12 layout). */

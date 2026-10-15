@@ -252,7 +252,7 @@ test('a throwing localStorage does not crash render or the tour', async () => {
   expect(within(tour).getByText('Step 1 of 7')).toBeInTheDocument()
   await user.click(within(tour).getByRole('button', { name: 'Next' }))
   expect(await screen.findByText('Step 2 of 7')).toBeInTheDocument()
-  expect(() => completeItem('open_signed')).not.toThrow()
+  expect(() => act(() => completeItem('open_signed'))).not.toThrow() // store update re-renders the checklist: inside act (backlog [5])
   await user.click(screen.getByRole('button', { name: 'Skip tour' }))
 })
 

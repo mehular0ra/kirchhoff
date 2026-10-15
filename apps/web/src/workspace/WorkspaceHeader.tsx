@@ -31,7 +31,7 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
         <ChevronRight aria-hidden className="size-3.5" />
         <h1 className="truncate font-medium text-zinc-100">
           {p.name}
-          {p.sample && <span className="text-zinc-500"> (sample)</span>}
+          {p.sample && <span className="text-zinc-400"> (sample)</span>}
         </h1>
       </nav>
       <DropdownMenu>

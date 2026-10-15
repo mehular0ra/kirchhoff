@@ -9,7 +9,7 @@ const META: Record<ProjectState, { label: string; icon: LucideIcon; cls: string 
   checked: { label: 'Checked', icon: CircleCheck, cls: 'text-emerald-400' },
   draft: { label: 'Draft', icon: FileText, cls: 'text-zinc-300' },
   signed: { label: 'Signed', icon: Stamp, cls: 'text-emerald-300' },
-  archived: { label: 'Archived', icon: Archive, cls: 'text-zinc-500' },
+  archived: { label: 'Archived', icon: Archive, cls: 'text-zinc-400' },
 }
 
 export function ProjectStateBadge({ state, className }: { state: ProjectState; className?: string }) {

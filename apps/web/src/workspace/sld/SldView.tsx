@@ -10,7 +10,7 @@ import {
   type Edge,
 } from '@xyflow/react'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@/components/Labels'
 import { CHAIN_COLORS } from '@/lib/agents'
 import type { ChangeKind } from '@/lib/diff'
@@ -22,6 +22,13 @@ import { Legend } from '../Legend'
 import { useWorkspace } from '../WorkspaceContext'
 import { nodeTypes, type SldFlowNode } from './SldNodes'
 import { buildSldGraph, layoutSld, MAX_LEVEL, NODE_SIZE } from './sldGraph'
+
+/** Accessible name with status (M11): "A-01: Pass, feeder FA-01: Fail". */
+function nodeLabel(label: string, own: FindingStatus | null, feeders: (readonly [string, FindingStatus | undefined])[]): string {
+  const parts = [own ? `${label}: ${STATUS_META[own].label}` : label]
+  for (const [id, st] of feeders) if (st && st !== 'pass') parts.push(`feeder ${id}: ${STATUS_META[st].label}`)
+  return parts.join(', ')
+}
 
 function SldCanvas() {
   const view = useWorkspace()
@@ -43,8 +50,9 @@ function SldCanvas() {
     }
   }, [graph])
 
-  // Staged reveal by level whenever a new revision is shown; instant under reduced motion.
-  useEffect(() => {
+  // Staged reveal by level whenever a new revision is shown; instant under reduced motion. A layout
+  // effect, so the reset to "nothing shown" lands before paint (no one-frame flash of every node).
+  useLayoutEffect(() => {
     if (reduce) {
       setReveal(MAX_LEVEL)
       return
@@ -60,7 +68,7 @@ function SldCanvas() {
   }, [view.rev?.id, reduce])
 
   useEffect(() => {
-    if (pos) requestAnimationFrame(() => fitView({ includeHiddenNodes: true, padding: 0.12 }))
+    if (pos) requestAnimationFrame(() => fitView({ includeHiddenNodes: true, padding: 0.04 }))
   }, [pos, fitView])
 
   const whatIfActive = view.highlights.size > 0
@@ -68,10 +76,11 @@ function SldCanvas() {
 
   // Opens a node's (or clicked flow-node's) worst non-pass finding, falling back to focus.
   // Shared by onNodeClick (mouse) and each node's onKeyDown (Enter/Space) so the two paths can't drift apart.
-  const activateNode = (id: string, members: string[]) => {
-    const worst = view.findings
-      .filter((f) => members.includes(f.element_id) && f.status !== 'pass')
-      .sort((a, b) => statusRank(b.status) - statusRank(a.status))[0]
+  const worstOf = (ids: string[]) =>
+    view.findings.filter((f) => ids.includes(f.element_id) && f.status !== 'pass').sort((a, b) => statusRank(b.status) - statusRank(a.status))[0]
+  // A node's own findings first, then those of the feeders ending at it (backlog [1]: edges are mouse-only).
+  const activateNode = (id: string, members: string[], feeders: string[] = []) => {
+    const worst = worstOf(members) ?? worstOf(feeders)
     if (worst) openFinding(worst.id)
     else focus(id)
   }
@@ -90,7 +99,8 @@ function SldCanvas() {
         position: pos.get(n.id) ?? { x: 0, y: 0 },
         width: size.w,
         height: size.h,
-        hidden: n.level > reveal,
+        // A node the previous layout did not know waits for the new one (backlog [2]: no origin flash).
+        hidden: n.level > reveal || !pos.has(n.id),
         draggable: false,
         data: {
           kind: n.kind,
@@ -103,7 +113,8 @@ function SldCanvas() {
           whatIfStatus: worstStatus(wis),
           dim: whatIfActive && chain.length === 0,
           focused: focusId === n.id || n.members.includes(focusId ?? ''),
-          activate: () => activateNode(n.id, n.members),
+          ariaLabel: nodeLabel(n.label, worstStatus(statuses), n.feeders.map((fid) => [fid, view.status.get(fid)] as const)),
+          activate: () => activateNode(n.id, n.members, n.feeders),
         },
       }
     })
@@ -131,7 +142,7 @@ function SldCanvas() {
         source: e.source,
         target: e.target,
         type: 'smoothstep',
-        hidden: (levelOf.get(e.target) ?? 0) > reveal,
+        hidden: (levelOf.get(e.target) ?? 0) > reveal || !pos.has(e.source) || !pos.has(e.target),
         label: e.label ? `${e.label}${statusText}${change ? ' · changed' : ''}` : undefined,
         labelStyle: { fill: '#e4e4e7', fontFamily: 'JetBrains Mono Variable, monospace', fontSize: 10 },
         labelBgStyle: { fill: '#0b0d10' },
@@ -166,7 +177,7 @@ function SldCanvas() {
       proOptions={{ hideAttribution: true }}
       onNodeClick={(_, node) => {
         const spec = graph?.nodes.find((n) => n.id === node.id)
-        activateNode(node.id, spec?.members ?? [node.id])
+        activateNode(node.id, spec?.members ?? [node.id], spec?.feeders)
       }}
       onEdgeClick={(_, edge) => {
         const f = view.findings.find((x) => x.element_id === edge.id && x.status !== 'pass')

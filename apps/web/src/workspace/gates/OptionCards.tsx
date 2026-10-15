@@ -86,7 +86,7 @@ export function OptionCards() {
                   {(o.swaps ?? []).map((s, i) => (
                     <li key={i} className="flex items-center gap-1 font-mono text-green-300">
                       {String(s.from)} <ArrowRight aria-hidden className="size-3" /> {String(s.to)}
-                      <span className="text-zinc-500">({String(s.reason)}, line {String(s.line)})</span>
+                      <span className="text-zinc-400">({String(s.reason)}, line {String(s.line)})</span>
                     </li>
                   ))}
                 </ul>

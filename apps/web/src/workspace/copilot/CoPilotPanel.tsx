@@ -92,7 +92,7 @@ export function CoPilotPanel() {
   return (
     <div className="flex flex-col">
       <section aria-label="Ask the co-pilot" className="flex flex-col gap-2 border-b p-3">
-        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
           <span aria-hidden className="size-2 rounded-full bg-[linear-gradient(135deg,#e879f9,#38bdf8)]" /> Co-pilot
         </h3>
         <form
@@ -156,7 +156,7 @@ export function CoPilotPanel() {
             )}
           </div>
         ) : (
-          <p className="text-xs text-zinc-500">This browser or device has no microphone access; use the typed box above.</p>
+          <p className="text-xs text-zinc-400">This browser or device has no microphone access; use the typed box above.</p>
         )}
         {voice.note && <p className="text-xs text-zinc-400">{voice.note}</p>}
         {log.length > 0 && (

@@ -27,7 +27,7 @@ import { useUi } from '@/store/ui'
 import { useWorkspace } from './WorkspaceContext'
 
 const LANE_STATUS: Record<LaneStatus, { label: string; icon: LucideIcon; cls: string }> = {
-  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-zinc-500' },
+  idle: { label: 'Waiting', icon: CircleDot, cls: 'text-zinc-400' },
   running: { label: 'Working', icon: LoaderCircle, cls: 'text-sky-300' },
   waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-300' },
   done: { label: 'Done', icon: CircleCheck, cls: 'text-emerald-400' },
@@ -85,7 +85,7 @@ function EventLine({ ev }: { ev: RunEvent }) {
       <Icon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-zinc-500" />
       <span className="min-w-0">
         <span className="break-words">{text}</span>
-        {ev.detail && <span className="block truncate text-zinc-500">{ev.detail}</span>}
+        {ev.detail && <span className="block truncate text-zinc-400">{ev.detail}</span>}
       </span>
     </div>
   )
@@ -141,7 +141,7 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
             ))}
             {lane.events.length > 5 && (
               <li>
-                <button type="button" className="text-zinc-500 underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
+                <button type="button" className="text-zinc-400 underline-offset-2 hover:underline" onClick={() => setAll(!all)}>
                   {all ? 'Show recent' : `Show all ${lane.events.length}`}
                 </button>
               </li>
@@ -160,7 +160,7 @@ export function AgentLanes() {
   return (
     <nav aria-label="Agent lanes" data-tour="lanes" className="h-full overflow-y-auto">
       <Hint id="lanes" text="One lane per agent: its tool calls, results, findings and logged assumptions. Click a finding to open it.">
-        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h2 tabIndex={0} className="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
           Agents
         </h2>
       </Hint>

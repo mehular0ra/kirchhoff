@@ -75,7 +75,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
               <div className="flex items-center gap-2">
                 <StatusBadge status={f.status} />
                 <span className="font-mono text-xs text-zinc-400">{f.rule_id}</span>
-                <span className="text-xs text-zinc-500">{ruleName(f.rule_id)}</span>
+                <span className="text-xs text-zinc-400">{ruleName(f.rule_id)}</span>
               </div>
               <SheetTitle>{f.title}</SheetTitle>
               <SheetDescription>
@@ -153,7 +153,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
                   </Button>
                 )}
                 {explain && 'text' in explain && <p className="rounded border border-fuchsia-400/30 bg-fuchsia-500/5 p-2 text-zinc-200">{explain.text}</p>}
-                {explain && 'error' in explain && <p className="text-xs text-zinc-500">{explain.error}</p>}
+                {explain && 'error' in explain && <p className="text-xs text-zinc-400">{explain.error}</p>}
               </section>
 
               {(fix || rejected) && (

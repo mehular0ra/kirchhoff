@@ -1,4 +1,4 @@
-import { CirclePlay, Factory, Inbox, SunMedium, UtilityPole, Zap, type LucideIcon } from 'lucide-react'
+import { CirclePlay, Factory, Inbox, Radio, SunMedium, UtilityPole, Zap, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '@/components/Labels'
 import { ProjectStateBadge } from '@/components/ProjectState'
@@ -8,6 +8,7 @@ import { unreadCount, useInbox } from '@/inbox/useInbox'
 import { fmtRelative } from '@/lib/format'
 import { readJson } from '@/lib/storage'
 import type { AssetPack, Project } from '@/lib/types'
+import { Checklist } from '@/onboarding/checklist/Checklist'
 import { useTour } from '@/onboarding/tour/tour'
 import { Welcome } from './Welcome'
 
@@ -39,8 +40,15 @@ function ProjectCard({ p }: { p: Project }) {
       </div>
       <p className="text-xs text-zinc-400">{p.client}</p>
       <div className="mt-auto flex items-center justify-between pt-2">
-        <ProjectStateBadge state={liveRun ? 'running' : p.state} />
-        <span className="text-xs text-zinc-500">{fmtRelative(p.updated_at)}</span>
+        {/* The dashboard does not watch the run, so it never claims "Running" for a stored run id (M12). */}
+        {liveRun ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-300">
+            <Radio aria-hidden className="size-3.5" /> Your live run
+          </span>
+        ) : (
+          <ProjectStateBadge state={p.state} />
+        )}
+        <span className="text-xs text-zinc-400">{fmtRelative(p.updated_at)}</span>
       </div>
       {p.id === 'hall-b' && (
         <div className="relative z-10 flex gap-2 pt-1">
@@ -111,7 +119,8 @@ export function Dashboard() {
           )
         })}
       </section>
-      <aside className="flex flex-col gap-6">
+      <aside data-dashboard-side className="flex flex-col gap-6">
+        <Checklist docked />
         <section aria-labelledby="activity-h">
           <h2 id="activity-h" className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Activity
@@ -120,7 +129,7 @@ export function Dashboard() {
             {activity.map((a) => (
               <li key={a.id} className="border-l border-zinc-700 pl-3">
                 <span className="text-zinc-200">{a.actor}</span> <span className="text-zinc-400">{a.text}</span>
-                <div className="text-xs text-zinc-500">{fmtRelative(a.ts)}</div>
+                <div className="text-xs text-zinc-400">{fmtRelative(a.ts)}</div>
               </li>
             ))}
           </ol>
@@ -136,7 +145,7 @@ export function Dashboard() {
                   {p.initials ?? p.name.slice(0, 2).toUpperCase()}
                 </span>
                 <span className="text-zinc-200">{p.name}</span>
-                <span className="truncate text-xs text-zinc-500">{p.role}</span>
+                <span className="truncate text-xs text-zinc-400">{p.role}</span>
               </li>
             ))}
             <li className="flex items-center gap-2 text-zinc-400">

@@ -223,7 +223,7 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
           ))}
         </section>
       )}
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-zinc-400">
         <Num>{findings.length}</Num> deterministic checks by the rule pack; the AI cannot mark its own homework.
       </p>
     </div>

@@ -274,7 +274,7 @@ export function IntegrationsPage() {
                   <a href={d.url} target="_blank" rel="noreferrer" className="text-sky-300 hover:underline">
                     {d.name}
                   </a>
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-zinc-400">
                     {d.project_id} · {d.kind}
                   </span>
                 </li>
@@ -288,7 +288,7 @@ export function IntegrationsPage() {
               {data.notifications.map((n) => (
                 <li key={n.id}>
                   <p className="text-zinc-100">{n.title}</p>
-                  <p className="text-xs text-zinc-500">{fmtTs(n.ts)}</p>
+                  <p className="text-xs text-zinc-400">{fmtTs(n.ts)}</p>
                 </li>
               ))}
             </ul>

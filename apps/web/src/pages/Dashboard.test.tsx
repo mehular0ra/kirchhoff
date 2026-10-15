@@ -68,3 +68,29 @@ test('the dashboard links the bids inbox with its count of new emails (tour hook
   expect(document.querySelector(INBOX_TOUR_STEP.target)).toBe(entry)
   expect(screen.getByRole('navigation', { name: 'Main' })).toHaveTextContent('Bids inbox')
 })
+
+test('PR #5 follow-up / M4: on the dashboard the Getting-started checklist sits in the side column, never floating over the inbox entry or cards', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  shellAt('/app')
+  await screen.findByText('Deccan AI Campus · Hall A')
+  const lists = screen.getAllByRole('complementary', { name: 'Getting started' })
+  expect(lists).toHaveLength(1)
+  expect(lists[0].className).not.toMatch(/\bfixed\b/)
+  expect(lists[0].closest('[data-dashboard-side]')).not.toBeNull()
+})
+
+test('M4: on a page without a dock the checklist still floats', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  shellAt('/app/p/x')
+  const list = await screen.findByRole('complementary', { name: 'Getting started' })
+  expect(list.className).toMatch(/\bfixed\b/)
+})
+
+test('M12: a stored live run does not claim the run is still "Running" (it may be done or expired)', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  localStorage.setItem('kirchhoff.lastRun.hall-b', JSON.stringify('run-1'))
+  shellAt('/app')
+  const card = (await screen.findByText('Deccan AI Campus · Hall B')).closest('article')!
+  expect(within(card).queryByText('Running')).not.toBeInTheDocument()
+  expect(within(card).getByText('Your live run')).toBeInTheDocument()
+})
