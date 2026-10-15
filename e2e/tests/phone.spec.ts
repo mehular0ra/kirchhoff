@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures'
+import { expect, startTour, test, tourCardPositions } from './fixtures'
 
 // Exploratory QA at phone width (Pixel 7, 412 px): every main screen must fit the width and keep its banner and nav.
 const PAGES = ['/app', '/app/inbox', '/app/inbox/em-hall-b', '/app/p/hall-a', '/app/integrations']
@@ -22,4 +22,15 @@ test('phone: the main nav links stay on one line', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Main' })
   const heights = await nav.getByRole('link').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)))
   expect(Math.max(...heights), `link heights ${heights.join(', ')}`).toBeLessThanOrEqual(30)
+})
+test.describe('first visit on a phone', () => {
+  test.use({ welcomed: false })
+
+  test('phone: every tour card stays inside the viewport', async ({ page }) => {
+    // Known bug (issue #10): the cards of steps 1, 3 and 4 are outside the viewport.
+    test.fail(true, 'issue #10: tour cards of steps 1, 3 and 4 are off-screen')
+    await startTour(page)
+    const cards = await tourCardPositions(page)
+    expect(cards.filter((c) => !c.inView), 'cards outside the viewport').toEqual([])
+  })
 })

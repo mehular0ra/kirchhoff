@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test'
+import { test as base, expect, type Page } from '@playwright/test'
 
 /** Registered App Check debug token (ruling W19). Empty until Task 15 registers it; never committed. */
 const APPCHECK_DEBUG_TOKEN = process.env.APPCHECK_DEBUG_TOKEN ?? ''
@@ -40,5 +40,31 @@ export const test = base.extend<{ welcomed: boolean }>({
     await use(context)
   },
 })
+
+/** Landing -> demo workspace -> welcome -> "Take the 2-minute tour". Use it with `welcomed: false`. */
+export async function startTour(page: Page): Promise<void> {
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Enter the demo workspace (no login)' }).click()
+  await page.getByRole('button', { name: 'Take the 2-minute tour' }).click()
+  await expect(page.getByRole('dialog', { name: 'Guided tour' })).toBeVisible()
+}
+
+/** Walks the tour with the ArrowRight key and reports, per step, whether its card is fully inside the viewport. */
+export async function tourCardPositions(page: Page, steps = 7) {
+  const { width, height } = page.viewportSize()!
+  const tour = page.getByRole('dialog', { name: 'Guided tour' })
+  const out: { step: number; inView: boolean; box: { x: number; y: number; w: number; h: number } | null }[] = []
+  for (let step = 1; step <= steps; step++) {
+    await expect(tour.getByText(`Step ${step} of ${steps}`)).toBeVisible()
+    await expect(tour.getByText('Loading this part of the workspace…')).toBeHidden({ timeout: 20_000 })
+    await page.waitForTimeout(800) // the step scrolls its target into view first
+    const b = await tour.boundingBox()
+    const box = b && { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }
+    const inView = !!box && box.x >= 0 && box.y >= 0 && box.x + box.w <= width && box.y + box.h <= height
+    out.push({ step, inView, box })
+    if (step < steps) await page.keyboard.press('ArrowRight')
+  }
+  return out
+}
 
 export { expect }

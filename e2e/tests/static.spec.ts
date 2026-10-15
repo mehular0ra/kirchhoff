@@ -1,4 +1,4 @@
-import { BANNER, expect, test } from './fixtures'
+import { BANNER, expect, startTour, test, tourCardPositions } from './fixtures'
 
 type Snapshot = { erp: { prs: { id: string; project_id: string }[] } }
 type Bundle = { events?: unknown[]; what_ifs?: unknown[] }
@@ -33,6 +33,14 @@ test.describe('first visit', () => {
       await tour.getByRole('button', { name: i === TOUR.length - 1 ? 'Finish' : 'Next' }).click({ timeout: 5_000 })
     }
     await expect(tour).toBeHidden()
+  })
+
+  test('every tour card stays inside the viewport (desktop)', async ({ page }) => {
+    // Known bug (issue #10): the cards of steps 1, 3 and 4 are outside the viewport.
+    test.fail(true, 'issue #10: tour cards of steps 1, 3 and 4 are off-screen')
+    await startTour(page)
+    const cards = await tourCardPositions(page)
+    expect(cards.filter((c) => !c.inView), 'cards outside the viewport').toEqual([])
   })
 })
 
