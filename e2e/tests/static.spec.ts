@@ -19,7 +19,9 @@ test.describe('first visit', () => {
   test('landing → welcome → all seven tour steps', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('link', { name: 'Enter the demo workspace (no login)' }).click()
-    await expect(page.getByRole('note').filter({ hasText: BANNER })).toBeVisible()
+    // The welcome dialog is modal and hides the banner's `note` role from the accessibility tree, so check the text
+    // that is on screen now, and the role again once the tour is over.
+    await expect(page.getByText(BANNER).first()).toBeVisible()
     await page.getByRole('button', { name: 'Take the 2-minute tour' }).click()
     const tour = page.getByRole('dialog', { name: 'Guided tour' })
     for (const [i, title] of TOUR.entries()) {
@@ -30,6 +32,7 @@ test.describe('first visit', () => {
       await tour.getByRole('button', { name: i === TOUR.length - 1 ? 'Finish' : 'Next' }).click({ timeout: 5_000 })
     }
     await expect(tour).toBeHidden()
+    await expect(page.getByRole('note').filter({ hasText: BANNER })).toBeVisible() // no modal left: the role is back
   })
 
   test('every tour card stays inside the viewport (desktop)', async ({ page }) => {
