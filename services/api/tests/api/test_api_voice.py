@@ -1,15 +1,16 @@
-import inspect
+import json
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
 from kirchhoff.agents import copilot as copilot_mod
-from kirchhoff.agents.copilot import WHAT_IF_PARAMS
+from kirchhoff.agents.copilot import NO_MATCH, OUT_OF_RANGE, VOICE_TOOLS, WHAT_IF_PARAMS
 from kirchhoff.agents.runner import AgentResult, ReplayRunner
-from kirchhoff.api import copilot_routes
+from kirchhoff.agents.specs import COPILOT_VOICE
 
 CLIP = {"audio": ("clip.webm", b"\x1aE\xdf\xa3fake-webm-bytes", "audio/webm")}
 WS3_LIVE_SPEC = (Path(__file__).resolve().parents[4] / "apps" / "web" / "src" / "workspace" / "copilot" / "voice"
@@ -32,6 +33,10 @@ def _ts_enum_values(blob: str, key: str) -> set[str]:
     return set(re.findall(r"['\"]([^'\"]+)['\"]", m.group(1)))
 
 
+def _ts_properties(blob: str) -> set[str]:
+    return set(re.findall(r"(\w+):\s*Schema\.(?:string|number|enumString)\(", blob))
+
+
 def test_voice_tools_match_ws3_live_tool_declarations():
     """Parity check (brief): voice's tool names/params must match WS3's Live TOOL_DECLARATIONS exactly.
     Fix round 2: the enum SET must be equal (not just each WHAT_IF_PARAMS value present, which would miss an
@@ -48,56 +53,193 @@ def test_voice_tools_match_ws3_live_tool_declarations():
     assert "element_id: Schema.string()" in decls["focus_element"]
 
 
-class SignatureSpyRunner:
-    """Records the tool callables voice offers the model, so the test can assert on their real Python
-    signatures (name, params) instead of only on the TS side of the parity check."""
+def test_voice_tool_args_match_ws3_live_tool_declarations():
+    """Issue #36: voice no longer hands Python callables to the model (no automatic function calling), so the
+    signature half of the parity check moves to VOICE_TOOLS, the table the server validates and runs: the
+    same tool names with the same argument names as WS3's TOOL_DECLARATIONS, and the model is told exactly
+    that vocabulary."""
+    decls = _ts_declarations(WS3_LIVE_SPEC.read_text(encoding="utf-8"))
+    assert {name: set(args) for name, args in VOICE_TOOLS.items()} == {n: _ts_properties(b) for n, b in decls.items()}
+    for name, args in VOICE_TOOLS.items():
+        assert name in COPILOT_VOICE.instruction
+        for arg in args:
+            assert arg in COPILOT_VOICE.instruction
+    for param in WHAT_IF_PARAMS:
+        assert param in COPILOT_VOICE.instruction
 
-    def __init__(self):
-        self.tools = []
+
+def test_voice_budget_is_one_attempt_just_under_twenty_seconds():
+    """Issue #36 (option 3): 20 s server budget as the safety net, the model call's own timeout just under it
+    (so the HTTP call gives up and frees its worker before the 504), and a single attempt: no with_retries
+    back-off inside the budget (the measured 26 s outlier)."""
+    assert copilot_mod.VOICE_TIMEOUT_S == 20.0
+    assert copilot_mod.VOICE_TIMEOUT_S - 1.0 <= COPILOT_VOICE.timeout_s < copilot_mod.VOICE_TIMEOUT_S
+    assert COPILOT_VOICE.attempts == 1
+    assert COPILOT_VOICE.thinking == "low"  # Vertex rejects "minimal" for gemini-3.8-flash (400, 15 Oct)
+
+
+class VoiceSpy(ReplayRunner):
+    """Replays one recorded model reply for the voice call and records what voice offered the model."""
+
+    def __init__(self, reply: dict):
+        super().__init__({"copilot:voice": reply})
+        self.offered: list[list] = []
 
     def run(self, spec, key, message, tools=(), attachments=()):
-        self.tools = list(tools)
-        return AgentResult(text='{"transcript": "", "answer": ""}')
+        self.offered.append(list(tools))
+        return super().run(spec, key, message, tools, attachments)
 
 
-def test_voice_tool_signatures_match_ws3_live_tool_declarations(client, seeded, auth):
-    spy = SignatureSpyRunner()
+def _intent(seeded, transcript, tool, args, **extra) -> VoiceSpy:
+    spy = VoiceSpy({"text": {"transcript": transcript, "tool": tool, "args": args, **extra}})
     seeded.voice_runner = spy
-    _voice(client, auth)
-    sigs = {t.__name__: str(inspect.signature(t)) for t in spy.tools}
-    assert set(sigs) == {"what_if", "explain_finding", "focus_element"}
-    assert sigs["what_if"].startswith("(param: typing.Literal[") or sigs["what_if"].startswith("(param: Literal[")
-    for param in WHAT_IF_PARAMS:
-        assert param in sigs["what_if"]
-    assert "value: float" in sigs["what_if"]
-    assert sigs["explain_finding"] == "(finding_id: str = '', element_id: str = '') -> dict"
-    assert sigs["focus_element"] == "(element_id: str) -> dict"
+    return spy
+
+
+def _one_model_call(spy: VoiceSpy) -> None:
+    assert spy.calls == ["copilot:voice"]  # one round trip: no second turn, no repair, no retry
+    assert spy.offered == [[]]  # no automatic function calling: the model is offered no tools
 
 
 def _voice(client, auth, files=CLIP, ref="seed:hall-a@r2"):
     return client.post("/api/voice", files=files, data={"revision_ref": ref}, headers=auth)
 
 
-def test_voice_runs_what_if_and_filters_the_answer(client, seeded, auth):
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "what_if", "args": {"param": "rack_kw", "value": 200}}],
-        "text": {"transcript": "What if racks go to 200 kW?", "answer": "At 200 kW per rack R01, R02 and R08 fail."}}})
+# --- the three demo questions (issue #30), replayed as the one {transcript, tool, args} reply ---
+
+def test_voice_demo_what_if_runs_the_engine_and_answers_with_the_engine_summary(client, seeded, auth):
+    spy = _intent(seeded, "What if racks go to 200 kW?", "what_if", {"param": "rack_kw", "value": 200})
     r = _voice(client, auth)
     assert r.status_code == 200
     body = r.json()
-    assert body["transcript"] == "What if racks go to 200 kW?"  # the user's words (R13)
+    _one_model_call(spy)
+    assert body["transcript"] == "What if racks go to 200 kW?"  # the user's words (R13), its value verified
     assert body["answer"] == "With rack_kw at 200, these checks fail: R01, R02, R08."
-    assert body["tool_results"][0]["name"] == "what_if" and body["tool_results"][0]["result"]["impact_chain"]
+    [res] = body["tool_results"]
+    assert set(body) == {"transcript", "answer", "tool_results"} and set(res) == {"name", "args", "result"}
+    assert res["name"] == "what_if" and res["args"] == {"param": "rack_kw", "value": 200.0}
+    assert res["result"]["impact_chain"]
 
 
-def test_voice_keeps_a_clean_answer_and_reports_focus(client, seeded, auth):
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "focus_element", "args": {"element_id": "FA-01"}}],
-        "text": {"transcript": "Show me FA-01", "answer": "Here is FA-01 on the canvas."}}})
+def test_voice_demo_explain_uses_the_explanation_path(client, seeded, auth):
+    spy = _intent(seeded, "Why did FA-01 fail?", "explain_finding", {"element_id": "FA-01"})
+    body = _voice(client, auth, ref="seed:hall-a@r1").json()
+    _one_model_call(spy)
+    [res] = body["tool_results"]
+    assert res["name"] == "explain_finding" and res["args"] == {"finding_id": "R05:FA-01"}
+    assert res["result"]["text"].startswith("FA-01 has a voltage drop of 2.16%")
+    assert body["answer"] == res["result"]["text"]
+    assert body["transcript"] == "Why did FA-01 fail?"
+
+
+def test_voice_demo_focus_shows_the_element(client, seeded, auth):
+    spy = _intent(seeded, "Show me H-Z2.", "focus_element", {"element_id": "H-Z2"})
     body = _voice(client, auth).json()
-    assert body["answer"] == "Here is FA-01 on the canvas."
-    assert body["tool_results"] == [{"name": "focus_element", "args": {"element_id": "FA-01"},
-                                     "result": {"focused": "FA-01"}}]
+    _one_model_call(spy)
+    assert body == {"transcript": "Show me H-Z2.", "answer": "Showing H-Z2.",
+                    "tool_results": [{"name": "focus_element", "args": {"element_id": "H-Z2"},
+                                      "result": {"focused": "H-Z2"}}]}
+
+
+def test_voice_explain_by_finding_id(client, seeded, auth):
+    spy = _intent(seeded, "Explain R05 on FA-01.", "explain_finding", {"finding_id": "R05:FA-01"})
+    body = _voice(client, auth, ref="seed:hall-a@r1").json()
+    _one_model_call(spy)
+    assert body["tool_results"][0]["args"] == {"finding_id": "R05:FA-01"}
+
+
+def test_voice_explain_by_element_id_picks_its_failing_finding(client, seeded, auth):
+    _intent(seeded, "Why is FA-01 red?", "explain_finding", {"element_id": "FA-01"})
+    body = _voice(client, auth, ref="seed:hall-a@r1").json()
+    assert body["tool_results"][0]["args"] == {"finding_id": "R05:FA-01"}
+
+
+def test_voice_resolves_a_spoken_id_spelling_to_the_real_id_only(client, seeded, auth):
+    """A transcription may drop the hyphen or the case ("hz2"); it resolves to the one real id it spells, and
+    only that real id is echoed."""
+    _intent(seeded, "Show me hz2.", "focus_element", {"element_id": "hz2"})
+    body = _voice(client, auth).json()
+    assert body["tool_results"] == [{"name": "focus_element", "args": {"element_id": "H-Z2"},
+                                     "result": {"focused": "H-Z2"}}]
+    assert body["answer"] == "Showing H-Z2."
+    assert body["transcript"] == "Show me hz2."
+
+
+def test_voice_a_turn_with_no_tool_keeps_the_transcript_and_answers_honestly(client, seeded, auth):
+    spy = _intent(seeded, "Hello there.", "none", {})
+    body = _voice(client, auth).json()
+    _one_model_call(spy)
+    assert body == {"transcript": "Hello there.", "answer": NO_MATCH, "tool_results": []}
+
+
+# --- forged ids and values: no tool result, and nothing the model invented is echoed ---
+
+FORGED = [
+    ("focus_element", {"element_id": "the 7.77 percent feeder"}, "Show me the 7.77 percent feeder.", NO_MATCH),
+    ("focus_element", {"element_id": "FA-77"}, "Show me FA-77.", NO_MATCH),
+    ("focus_element", {"element_id": ["FA-01"]}, "Show me FA-77.", NO_MATCH),
+    ("explain_finding", {"finding_id": "R05:FA-77"}, "Why did FA-77 fail?", NO_MATCH),
+    ("explain_finding", {"element_id": "FA-77"}, "Why did FA-77 fail?", NO_MATCH),
+    ("explain_finding", {}, "Why did it fail?", NO_MATCH),
+    ("what_if", {"param": "rack_kw", "value": 777}, "What if racks go to 777 kW?", OUT_OF_RANGE),
+    ("what_if", {"param": "rack_kw", "value": -7.77}, "What if racks go to -7.77 kW?", OUT_OF_RANGE),
+    ("what_if", {"param": "rack_kw", "value": "7.77 kW"}, "What if racks go to 7.77 kW?", OUT_OF_RANGE),
+    ("what_if", {"param": "rack_kw", "value": True}, "What if racks go up?", OUT_OF_RANGE),
+    ("what_if", {"param": "rack_kw", "value": float("nan")}, "What if racks go to 777 kW?", OUT_OF_RANGE),
+    ("what_if", {"param": "rack_kw"}, "What if racks go to 777 kW?", OUT_OF_RANGE),
+    ("what_if", {"param": "voltage_pct", "value": 7.77}, "What if the voltage is 7.77%?", NO_MATCH),
+    ("delete_project", {"project_id": "hall-a-777"}, "Delete project 777.", NO_MATCH),
+]
+
+
+@pytest.mark.parametrize("tool,args,transcript,answer", FORGED,
+                         ids=[f"{t}-{i}" for i, (t, *_rest) in enumerate(FORGED)])
+def test_voice_forged_tool_or_args_give_no_tool_result_and_echo_nothing(client, seeded, auth, tool, args,
+                                                                        transcript, answer):
+    """Issue #36: the server validates the model's {tool, args} with the same checks the tools applied (the
+    what-if param enum and PARAM_BOUNDS, real finding ids, real element ids). Anything else gives no tool
+    result and an honest code-authored answer, and nothing the model invented -- an id, a value, a tool name
+    or a number in the transcript -- reaches the response."""
+    spy = _intent(seeded, transcript, tool, args)
+    r = _voice(client, auth, ref="seed:hall-a@r1")
+    assert r.status_code == 200
+    body = r.json()
+    _one_model_call(spy)
+    assert body["tool_results"] == []
+    assert body["answer"] == answer
+    dumped = json.dumps(body)
+    for leak in ("7.77", "777", "FA-77", "voltage_pct", "delete_project", "hall-a"):
+        assert leak not in dumped, leak
+
+
+@pytest.mark.parametrize("leak", ["FA-01 is at {value} against {limit}.", "FA-01 is at two point one six percent.",
+                                  "FA-01 is at 7.77 percent."], ids=["placeholder", "number-words", "digits"])
+def test_voice_never_shows_model_written_answer_text(client, seeded, auth, leak):
+    """Issue #36: the model writes no answer any more; the answer is the code-authored engine_summary (R14).
+    An `answer` field the model adds anyway is ignored, so a placeholder, a quantity in words or a stray digit
+    can never be shown or spoken."""
+    _intent(seeded, "How bad is FA-01?", "focus_element", {"element_id": "FA-01"},
+            answer=f"Here is FA-01 on the canvas. {leak}")
+    body = _voice(client, auth).json()
+    assert body["answer"] == "Showing FA-01."
+    assert "7.77" not in json.dumps(body) and "{value}" not in json.dumps(body)
+
+
+def test_voice_transcript_is_sanitized_without_placeholders(client, seeded, auth):
+    """The transcript is the user's words, but it is written by the model, so it goes through sanitize with
+    placeholders off: a number the engine never ran with (here a hallucinated 7.77) is not shown."""
+    _intent(seeded, "Show me FA-01. It runs at {value} and 7.77 percent.", "focus_element", {"element_id": "FA-01"})
+    body = _voice(client, auth).json()
+    assert body["transcript"].startswith("Show me FA-01.")
+    assert "7.77" not in body["transcript"] and "{value}" not in body["transcript"]
+
+
+def test_voice_a_malformed_reply_is_not_repaired_with_a_second_model_call(client, seeded, auth):
+    spy = VoiceSpy({"text": "I think they asked about the racks."})
+    seeded.voice_runner = spy
+    body = _voice(client, auth).json()
+    assert spy.calls == ["copilot:voice"]
+    assert body == {"transcript": "", "answer": NO_MATCH, "tool_results": []}
 
 
 def test_voice_focus_element_does_not_wait_on_a_concurrent_slow_erp_refresh(client, seeded, auth):
@@ -127,41 +269,16 @@ def test_voice_focus_element_does_not_wait_on_a_concurrent_slow_erp_refresh(clie
     held.wait(2)
     time.sleep(0.05)  # let the background thread actually enter deps.erp()'s locked refresh
 
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "focus_element", "args": {"element_id": "FA-01"}}],
-        "text": {"transcript": "Show me FA-01", "answer": "Here is FA-01 on the canvas."}}})
+    _intent(seeded, "Show me FA-01", "focus_element", {"element_id": "FA-01"})
     start = time.monotonic()
     try:
         body = _voice(client, auth).json()
         elapsed = time.monotonic() - start
-        assert body["answer"] == "Here is FA-01 on the canvas."
+        assert body["answer"] == "Showing FA-01."
         assert elapsed < 1.0
     finally:
         release.set()
         t.join(timeout=5)
-
-
-def test_voice_focus_element_rejects_an_unknown_id_and_keeps_digits_out(client, seeded, auth):
-    """Fix round 1, Critical: an id the model invented (carrying its own narration, with digits) must not be
-    trusted into tool_results or the engine_summary template. Reproduced by the reviewer: `focus_element`
-    called with `element_id="the 7.77 percent feeder"` leaked "Showing the 7.77 percent feeder." verbatim."""
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "focus_element", "args": {"element_id": "the 7.77 percent feeder"}}],
-        "text": {"transcript": "Show me the worst feeder", "answer": "Showing the 7.77 percent feeder."}}})
-    body = _voice(client, auth).json()
-    assert body["tool_results"] == []
-    assert "7.77" not in body["answer"]
-    assert body["answer"] == "I could not match that to a design question; try a what-if chip."
-
-
-def test_voice_explain_tool_uses_the_explanation_path(client, seeded, auth):
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "explain_finding", "args": {"finding_id": "R05:FA-01"}}],
-        "text": {"transcript": "Why did FA-01 fail?", "answer": "It is too long."}}})
-    body = _voice(client, auth, ref="seed:hall-a@r1").json()
-    assert body["tool_results"][0]["result"]["text"].startswith("FA-01 has a voltage drop of 2.16%")
-    assert body["tool_results"][0]["args"] == {"finding_id": "R05:FA-01"}
-    assert body["answer"] == "It is too long."
 
 
 class RaisingRunner:
@@ -170,49 +287,26 @@ class RaisingRunner:
 
 
 def test_voice_explain_finding_logs_the_real_cause_when_the_runner_raises(client, seeded, auth, caplog):
-    """Fix round 2, Minor: explain_text's deadline branch (used when already on an _LLM_POOL worker, as
-    voice's explain_finding is) runs the LLM call on a plain thread; if that thread's target raises, the
-    exception does not propagate to whoever joins it, so `box` stays empty. Previously `wait()` then did
-    `return box[0]`, raising an unrelated IndexError that masked the real cause in the fallback log message
-    -- the user-facing fallback text is the same template either way, so only the logged cause tells them
-    apart."""
+    """Fix round 2, Minor: explain_text's deadline branch (the one voice uses, bounded by the voice deadline)
+    runs the LLM call on a plain thread; if that thread's target raises, the exception does not propagate to
+    whoever joins it, so `box` stays empty. Previously `wait()` then did `return box[0]`, raising an unrelated
+    IndexError that masked the real cause in the fallback log message -- the user-facing fallback text is the
+    same template either way, so only the logged cause tells them apart."""
     seeded.runner = RaisingRunner()
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "explain_finding", "args": {"finding_id": "R05:FA-01"}}],
-        "text": {"transcript": "Why did FA-01 fail?", "answer": "It is too long."}}})
+    _intent(seeded, "Why did FA-01 fail?", "explain_finding", {"finding_id": "R05:FA-01"})
     with caplog.at_level("WARNING", logger="kirchhoff.copilot"):
         body = _voice(client, auth, ref="seed:hall-a@r1").json()
     assert body["tool_results"][0]["result"]["text"] == "Voltage drop: 2.16% against a limit of 2%."
+    assert body["answer"] == "Voltage drop: 2.16% against a limit of 2%."
     messages = " ".join(r.getMessage() for r in caplog.records)
     assert "vertex down" in messages
     assert "IndexError" not in messages
 
 
-def test_voice_explain_by_element_id_picks_its_failing_finding(client, seeded, auth):
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "explain_finding", "args": {"element_id": "FA-01"}}],
-        "text": {"transcript": "Why is FA-01 red?", "answer": "It is too long."}}})
-    body = _voice(client, auth, ref="seed:hall-a@r1").json()
-    assert body["tool_results"][0]["args"] == {"finding_id": "R05:FA-01"}
-
-
-def test_voice_scrubs_a_raw_digit_the_model_speaks(client, seeded, auth):
-    """Trust path (spec §6.3): any digit the model speaks that is not an engine record/allowlisted id must
-    never reach `answer` -- it is replaced by the engine_summary template built from the tool result."""
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "what_if", "args": {"param": "rack_kw", "value": 200}}],
-        "text": {"transcript": "What if racks go to 200 kW?",
-                 "answer": "The voltage drop comes out to about 7.77 percent, which is unsafe."}}})
-    body = _voice(client, auth).json()
-    assert "7.77" not in body["answer"]
-    assert body["answer"] == "With rack_kw at 200, these checks fail: R01, R02, R08."
-
-
 def test_voice_model_failure_falls_back_to_the_summary(client, seeded, auth):
     seeded.voice_runner = ReplayRunner({"copilot:voice": {"raise": "vertex down"}})
     body = _voice(client, auth).json()
-    assert body == {"transcript": "", "answer": "I could not match that to a design question; try a what-if chip.",
-                    "tool_results": []}
+    assert body == {"transcript": "", "answer": NO_MATCH, "tool_results": []}
 
 
 def test_voice_rejects_bad_uploads(client, seeded, auth):
@@ -285,8 +379,7 @@ def test_voice_rejects_revision_ref_sent_as_a_file_part(client, seeded, auth):
 
 
 def test_voice_strips_codec_parameters_from_the_content_type(client, seeded, auth):
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [], "text": {"transcript": "hi", "answer": "Here is FA-01 on the canvas."}}})
+    _intent(seeded, "hi", "none", {})
     files = {"audio": ("clip.webm", b"\x1aE\xdf\xa3fake-webm-bytes", "audio/webm;codecs=opus")}
     r = _voice(client, auth, files=files)
     assert r.status_code == 200
@@ -298,7 +391,7 @@ def test_voice_normalizes_x_wav_to_wav(client, seeded, auth):
     class SpyRunner:
         def run(self, spec, key, message, tools=(), attachments=()):
             received["mime"] = attachments[0].mime_type
-            return AgentResult(text='{"transcript": "", "answer": ""}')
+            return AgentResult(text='{"transcript": "", "tool": "none", "args": {}}')
 
     seeded.voice_runner = SpyRunner()
     files = {"audio": ("clip.wav", b"RIFF....fake-wav-bytes", "audio/x-wav")}
@@ -307,24 +400,63 @@ def test_voice_normalizes_x_wav_to_wav(client, seeded, auth):
     assert received["mime"] == "audio/wav"
 
 
-def test_voice_times_out(client, seeded, auth, monkeypatch):
-    """Fix round 2, Minor: event-based, not a fixed time.sleep(5.0) -- the LLM-pool worker running
-    HungRunner is released right after the assertions instead of staying busy regardless."""
-    release = threading.Event()
+def test_voice_a_hung_model_times_out_at_the_budget_and_leaves_the_pool_free(client, seeded, auth, monkeypatch):
+    """Issue #36: a hung model call gives 504 at about VOICE_TIMEOUT_S (one deadline from the request start),
+    after exactly one model call, and the LLM pool is not left blocked: here the pool has one worker, the
+    hung call is released by an Event right after the assertions (no sleeps), and the worker is proven free
+    again."""
+    release, returned = threading.Event(), threading.Event()
+    calls: list[str] = []
 
     class HungRunner:
         def run(self, spec, key, message, tools=(), attachments=()):
-            release.wait(10)
-            return AgentResult(text='{"transcript": "", "answer": ""}')
+            calls.append(key)
+            try:
+                release.wait(10)
+                return AgentResult(text='{"transcript": "", "tool": "none", "args": {}}')
+            finally:
+                returned.set()
 
-    monkeypatch.setattr(copilot_mod, "VOICE_TIMEOUT_S", 0.2)
+    pool = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr(copilot_mod, "_LLM_POOL", pool)
+    monkeypatch.setattr(copilot_mod, "VOICE_TIMEOUT_S", 0.3)
     seeded.voice_runner = HungRunner()
     try:
+        start = time.monotonic()
         r = _voice(client, auth)
+        elapsed = time.monotonic() - start
         assert r.status_code == 504
         assert r.json() == {"detail": "timeout"}
+        assert 0.3 <= elapsed < 2.0
+        assert calls == ["voice"]
     finally:
         release.set()
+    assert returned.wait(5)
+    assert pool.submit(lambda: "free").result(timeout=5) == "free"
+    pool.shutdown(wait=True)
+
+
+def test_voice_a_model_call_that_times_out_itself_is_a_504_not_a_fallback(client, seeded, auth, monkeypatch):
+    """Issue #36: COPILOT_VOICE.timeout_s sits just under VOICE_TIMEOUT_S, so in production a hung Vertex call
+    usually ends with the HTTP client's own timeout (httpx.ReadTimeout) a moment before the voice deadline. That
+    is a timeout too: a 504, never the "could not match that" fallback. The single worker is free at once."""
+
+    class ReadTimeout(Exception):  # the name httpx gives it
+        pass
+
+    class TimingOutRunner:
+        def run(self, spec, key, message, tools=(), attachments=()):
+            raise ReadTimeout("The read operation timed out")
+
+    pool = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr(copilot_mod, "_LLM_POOL", pool)
+    seeded.voice_runner = TimingOutRunner()
+    r = _voice(client, auth)
+    assert r.status_code == 504
+    assert r.json() == {"detail": "timeout"}
+    _intent(seeded, "Show me FA-01", "focus_element", {"element_id": "FA-01"})
+    assert _voice(client, auth).json()["answer"] == "Showing FA-01."
+    pool.shutdown(wait=True)
 
 
 def test_voice_maps_a_bad_revision_ref_not_as_a_generic_value_error(client, seeded, auth):
@@ -339,12 +471,10 @@ class DownEnterpriseForVoice:
 
 
 def test_voice_returns_503_when_the_enterprise_sandbox_is_unavailable(client, seeded, auth):
-    """The ERP is only fetched lazily inside what_if, so this requires a what_if tool call."""
+    """The ERP is only fetched lazily for what_if, so this requires a what_if intent."""
     seeded.enterprise = DownEnterpriseForVoice()
     seeded._erp = None
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "what_if", "args": {"param": "rack_kw", "value": 200}}],
-        "text": {"transcript": "What if racks go to 200 kW?", "answer": "ok"}}})
+    _intent(seeded, "What if racks go to 200 kW?", "what_if", {"param": "rack_kw", "value": 200})
     r = _voice(client, auth)
     assert r.status_code == 503 and r.json() == {"detail": "enterprise_unavailable"}
 
@@ -356,16 +486,13 @@ class ValueErrorEnterpriseForVoice:
 
 def test_voice_falls_back_to_the_summary_on_an_erp_value_error_during_what_if(client, seeded, auth):
     """Fix round 2, Minor: an ERP-side ValueError (HttpEnterpriseClient on a sandbox 422, unrelated to
-    EnterpriseUnavailable) surfacing from inside what_if's lazy erp() fetch is a model/tool failure like any
-    other -- it falls back to the engine_summary (NO_MATCH, since no tool result was recorded), not a 500."""
+    EnterpriseUnavailable) surfacing from what_if's lazy erp() fetch is a tool failure like any other -- no
+    tool result and the honest fallback answer, not a 500. The transcript (its value validated) is kept."""
     seeded.enterprise = ValueErrorEnterpriseForVoice()
     seeded._erp = None
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "what_if", "args": {"param": "rack_kw", "value": 200}}],
-        "text": {"transcript": "What if racks go to 200 kW?", "answer": "ok"}}})
+    _intent(seeded, "What if racks go to 200 kW?", "what_if", {"param": "rack_kw", "value": 200})
     body = _voice(client, auth).json()
-    assert body == {"transcript": "", "answer": "I could not match that to a design question; try a what-if chip.",
-                    "tool_results": []}
+    assert body == {"transcript": "What if racks go to 200 kW?", "answer": NO_MATCH, "tool_results": []}
 
 
 class ValidationErrorEngineForVoice:
@@ -381,20 +508,6 @@ def test_voice_does_not_mask_a_validation_error_as_a_fallback(client, seeded, au
     from pydantic import ValidationError
 
     seeded.engine = ValidationErrorEngineForVoice()
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "what_if", "args": {"param": "rack_kw", "value": 200}}],
-        "text": {"transcript": "What if racks go to 200 kW?", "answer": "ok"}}})
+    _intent(seeded, "What if racks go to 200 kW?", "what_if", {"param": "rack_kw", "value": 200})
     with pytest.raises(ValidationError):
         _voice(client, auth)
-
-
-@pytest.mark.parametrize("leak", ["FA-01 is at {value} against {limit}.", "FA-01 is at two point one six percent.",
-                                  "FA-01 is at 7.77 percent."], ids=["placeholder", "number-words", "digits"])
-def test_voice_answer_never_speaks_a_placeholder_or_an_llm_quantity(client, seeded, auth, leak):
-    """P2 final fix wave, Important 1: the browser shows AND speaks `answer` (speak()), so an unfilled
-    placeholder would be read out as "value", and a quantity in words bypasses a digit-only filter."""
-    seeded.voice_runner = ReplayRunner({"copilot:voice": {
-        "tool_calls": [{"name": "focus_element", "args": {"element_id": "FA-01"}}],
-        "text": {"transcript": "How bad is FA-01?", "answer": f"Here is FA-01 on the canvas. {leak}"}}})
-    body = _voice(client, auth).json()
-    assert body["answer"] == "Here is FA-01 on the canvas. Showing FA-01."

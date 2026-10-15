@@ -33,7 +33,8 @@ class GenaiRunner:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(maximum_remote_calls=8),
             http_options=types.HttpOptions(timeout=int(spec.timeout_s * 1000)))
         resp = with_retries(lambda: self._get().models.generate_content(
-            model=self.model, contents=[types.Content(role="user", parts=parts)], config=config))
+            model=self.model, contents=[types.Content(role="user", parts=parts)], config=config),
+            attempts=spec.attempts)
         calls, pending = [], {}
         for content in resp.automatic_function_calling_history or []:
             for part in content.parts or []:
