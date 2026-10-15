@@ -16,8 +16,8 @@ interface Viewport {
 
 const PAD = 6 // spotlight padding around the target
 const EDGE = 4 // spotlight never closer than this to the viewport edge
-const CARD_W = 280 // w-80 at the 14 px root size
-const CARD_H = 170 // tallest card (title wraps on two lines) plus margin
+export const CARD_W = 280 // w-80 at the 14 px root size
+export const CARD_H = 170 // tallest card (title wraps on two lines) plus margin
 const GAP = 16 // sideOffset plus collision padding
 const MIN_CARD_TOP = 32 // below the fictional-data banner
 
@@ -64,9 +64,10 @@ export function placeCard(spot: Box, cardSpot: Box | null, preferred: Side, vp: 
       return { ...p, anchor: { left: cardSpot.left, top, width: cardSpot.width, height: 1 } }
     }
     // No room beside the card target itself (a phone-width drawer, N9): falling back to "below the
-    // spotlit chip" would land the card on the value bar and formula further down the drawer. Pin it
-    // under the banner instead, clear of that evidence.
-    return { side: 'bottom', anchor: { left: EDGE, top: MIN_CARD_TOP, width: vp.w - 2 * EDGE, height: 1 }, floating: false }
+    // spotlit chip" would land the card on the value bar and formula further down the drawer, and
+    // pinning it under the banner instead covers the chip itself plus "Show on canvas" (N9 regression).
+    // Pin it to the bottom edge instead, clear of the chip, the evidence and the fix cards.
+    return { side: 'top', anchor: { left: EDGE, top: vp.h - 12, width: vp.w - 2 * EDGE, height: 1 }, floating: true }
   }
   return cardPlacement(spot, preferred, vp)
 }
