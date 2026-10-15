@@ -190,7 +190,10 @@ def test_explain_on_a_workspace_revision(client, seeded, auth):
 # ERP fetch doesn't let the total exceed the LLM budget (reviewer measured 11.02s: a 3s ERP fetch stacked
 # on top of the full 8s LLM timeout, against the service's ~10s-per-/api budget).
 def test_explain_deadline_is_measured_from_submit_not_after_a_slow_erp_fetch(client, seeded, auth, monkeypatch):
+    """Fix round 1, Minor: event-based, not a fixed time.sleep(5.0) -- the LLM-pool worker is released as
+    soon as the assertions are done, instead of staying busy for the rest of the test run regardless."""
     monkeypatch.setattr(copilot_mod, "COPILOT", AgentSpec("copilot", "x", timeout_s=1.5))
+    release = threading.Event()
 
     class SlowEnterprise(FakeEnterprise):
         def list_materials(self):
@@ -199,7 +202,7 @@ def test_explain_deadline_is_measured_from_submit_not_after_a_slow_erp_fetch(cli
 
     class HungRunner:
         def run(self, spec, key, message, tools=(), attachments=()):
-            time.sleep(5.0)  # never returns within the (short, patched) budget
+            release.wait(10)  # never returns within the (short, patched) budget until released below
             return AgentResult(text="too late")
 
     seeded.enterprise = SlowEnterprise()
@@ -209,13 +212,16 @@ def test_explain_deadline_is_measured_from_submit_not_after_a_slow_erp_fetch(cli
     model = bundle.revisions[0].model
     finding = next(f for f in bundle.findings["r1"] if f.id == "R05:FA-01")
     start = time.monotonic()
-    text = copilot_mod.explain_text(seeded, model, finding)
-    elapsed = time.monotonic() - start
-    assert text == "Voltage drop: 2.16% against a limit of 2%."
-    # Fixed: one deadline (submit time + timeout_s + 1 = 2.5s) covers the ERP fetch and the LLM wait
-    # together, so elapsed lands near 2.5s. Buggy: the LLM wait alone gets the full 2.5s *after* the 1.0s
-    # ERP fetch already elapsed, landing near 3.5s. 3.0s cleanly separates the two.
-    assert elapsed < 3.0
+    try:
+        text = copilot_mod.explain_text(seeded, model, finding)
+        elapsed = time.monotonic() - start
+        assert text == "Voltage drop: 2.16% against a limit of 2%."
+        # Fixed: one deadline (submit time + timeout_s + 1 = 2.5s) covers the ERP fetch and the LLM wait
+        # together, so elapsed lands near 2.5s. Buggy: the LLM wait alone gets the full 2.5s *after* the 1.0s
+        # ERP fetch already elapsed, landing near 3.5s. 3.0s cleanly separates the two.
+        assert elapsed < 3.0
+    finally:
+        release.set()
 
 
 def test_explain_saturating_the_llm_pool_does_not_delay_what_if(client, seeded, auth, monkeypatch):

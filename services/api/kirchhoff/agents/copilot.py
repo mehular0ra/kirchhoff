@@ -3,12 +3,13 @@ import functools
 import json
 import logging
 import re
+import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -18,6 +19,12 @@ from kirchhoff.runs.revisions import load_revision_model
 from .runner import Attachment, run_json
 from .specs import COPILOT, COPILOT_VOICE
 from .trust import allowed_ids_for, fill_finding, fmt_number, sanitize
+
+try:
+    from kirchhoff.enterprise.client import EnterpriseUnavailable  # WS4-owned module
+except ImportError:
+    class EnterpriseUnavailable(Exception):
+        """Placeholder when kirchhoff.enterprise.client is unavailable (never actually raised)."""
 
 log = logging.getLogger("kirchhoff.copilot")
 # Fix round 1 (Important #3): separate pools for engine work (what-if) and LLM work (explain). Explain's
@@ -86,7 +93,11 @@ def load_revision(deps, uid: str, ref: str) -> tuple[DesignModel, list[Finding]]
     raise BadRevisionRef(f"bad revision_ref {ref!r}")
 
 
-def explain_text(deps, model: DesignModel, finding: Finding) -> str:
+def explain_text(deps, model: DesignModel, finding: Finding, *, deadline: float | None = None) -> str:
+    """`deadline` (a `time.monotonic()` value) is passed by voice's `explain_finding` tool, which already
+    runs on an `_LLM_POOL` worker (Fix round 1, Minor): submitting another task to the same fixed-size pool
+    from inside one of its own workers can deadlock it if every worker does this at once, so that case runs
+    the LLM call on a plain thread instead of through the pool, bounded by the caller's own deadline."""
     template = finding.explanation or f"{finding.title}: {{value}} against a limit of {{limit}}."
     clauses = ", ".join(c.clause for c in finding.tender_refs if c.clause) or "none"
     standards = ", ".join(f"{c.standard} {c.clause or ''}".strip() for c in finding.clause_refs) or "none"
@@ -94,20 +105,42 @@ def explain_text(deps, model: DesignModel, finding: Finding) -> str:
            f"status {finding.status}. Formula: {finding.formula or 'n/a'}. Inputs: {json.dumps(finding.inputs)}. "
            f"Tender clauses: {clauses}. Standards: {standards}. "
            "Explain why in two sentences. Write {value} and {limit} instead of any number.")
-    # A single LLM attempt, submitted to the dedicated LLM pool (never the engine pool what-if uses) so a
-    # burst of explain calls can never delay a what-if request. `deps.erp()` runs on this thread while the
-    # LLM call runs in the background, so the two overlap instead of adding to the /api latency budget.
-    fut = _LLM_POOL.submit(deps.runner.run, COPILOT, f"explain:{finding.id}", msg)
-    # Task 15 residual fix (a): one deadline, taken right after submit, covers both the (possibly slow)
-    # deps.erp() call below and the fut.result() wait -- not COPILOT.timeout_s + 1 *in addition to* whatever
-    # deps.erp() already spent, which could push the total past the service's ~10s-per-/api budget.
-    deadline = time.monotonic() + COPILOT.timeout_s + 1
+    if deadline is None:
+        # A single LLM attempt, submitted to the dedicated LLM pool (never the engine pool what-if uses) so
+        # a burst of explain calls can never delay a what-if request. `deps.erp()` runs on this thread while
+        # the LLM call runs in the background, so the two overlap instead of adding to the /api latency
+        # budget. Task 15 residual fix (a): one deadline, taken right after submit, covers both the
+        # (possibly slow) deps.erp() call below and the wait -- not COPILOT.timeout_s + 1 *in addition to*
+        # whatever deps.erp() already spent, which could push the total past the ~10s-per-/api budget.
+        fut = _LLM_POOL.submit(deps.runner.run, COPILOT, f"explain:{finding.id}", msg)
+        deadline = time.monotonic() + COPILOT.timeout_s + 1
+
+        def wait(t: float):
+            return fut.result(timeout=t)
+
+        cancel = fut.cancel
+    else:
+        box: list = []
+
+        def call() -> None:
+            box.append(deps.runner.run(COPILOT, f"explain:{finding.id}", msg))
+
+        thread = threading.Thread(target=call, daemon=True)
+        thread.start()
+
+        def wait(t: float):
+            thread.join(t)
+            if thread.is_alive():
+                raise FuturesTimeoutError()
+            return box[0]
+
+        cancel = lambda: None  # noqa: E731 -- the thread is a daemon; it is simply abandoned on timeout
     try:
         extra_ids = [finding.element_id, *deps.erp().ids()]
-        res = fut.result(timeout=max(0.0, deadline - time.monotonic()))
+        res = wait(max(0.0, deadline - time.monotonic()))
         text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template)
     except Exception as exc:
-        fut.cancel()
+        cancel()
         log.warning("explain fallback for %s: %r", finding.id, exc)
         text = template
     return fill_finding(text, finding.value, finding.limit, finding.unit)
@@ -143,18 +176,32 @@ def engine_summary(results: list[dict]) -> str:
 
 def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
     model, findings = load_revision(deps, uid, ref)
-    scn, erp, by_id = deps.scenario(), deps.erp(), {f.id: f for f in findings}
+    scn, by_id = deps.scenario(), {f.id: f for f in findings}
+    model_ids = allowed_ids_for(model)
     results: list[dict] = []
+    # Fix round 1, Important #2: one deadline for the whole voice round trip, taken before the model call.
+    # deps.erp() is fetched lazily inside what_if below (most voice questions never call it), and bounded by
+    # this same deadline -- not fetched eagerly up front, which previously ran outside VOICE_TIMEOUT_S
+    # entirely and could push the worst case to ~18s against the service's <10s-per-/api budget.
+    deadline = time.monotonic() + VOICE_TIMEOUT_S
+    erp_box: list = []
 
-    def what_if(param: str, value: float) -> dict:
+    def erp():
+        if not erp_box:
+            erp_box.append(deps.erp())
+        return erp_box[0]
+
+    def what_if(param: Literal["rack_kw", "liquid_fraction", "dv_limit_pct", "tx_loading_cap_pct"],
+               value: float) -> dict:
         """Re-check the current design with one input changed (loads change, equipment stays frozen).
         param is one of rack_kw, liquid_fraction, dv_limit_pct, tx_loading_cap_pct."""
         if param not in WHAT_IF_PARAMS:
             return {"error": f"param must be one of {', '.join(WHAT_IF_PARAMS)}"}
         # Engine work runs on the engine pool (same pool /api/what-if uses via call_with_timeout's default),
         # kept separate from the LLM pool the surrounding voice call runs on below, so neither starves the
-        # other under load.
-        r = _ENGINE_POOL.submit(deps.engine.what_if, scn, model, param, float(value), ref, erp).result()
+        # other under load. Bounded by the remaining voice deadline (Fix round 1, Minor).
+        fut = _ENGINE_POOL.submit(deps.engine.what_if, scn, model, param, float(value), ref, erp())
+        r = fut.result(timeout=max(0.0, deadline - time.monotonic()))
         results.append({"name": "what_if", "args": {"param": param, "value": float(value)},
                         "result": r.model_dump(mode="json")})
         return {"failing_rules": sorted({f.rule_id for f in r.findings if f.status == "fail"}),
@@ -168,12 +215,21 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
             f = next((x for x in on_el if x.status == "fail"), on_el[0] if on_el else None)
         if f is None:
             return {"error": "unknown finding"}
-        text = explain_text(deps, model, f)
+        # Fix round 1, Minor: this closure already runs on an _LLM_POOL worker (the surrounding `ask()`
+        # below is submitted there), so explain_text must run inline under the remaining deadline instead of
+        # submitting another task to the same fixed-size pool, which could deadlock it.
+        text = explain_text(deps, model, f, deadline=deadline)
         results.append({"name": "explain_finding", "args": {"finding_id": f.id}, "result": {"text": text}})
         return {"text": text}
 
     def focus_element(element_id: str) -> dict:
         """Show an element such as FA-01, H-Z2 or CDU-4 on the canvas."""
+        # Fix round 1, Critical: only an id that actually exists on the model is trusted. Otherwise the
+        # model can invent an id carrying its own narration (e.g. "the 7.77 percent feeder") that would
+        # otherwise reach `tool_results` and the `engine_summary` template verbatim, leaking an unearned
+        # digit into `answer`.
+        if element_id not in model_ids:
+            return {"error": "unknown element"}
         results.append({"name": "focus_element", "args": {"element_id": element_id},
                         "result": {"focused": element_id}})
         return {"focused": element_id}
@@ -187,11 +243,14 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         # The voice round trip is dominated by the model call (automatic function calling runs the tools
         # above inline), so it is submitted to the LLM pool -- the same split Task 15 made for explain --
         # rather than the engine pool /api/what-if's call_with_timeout defaults to.
-        reply = call_with_timeout(ask, VOICE_TIMEOUT_S, pool=_LLM_POOL)
+        reply = call_with_timeout(ask, max(0.0, deadline - time.monotonic()), pool=_LLM_POOL)
     except TimeoutError:
+        raise
+    except EnterpriseUnavailable:  # Fix round 1, Important #3: let the route map this to 503, not a fallback
         raise
     except Exception as exc:  # model or JSON failure: answer from what the engine produced
         log.warning("voice fallback: %r", exc)
         reply = VoiceReply()
-    answer = sanitize(reply.answer, allowed_ids_for(model, extra=[*erp.ids(), *by_id]), engine_summary(results))
+    erp_ids = erp_box[0].ids() if erp_box else ()
+    answer = sanitize(reply.answer, allowed_ids_for(model, extra=[*erp_ids, *by_id]), engine_summary(results))
     return {"transcript": reply.transcript, "answer": answer, "tool_results": results}
