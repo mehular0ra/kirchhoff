@@ -385,3 +385,15 @@ def test_voice_does_not_mask_a_validation_error_as_a_fallback(client, seeded, au
         "text": {"transcript": "What if racks go to 200 kW?", "answer": "ok"}}})
     with pytest.raises(ValidationError):
         _voice(client, auth)
+
+
+@pytest.mark.parametrize("leak", ["FA-01 is at {value} against {limit}.", "FA-01 is at two point one six percent.",
+                                  "FA-01 is at 7.77 percent."], ids=["placeholder", "number-words", "digits"])
+def test_voice_answer_never_speaks_a_placeholder_or_an_llm_quantity(client, seeded, auth, leak):
+    """P2 final fix wave, Important 1: the browser shows AND speaks `answer` (speak()), so an unfilled
+    placeholder would be read out as "value", and a quantity in words bypasses a digit-only filter."""
+    seeded.voice_runner = ReplayRunner({"copilot:voice": {
+        "tool_calls": [{"name": "focus_element", "args": {"element_id": "FA-01"}}],
+        "text": {"transcript": "How bad is FA-01?", "answer": f"Here is FA-01 on the canvas. {leak}"}}})
+    body = _voice(client, auth).json()
+    assert body["answer"] == "Here is FA-01 on the canvas. Showing FA-01."

@@ -147,7 +147,8 @@ def explain_text(deps, model: DesignModel, finding: Finding, *, deadline: float 
     try:
         extra_ids = [finding.element_id, *deps.erp().ids()]
         res = wait(max(0.0, deadline - time.monotonic()))
-        text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template)
+        # The one surface that fills placeholders (fill_finding below, from this finding's engine record).
+        text = sanitize(res.text, allowed_ids_for(model, extra=extra_ids), template, placeholders=True)
     except Exception as exc:
         cancel()
         log.warning("explain fallback for %s: %r", finding.id, exc)
@@ -269,5 +270,7 @@ def answer_voice(deps, uid: str, ref: str, audio: bytes, mime: str) -> dict:
         log.warning("voice fallback: %r", exc)
         reply = VoiceReply()
     erp_ids = erp_box[0].ids() if erp_box else ()
-    answer = sanitize(reply.answer, allowed_ids_for(model, extra=[*erp_ids, *by_id]), engine_summary(results))
+    # placeholders=False: the browser shows `answer` and speaks it (speak()); nothing fills it.
+    answer = sanitize(reply.answer, allowed_ids_for(model, extra=[*erp_ids, *by_id]), engine_summary(results),
+                      placeholders=False)
     return {"transcript": reply.transcript, "answer": answer, "tool_results": results}

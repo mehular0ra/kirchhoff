@@ -168,6 +168,16 @@ def test_explain_with_raw_digits_never_leaks_them_into_the_response(client, seed
     assert body == {"text": "Voltage drop: 2.16% against a limit of 2%."}
 
 
+@pytest.mark.parametrize("reply", ["FA-01 is at {rack_kw} kW of load.", "The drop is two point one six percent."],
+                         ids=["unfillable-placeholder", "number-words"])
+def test_explain_never_shows_an_unfillable_placeholder_or_a_quantity_in_words(client, seeded, auth, reply):
+    """P2 final fix wave, Important 1: explain fills only {value}, {limit} and {unit} from the finding record;
+    any other placeholder would reach the UI literally, and a quantity in words is still an LLM number."""
+    seeded.runner.replies["copilot:explain:R05:FA-01"] = {"text": reply}
+    r = _post(client, auth, "/api/explain", {"revision_ref": "seed:hall-a@r1", "finding_id": "R05:FA-01"})
+    assert r.json() == {"text": "Voltage drop: 2.16% against a limit of 2%."}
+
+
 def test_explain_unknown_finding(client, seeded, auth):
     r = _post(client, auth, "/api/explain", {"revision_ref": "seed:hall-a@r1", "finding_id": "R99:X"})
     assert r.status_code == 404 and r.json() == {"detail": "finding_not_found"}

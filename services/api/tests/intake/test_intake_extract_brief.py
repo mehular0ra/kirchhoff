@@ -274,3 +274,14 @@ def test_neither_clause_main_body_defaults_to_clause_a(tender_pdf):
                                summary="Two appendices disagree.")
     (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
     assert q.default_resolution == "BLOCK"
+
+
+@pytest.mark.parametrize("leak", ["§4.2 sets {value} but App. B sets {limit}.",
+                                  "§4.2 needs two independent systems but App. B accepts one point five.",
+                                  "§4.2 needs 2 x 100% but App. B accepts 150%."],
+                         ids=["placeholder", "number-words", "digits"])
+def test_question_text_never_shows_a_placeholder_or_an_llm_quantity(tender_pdf, leak):
+    # P2 final fix wave, Important 1: the plan-gate question text is shown verbatim at the gate.
+    c = _contradiction(_MAIN_42, _APP_B, summary=leak)
+    (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
+    assert q.text == "§4.2 and App. B disagree; the main body governs by default."

@@ -434,7 +434,7 @@ FAKE_REPLIES: dict[str, dict] = {
                               "text": "Layout placed the racks in rows R1 and R3 with the engine default."},
     "power:p2.power_options": {"tool_calls": [{"name": "enumerate_topologies", "args": {}}],
                                "text": {"offer": ["2N", "DR", "BLOCK"],
-                                        "reason": "All three pass R01 at their minimum rating; §4.2 asks for 2N and "
+                                        "reason": "Every option passes R01 at its minimum rating; §4.2 asks for 2N and "
                                                   "App. B allows the others."}},
     "cooling:p2.cooling_sizing": {"tool_calls": [{"name": "size_cdus", "args": {}},
                                                  {"name": "hydraulic_zones", "args": {}}],
@@ -445,7 +445,7 @@ FAKE_REPLIES: dict[str, dict] = {
     "power:p2.power_recheck": {"tool_calls": [{"name": "recheck_swapped_options", "args": {}}],
                                "text": "Power re-ran short circuit on the TX-3150 options; R01, R04 and R04b still "
                                        "pass."},
-    "power:p3.select_option": {"text": "2N follows §4.2 with zero single points of failure at the lowest "
+    "power:p3.select_option": {"text": "2N follows §4.2 with no single point of failure at the lowest "
                                        "qualifying cost."},
     "layout:p3.route": {"tool_calls": [{"name": "route_busways", "args": {}}],
                         "text": "Layout routed the A feeders along the south corridor and the B feeders along the "

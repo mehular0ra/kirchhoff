@@ -1,3 +1,5 @@
+import pytest
+
 from kirchhoff.agents.trust import allowed_ids_for, fill, fill_finding, fmt_value, is_clean, sanitize
 from kirchhoff.contracts import Connection, DesignModel, Equipment, Geometry, Pipe, Point3, Rack
 
@@ -17,7 +19,7 @@ def test_sentence_with_a_free_number_is_replaced_by_the_template_once():
 
 def test_topologies_rules_clauses_and_placeholders_need_no_listing():
     s = "N+1 per zone, 3 + 1 blocks and 4-to-make-3 all meet R04b and §6.3.4 with {value} under {limit}."
-    assert is_clean(s, set())
+    assert is_clean(s, set(), placeholders=True)
 
 
 def test_unknown_element_id_is_not_allowed():
@@ -77,3 +79,51 @@ def test_vulgar_fraction_fails_is_clean():
 def test_allowlisted_sentence_still_passes_with_unicode_digit_check():
     s = "FA-01 fails R05 under §4.6 in the 2N option. Upsizing to TX-3150 is not needed."
     assert sanitize(s, IDS, T) == s
+
+
+# --- P2 final fix wave, Important 1: no unfilled placeholder and no LLM-written quantity reaches a user ---------
+
+LEAKS = ["The drop is {value}, above the {limit} limit.",  # an unfilled placeholder
+         "The drop is two point one six percent.",  # a quantity in words
+         "The drop is 7.77 percent."]  # raw digits
+
+
+@pytest.mark.parametrize("leak", LEAKS, ids=["placeholder", "number-words", "digits"])
+def test_a_leaking_sentence_is_replaced_by_the_template(leak):
+    assert sanitize(f"FA-01 fails R05. {leak} Cooling owns H-Z2.", IDS, T) == f"FA-01 fails R05. {T} Cooling owns H-Z2."
+
+
+def test_placeholders_pass_only_when_the_caller_fills_them():
+    s = "FA-01 has a drop of {value}, above the {limit} limit."
+    assert sanitize(s, IDS, T) == T  # narration, fix reasons, voice: never filled, so never shown
+    assert sanitize(s, IDS, T, placeholders=True) == s  # explain fills {value}/{limit}/{unit} afterwards
+    assert sanitize("FA-01 is at {rack_kw} now.", IDS, T, placeholders=True) == T  # nothing fills other names
+    assert sanitize("FA-01 is at { value } now.", IDS, T, placeholders=True) == T  # nor a malformed token
+    assert not is_clean("FA-01 is fine {value}", IDS)
+
+
+@pytest.mark.parametrize("text", [
+    "Layout placed sixty-four racks in four rows.", "There are Twelve CDUs.", "One hundred racks fit.",
+    "Loading is half the rating.", "The margin is one point five.", "The lead time is one week.",
+    "It is eighty percent loaded.", "Losses are a few thousand watts.", "Zero single points of failure remain."])
+def test_quantities_in_words_are_not_clean(text):
+    assert not is_clean(text, IDS)
+
+
+@pytest.mark.parametrize("text", [
+    "Power chose the one with the largest margin per dollar.", "Often the tenant prefers the 2N option.",
+    "Cooling sized the CDUs on behalf of each zone.", "The weight of FA-01 is within the limit.",
+    "FA-01 fails R05 under §4.6; the fourth row is fine."])
+def test_ordinary_words_are_not_number_words(text):
+    assert is_clean(text, IDS)
+
+
+def test_narration_agents_are_told_never_to_state_a_quantity_and_only_explain_gets_placeholders():
+    from kirchhoff.agents import specs
+
+    narrators = [specs.ORCHESTRATOR, specs.LAYOUT, specs.POWER, specs.COOLING, specs.PROCUREMENT, specs.DOCS,
+                 specs.COPILOT_VOICE, specs.ASSET]
+    for spec in narrators:
+        assert specs.NARRATION_RULE in spec.instruction, spec.name
+        assert "{value}" not in spec.instruction and "{limit}" not in spec.instruction, spec.name
+    assert "{value}" in specs.COPILOT.instruction and "{limit}" in specs.COPILOT.instruction

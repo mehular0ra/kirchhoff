@@ -196,7 +196,9 @@ def _fix(ctx: PhaseContext, n: int, rev: str, fail_ids: list[str]) -> StepOutput
             ctx.emit(step, "checker", "status", f"No engine candidate clears {f.id}")
             continue
         template = f"{AGENT_LABEL.get(owner, owner)} chose {chosen.id} for {f.id}: {criterion(owner)}."
-        text = (sanitize(reason, allowed | {chosen.id, *(c.id for c in rejected)}, template) if reason else template)
+        # placeholders=False: the stored reason is shown raw (FindingDrawer, calc report), never filled.
+        text = (sanitize(reason, allowed | {chosen.id, *(c.id for c in rejected)}, template, placeholders=False)
+                if reason else template)
         ctx.emit(step, owner, "message", text, payload={"finding_id": f.id, "candidate": chosen.id})
         alt = preferred_candidate(owner, rejected) if rejected else None
         f2 = f.model_copy(update={

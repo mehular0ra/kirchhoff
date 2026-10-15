@@ -10,7 +10,7 @@ from .textnorm import normalize
 from .verify import QuoteCheck
 
 UNVERIFIED_TEMPLATE = "Requirement not accepted: the quote was not found on the cited page."
-QUESTION_TEMPLATE = "Two tender clauses disagree; the main body governs by default."
+QUESTION_TEMPLATE = "These tender clauses disagree; the main body governs by default."  # no number words (§6.3)
 Verify = Callable[[int, str, Any, str | None], QuoteCheck]
 TOPOLOGY_ORDER = ("2N", "DR", "BLOCK")
 
@@ -63,8 +63,8 @@ def _question_text(text: str, clause_a: str | None, clause_b: str | None, allowe
     value), so the clause-naming fallback is itself sanitized down to the fixed, digit-free
     QUESTION_TEMPLATE: a forged label such as "Clause 12345" can never reach the UI or the orchestrator."""
     fallback = sanitize(f"{clause_a} and {clause_b} disagree; the main body governs by default.", allowed,
-                        QUESTION_TEMPLATE)
-    return sanitize(text, allowed, fallback)
+                        QUESTION_TEMPLATE, placeholders=False)
+    return sanitize(text, allowed, fallback, placeholders=False)
 
 
 def _question(c: ExtractedContradiction, doc_id: str, verify: Verify, allowed: set[str]) -> OpenQuestion | None:

@@ -1,7 +1,7 @@
 """Offline regression test (Task 11 fix round 1): AdkRunner._node must build the LlmAgent with a callable
 instruction, not a bare str. A bare str instruction containing a literal "{value}"/"{limit}" placeholder
-(every NUMBERS_RULE-bearing spec in agents/specs.py has one) is run through ADK's inject_session_state()
-and raises KeyError on every real call -- this is exactly the bug fixed in commit 6f2725a. Makes no network
+(COPILOT's EXPLAIN_RULE in agents/specs.py has one; COPILOT_VOICE has a JSON shape in braces) is run through
+ADK's inject_session_state() and raises KeyError on every real call -- this is exactly the bug fixed in commit 6f2725a. Makes no network
 call: it only inspects the node ADK builds, never runs it."""
 from google.adk.agents import LlmAgent
 from google.adk.workflow import Workflow
