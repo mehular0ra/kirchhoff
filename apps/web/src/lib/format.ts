@@ -233,6 +233,8 @@ export function fmtKeyValue(key: string, value: unknown): string {
 /** A finding's formula input as label and value with its unit ("i_a", 1546.43 → "Current I", "1,546.43 A"). */
 export function fmtInput(key: string, value: unknown): { label: string; value: string } {
   const d = describeKey(key)
+  // An explicit empty value from the engine (R12 "mismatched": "") reads as "none", not a blank (null stays "—").
+  if (value === '' || (Array.isArray(value) && value.length === 0)) return { label: d.label, value: 'none' }
   if (typeof value === 'number') return { label: d.label, value: d.usd ? fmtUsd(value) : fmtQty(value, d.unit === 'USD' ? null : d.unit) }
   if (Array.isArray(value) && value.every(isScalar)) return { label: d.label, value: value.map((x) => (typeof x === 'number' ? fmtNum(x) : String(x))).join(', ') }
   if (value !== null && typeof value === 'object') {

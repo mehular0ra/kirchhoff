@@ -66,19 +66,24 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
               </SheetDescription>
             </SheetHeader>
             <div className="flex flex-col gap-4 px-4 pb-6 text-sm">
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start"
-                onClick={() => {
-                  focus(f.element_id, canvasesFor(view.model, f.element_id)) // switches away from Matrix (I5)
-                  close()
-                }}
-              >
-                <Crosshair aria-hidden /> Show on canvas
-              </Button>
+              {canvasesFor(view.model, f.element_id).length ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => {
+                    focus(f.element_id, canvasesFor(view.model, f.element_id)) // switches away from Matrix (I5)
+                    close()
+                  }}
+                >
+                  <Crosshair aria-hidden /> Show on canvas
+                </Button>
+              ) : (
+                <p className="text-xs text-zinc-400">{f.element_id} is checked as a whole; it is not drawn on the 3D hall or the SLD.</p>
+              )}
 
-              {(f.clause_refs?.length || f.tender_refs?.length) && (
+              {/* A boolean, not a length: React renders a bare 0 when both lists are empty. */}
+              {(f.clause_refs?.length ?? 0) + (f.tender_refs?.length ?? 0) > 0 && (
                 <section aria-label="Sources" className="flex flex-wrap gap-1.5">
                   {f.clause_refs?.map((c) => <ClauseChip key={`${c.standard}${c.clause}`} standard={c.standard} clause={c.clause} />)}
                   {f.tender_refs?.map((c) => <TenderChip key={`${c.page}${c.clause}`} citation={c} onOpen={onCitation} />)}

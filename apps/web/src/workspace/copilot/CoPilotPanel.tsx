@@ -31,7 +31,14 @@ export function CoPilotPanel() {
   const { run: runWhatIf } = useWhatIf()
   const focusUi = useUi((s) => s.focus)
   // Co-pilot "show H-Z2" switches to a canvas that draws the element (I5).
-  const focus = useCallback((id: string) => focusUi(id, canvasesFor(view.model, id)), [focusUi, view.model])
+  const focus = useCallback(
+    (id: string) => {
+      const drawnOn = canvasesFor(view.model, id)
+      focusUi(id, drawnOn)
+      return drawnOn.length > 0
+    },
+    [focusUi, view.model],
+  )
   const openFinding = useUi((s) => s.openFinding)
   const setViewRev = useUi((s) => s.setViewRev)
   const setWhatIf = useUi((s) => s.setWhatIf)

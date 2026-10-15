@@ -152,3 +152,13 @@ test('D1: an element that never failed keeps the current revision\'s answer', as
   expect(items[1].textContent).not.toMatch(/In r1/)
   expect(useUi.getState().viewRev).toBeNull()
 })
+
+test('residual: "show BOQ" says the element is not drawn on a canvas and keeps the view', async () => {
+  const user = userEvent.setup()
+  renderPanel(fakeServices(), realHallA())
+  act(() => useUi.getState().setTab('matrix'))
+  await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'show BOQ{Enter}')
+  const convo = await screen.findByRole('list', { name: 'Conversation' })
+  expect(await within(convo).findByText(/BOQ is not drawn on the 3D hall or the SLD/)).toBeInTheDocument()
+  expect(useUi.getState().tab).toBe('matrix')
+})

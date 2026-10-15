@@ -5,7 +5,7 @@ import { EmptyState, IllustrativeLabel } from '@/components/Labels'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { canvasesFor } from '@/lib/model'
 import { countByStatus } from '@/lib/select'
-import { STATUS_META, ruleName } from '@/lib/status'
+import { STATUS_META, ruleName, statusRank } from '@/lib/status'
 import type { Finding } from '@/lib/types'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
@@ -55,23 +55,31 @@ function Cell({ f, r, c }: { f: Finding; r: number; c: number }) {
   )
 }
 
-function ElementCell({ id, r }: { id: string; r: number }) {
+function ElementCell({ id, r, worst }: { id: string; r: number; worst: Finding | null }) {
   const focus = useUi((s) => s.focus)
+  const openFinding = useUi((s) => s.openFinding)
   const { model } = useWorkspace()
   const nav = useContext(NavCtx)
   const key = cellKey(r, 0)
+  const drawnOn = canvasesFor(model, id)
   return (
     <button
       type="button"
       data-cell={key}
       tabIndex={nav.active === key ? 0 : -1}
       onFocus={() => nav.setActive(key)}
-      onClick={() => focus(id, canvasesFor(model, id))}
+      // An element no canvas draws (R12 "BOQ") opens its finding rather than an empty 3D view.
+      onClick={() => (drawnOn.length || !worst ? focus(id, drawnOn) : openFinding(worst.id))}
       className="whitespace-nowrap font-mono text-zinc-100 hover:underline"
     >
       {id}
     </button>
   )
+}
+
+/** The row's worst finding (fail before warn before pass). */
+function worstOf(row: MatrixRow): Finding | null {
+  return Object.values(row.cells).sort((a, b) => statusRank(b.status) - statusRank(a.status))[0] ?? null
 }
 
 /** Focusable columns per row: 0 (the element) plus every rule column with a finding. */
@@ -96,7 +104,7 @@ export function ComplianceMatrix() {
         helper.display({
           id: 'element',
           header: 'Element',
-          cell: (ctx) => <ElementCell id={ctx.row.original.element} r={ctx.row.index} />,
+          cell: (ctx) => <ElementCell id={ctx.row.original.element} r={ctx.row.index} worst={worstOf(ctx.row.original)} />,
         }),
         ...rules.map((rule, i) =>
           helper.display({
@@ -216,6 +224,8 @@ export function ComplianceMatrix() {
                   {row.getAllCells().map((cell) => (
                     <td
                       key={cell.id}
+                      // A not-checked cell stays empty (a CSS dot) but keeps an accessible name; no element per blank cell.
+                      aria-label={cell.column.id !== 'element' && !row.original.cells[cell.column.id] ? `${cell.column.id} ${row.original.element}: not checked` : undefined}
                       className="border-b border-zinc-800/70 px-1 py-1 empty:text-center empty:text-zinc-600 empty:after:content-['·']"
                     >
                       <table.FlexRender cell={cell} />

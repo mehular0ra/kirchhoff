@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router'
 import { useWorldStore } from '@/data/useWorld'
@@ -53,10 +53,21 @@ test('welcome shows on first visit only and the choice persists', async () => {
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
-test('landing has one primary CTA into the demo workspace', () => {
+test('landing has one primary CTA into the demo workspace', async () => {
   renderWithProviders(<Landing />)
   expect(screen.getByRole('link', { name: /enter the demo workspace \(no login\)/i })).toHaveAttribute('href', '/app')
-  expect(screen.getByRole('link', { name: /replay a recorded run/i })).toHaveAttribute('href', '/app/p/hall-a?replay=1')
+  expect(await screen.findByRole('link', { name: /replay a recorded run/i })).toHaveAttribute('href', '/app/p/hall-a?replay=1')
+})
+
+test('residual: the landing offers "Replay a recorded run" only when Hall A carries one', async () => {
+  const { STATIC_FILES } = await import('@/test/render')
+  const noEvents = { ...(STATIC_FILES['/demo/projects/hall-a.json'] as object), events: [] }
+  const getJson = vi.fn(async (url: string) => (url === '/demo/projects/hall-a.json' ? structuredClone(noEvents) : structuredClone(STATIC_FILES[url])))
+  renderWithProviders(<Landing />, { services: fakeServices({ getJson }) })
+  expect(screen.getByRole('link', { name: /run it live/i })).toBeInTheDocument()
+  await vi.waitFor(() => expect(getJson).toHaveBeenCalledWith('/demo/projects/hall-a.json'))
+  await act(async () => {})
+  expect(screen.queryByRole('link', { name: /replay a recorded run/i })).not.toBeInTheDocument()
 })
 
 test('the dashboard links the bids inbox with its count of new emails (tour hook, not a tour step)', async () => {

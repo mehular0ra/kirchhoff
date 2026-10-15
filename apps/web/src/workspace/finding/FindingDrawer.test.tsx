@@ -135,6 +135,19 @@ test('I11: a document opened without a quote never claims a verified quote', () 
   expect(within(dlg).getByText('Tender PDF · page 1')).toBeInTheDocument()
 })
 
+test('residual: the drawing opens titled "Drawing", not "Tender"', () => {
+  renderDrawer()
+  act(() => useUi.getState().openCitation({ doc_id: 'hall-a-plan', page: 1, quote: '', bbox: null, clause: null }, 'drawing'))
+  const dlg = screen.getByRole('dialog', { name: 'Drawing · page 1' })
+  expect(within(dlg).getByText('Drawing PDF · page 1')).toBeInTheDocument()
+  expect(within(dlg).queryByText(/Tender/)).not.toBeInTheDocument()
+  // without a hint, a plan/drawing doc id is still read as a drawing; a tender clause keeps its title
+  act(() => useUi.getState().openCitation({ doc_id: 'hall-a-plan', page: 2, quote: '', bbox: null, clause: null }))
+  expect(screen.getByRole('dialog', { name: 'Drawing · page 2' })).toBeInTheDocument()
+  act(() => useUi.getState().openCitation({ doc_id: 'tender-hall-a', page: 4, quote: 'shall not exceed 2.0%', bbox: null, clause: '§4.6' }))
+  expect(screen.getByRole('dialog', { name: 'Tender §4.6 · page 4' })).toBeInTheDocument()
+})
+
 test('D9: a count rule shows "1 crossing (limit 0)" in place of a bar; the formula wraps; tiers read as words', async () => {
   const b = normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
   resetStores()
@@ -157,4 +170,27 @@ test('D9: a count rule shows "1 crossing (limit 0)" in place of a bar; the formu
   expect(within(drawer).getByText('Drop H-Z2 to the low pipe tier where it crosses FB-03')).toBeInTheDocument()
   expect(within(drawer).getByText('28 m')).toBeInTheDocument()
   expect(within(drawer).getByRole('region', { name: 'Formula' }).querySelector('pre')).toHaveClass('whitespace-pre-wrap')
+})
+
+test('residual: a finding without clause or tender refs renders no stray "0"; an empty list input reads "none"', async () => {
+  const b = normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
+  resetStores()
+  act(() => useUi.getState().openFinding('R12:BOQ'))
+  render(
+    <ServicesProvider services={fakeServices()}>
+      <TooltipProvider>
+        <WorkspaceProvider bundle={b} source="static">
+          <FindingDrawer />
+        </WorkspaceProvider>
+      </TooltipProvider>
+    </ServicesProvider>,
+  )
+  const drawer = await screen.findByRole('dialog')
+  // the stray "0" was a bare text node directly inside the drawer body (the count row's "0" sits in a <span>)
+  const walker = document.createTreeWalker(drawer, NodeFilter.SHOW_TEXT)
+  const bare: string[] = []
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.nodeValue === '0' && n.parentElement?.tagName === 'DIV') bare.push(n.nodeValue)
+  expect(bare).toEqual([])
+  expect(within(drawer).getByText('BOQ is checked as a whole; it is not drawn on the 3D hall or the SLD.')).toBeInTheDocument()
+  expect(within(drawer).getByText('none')).toBeInTheDocument()
 })

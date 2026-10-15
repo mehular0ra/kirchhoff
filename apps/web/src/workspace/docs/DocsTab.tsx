@@ -6,7 +6,8 @@ import { loadIntegrationsSnapshot } from '@/data/staticData'
 import { exportsOf } from '@/lib/select'
 import type { DocumentRecord, LedgerEntry } from '@/lib/types'
 import { useServices } from '@/services/services'
-import { useUi } from '@/store/ui'
+import { useUi, type CitationKind } from '@/store/ui'
+import { docLabel } from '../finding/docLabel'
 import { PlanGate } from '../gates/PlanGate'
 import { useWorkspace } from '../WorkspaceContext'
 
@@ -77,9 +78,12 @@ export function DocsTab() {
   const recorded = exportsOf(bundle)
   const snapshot = useSnapshotDocuments(bundle.project.id, source !== 'live' && (!briefDocs.length || !recorded.length))
   // Inputs open in the citation viewer (served from /demo/docs); outputs are plain links.
-  const docs = briefDocs.length
-    ? briefDocs
-    : snapshot.flatMap((d) => (d.kind === 'tender' || d.kind === 'drawing' ? [PDF_STEM.exec(d.url)?.[1]].filter((x): x is string => !!x) : []))
+  const docs: { id: string; kind: CitationKind | null }[] = briefDocs.length
+    ? briefDocs.map((id) => ({ id, kind: null }))
+    : snapshot.flatMap((d) => {
+        const stem = PDF_STEM.exec(d.url)?.[1]
+        return stem && (d.kind === 'tender' || d.kind === 'drawing') ? [{ id: stem, kind: d.kind }] : []
+      })
   const exports = recorded.length
     ? recorded
     : snapshot.filter((d) => d.kind !== 'tender' && d.kind !== 'drawing').map((d) => ({ title: d.name, ref: d.url }))
@@ -94,8 +98,14 @@ export function DocsTab() {
         <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Inputs</h3>
         {!docs.length && <p className="text-xs text-zinc-400">The tender and drawing appear here once Intake has read them.</p>}
         {docs.map((d) => (
-          <Button key={d} variant="outline" size="sm" className="self-start" onClick={() => openCitation({ doc_id: d, page: 1, quote: '', bbox: null, clause: null })}>
-            <FileText aria-hidden /> {d}.pdf
+          <Button
+            key={d.id}
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={() => openCitation({ doc_id: d.id, page: 1, quote: '', bbox: null, clause: null }, d.kind)}
+          >
+            <FileText aria-hidden /> {docLabel(d.id, d.kind)} · {d.id}.pdf
           </Button>
         ))}
       </section>

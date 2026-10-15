@@ -15,7 +15,8 @@ export interface ToolContext {
   view: WorkspaceView
   api: ApiClient
   runWhatIf: (param: WhatIfParam, value: number) => Promise<WhatIfResult | null>
-  focus: (id: string) => void
+  /** Focuses the element; false when no canvas draws it (R12 "BOQ"), so the answer says so. */
+  focus: (id: string) => boolean
   openFinding: (id: string) => void
   /** Switches the workspace to another revision (the "why" answer opens the revision where the check failed, D1). */
   setViewRev: (rev: string) => void
@@ -126,7 +127,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   }
   if (name === 'focus_element') {
     const id = String(args.element_id ?? '').toUpperCase()
-    ctx.focus(id)
+    if (!ctx.focus(id))
+      return { summary: `${id} is not drawn on the 3D hall or the SLD; its checks are in the Matrix.`, data: { element_id: id, drawn: false } }
     return { summary: `Showing ${id}.`, data: { element_id: id } }
   }
   return { summary: `Unknown tool ${name}.`, data: { error: 'unknown_tool' } }

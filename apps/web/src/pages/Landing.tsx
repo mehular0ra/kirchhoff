@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { KirchhoffMark } from '@/components/KirchhoffMark'
 import { FICTIONAL_TEXT } from '@/components/Labels'
+import { useRecordedRun } from '@/data/useRecordedRun'
 
 // Effects live only here (spec §12). The background traces are decorative and static under reduced motion.
 const TRACES = ['M 0 40 H 140 V 120 H 240', 'M 0 150 H 90 V 260 H 220', 'M 0 300 H 170 V 380 H 260', 'M 40 0 V 70 H 120']
@@ -16,6 +17,7 @@ const NODES: [number, number][] = [
 
 export function Landing() {
   const reduce = useReducedMotion()
+  const recorded = useRecordedRun()
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden">
       <div
@@ -74,11 +76,14 @@ export function Landing() {
               <Zap aria-hidden /> Run it live
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/app/p/hall-a?replay=1">
-              <CirclePlay aria-hidden /> Replay a recorded run
-            </Link>
-          </Button>
+          {/* Only when Hall A carries a recorded run (residual): the provisional bundle has no events to replay. */}
+          {recorded === true && (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/app/p/hall-a?replay=1">
+                <CirclePlay aria-hidden /> Replay a recorded run
+              </Link>
+            </Button>
+          )}
         </div>
         <ol className="mt-6 grid w-full grid-cols-1 gap-3 text-left text-sm sm:grid-cols-3" aria-label="How it works">
           {[
