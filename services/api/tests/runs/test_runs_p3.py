@@ -291,3 +291,45 @@ def test_auto_parks_at_the_option_gate_when_no_option_qualifies(p123, make_run):
     assert (_run(p123, rid)["status"], _run(p123, rid)["gate"]) == ("at_gate", "option")
     resume_from_gate(p123, "u1", rid, "option", {"selected_option": "2N"})
     assert _run(p123, rid)["gate"] == "review"
+
+
+def test_route_narration_falls_back_to_the_engine_record_template(p123, make_run):
+    """P2 final fix wave (ruling P2-R19): Layout's p3.route narration slips a number word; the fallback
+    must be built only from the engine's own route() output (2 routed connections, 2 feeder busways in
+    the fake), not the generic '{Agent} completed {step}.' template."""
+    p123.runner.replies["layout:p3.route"] = {
+        "tool_calls": [{"name": "route_busways", "args": {}}],
+        "text": "Layout routed both feeders along two corridors."}
+    rid = _to_review(p123, make_run)
+    msgs = [e["title"] for e in _events(p123, rid) if e["kind"] == "message" and e["agent"] == "layout"
+            and e["step"] == "p3.route"]
+    assert msgs == ["Layout routed 2 connection(s), including 2 feeder busway(s), with the engine's "
+                    "default candidate routes."]
+
+
+def test_clean_route_narration_passes_through_unchanged(p123, make_run):
+    rid = _to_review(p123, make_run)
+    msgs = [e["title"] for e in _events(p123, rid) if e["kind"] == "message" and e["agent"] == "layout"
+            and e["step"] == "p3.route"]
+    assert msgs == ["Layout routed the A feeders along the south corridor and the B feeders along the "
+                    "north corridor."]
+
+
+def test_docs_narration_falls_back_to_the_engine_record_template(p123, make_run):
+    """Docs' p3.docs narration slips a number word; the fallback must be built only from the final
+    revision's own engine-checked findings and fixes (9 checks, 0 failing, 2 fixes applied on the golden
+    path), not the generic template -- and it may carry those engine-derived digits (ruling R14)."""
+    p123.runner.replies["docs:p3.docs"] = {
+        "text": {"order": ["summary", "requirements", "options", "findings", "fixes", "ledger", "boq"],
+                 "summary": "All nine checks pass after the two fixes."}}
+    rid = _to_review(p123, make_run)
+    msgs = [e["title"] for e in _events(p123, rid) if e["kind"] == "message" and e["agent"] == "docs"]
+    r1, r2 = run_revisions(p123.store, "u1", rid)
+    assert msgs == [f"Docs prepared the calc report and BOQ for {r2['id']}: 9 check(s), 0 failing, "
+                    "2 fix(es) applied."]
+
+
+def test_clean_docs_narration_passes_through_unchanged(p123, make_run):
+    rid = _to_review(p123, make_run)
+    msgs = [e["title"] for e in _events(p123, rid) if e["kind"] == "message" and e["agent"] == "docs"]
+    assert msgs == ["The 2N design passes every check after fixes to FA-01 and H-Z2."]

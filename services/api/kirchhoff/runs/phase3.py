@@ -87,7 +87,12 @@ def _route(ctx: PhaseContext, option_id: str) -> StepOutput:
     if "model" not in box:
         tool()
     m = box["model"]
-    ctx.narrate(S_ROUTE, "layout", res.text if res else "", ctx.allowed(m), "busway routing")
+    feeders = sorted(c.id for c in m.connections if c.kind != "internal" and c.route)
+    routed = sum(1 for c in m.connections if c.route)
+    # R14: code-authored, built only from the engine's route output.
+    template = (f"Layout routed {routed} connection(s), including {len(feeders)} feeder busway(s), with the "
+                f"engine's default candidate routes.")
+    ctx.narrate(S_ROUTE, "layout", res.text if res else "", ctx.allowed(m), "busway routing", template=template)
     ctx.emit(S_ROUTE, "cooling", "tool_result", "route_pipes done",
              payload={"tool": "route_pipes", "summary": {"pipes": {p.id: p.tier for p in m.pipes}}})
     ctx.emit(S_ROUTE, "cooling", "message", f"Cooling routed {len(m.pipes)} headers and branches on the pipe tiers")
@@ -252,8 +257,11 @@ def _docs(ctx: PhaseContext, chk: dict, iterations: int, stop_reason: str | None
     reply = ctx.agent_json(DOCS, S_DOCS, msg, DocsReply)
     order = [x for x in (reply.order if reply else []) if x in SECTIONS]
     order += [x for x in SECTIONS if x not in order]
+    # R14: code-authored, built only from the engine-checked findings and fixes counted above.
+    template = (f"Docs prepared the calc report and BOQ for {rev.id}: {len(findings)} check(s), "
+                f"{len(chk['fail_ids'])} failing, {len(fixes)} fix(es) applied.")
     summary = ctx.narrate(S_DOCS, "docs", reply.summary if reply else "", ctx.allowed(model), "the calc report",
-                          template=f"Docs prepared the calc report and BOQ for {rev.id}.")
+                          template=template)
     # P2 final fix wave (Task 18 minor): the arguments are built OUTSIDE the try, so a real bug -- missing
     # p1.intake outputs, a malformed option or PR line -- fails the step (resumable, visible) instead of being
     # reported as an export failure.

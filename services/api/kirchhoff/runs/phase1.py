@@ -105,6 +105,9 @@ def _plan(ctx: PhaseContext, brief: DesignBrief) -> StepOutput:
     plan = [PlanStep(id=sid, agent=agent, title=title).model_dump() for sid, agent, title in PLAN_TEMPLATE]
     ctx.emit(S_PLAN, "orchestrator", "plan", "Plan ready", payload={"plan": plan, "open_questions": questions})
     if reply:
+        n_verified = sum(r.verified for r in brief.requirements)
+        template = (f"Orchestrator built a {len(plan)}-step plan from {n_verified} verified requirement(s), with "
+                    f"{len(ask)} question(s) for you to decide.")
         ctx.narrate(S_PLAN, "orchestrator", reply.summary, ctx.allowed(extra=[q.id for q in brief.open_questions]),
-                    "planning")
+                    "planning", template=template)
     return StepOutput(data={"plan": plan, "open_questions": questions})
