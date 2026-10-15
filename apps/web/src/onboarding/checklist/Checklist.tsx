@@ -1,5 +1,5 @@
 import { ChevronDown, Circle, CircleCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { create } from 'zustand'
 import { cn } from 'cn'
 import { CHECKLIST, useChecklist } from './checklistStore'
@@ -14,14 +14,17 @@ const useDock = create<{ docked: number; add(n: number): void }>()((set) => ({
  * Getting-started card (spec §13.5); hidden in presentation mode (data-dev). Pages with room for it
  * render it `docked` in their own layout (the dashboard's side column, the workspace's lanes column),
  * so it never floats over cards, the inbox entry, matrix ids or the canvas legend (M4, PR #5
- * follow-up); elsewhere AppShell's floating card is shown.
+ * follow-up); elsewhere AppShell's floating card is shown. Below md that card is not floating at all: it is the
+ * last row of the shell's column, under the page's scroll area, so it never covers a card title or a row at any
+ * scroll position (#38).
  */
 export function Checklist({ docked = false }: { docked?: boolean }) {
   const done = useChecklist((s) => s.done)
   const dockedCount = useDock((s) => s.docked)
   // Below md it starts as a one-line pill, so it never covers the last email, a signature or table rows (D14).
   const [open, setOpen] = useState(() => !window.matchMedia?.('(max-width: 767px)').matches)
-  useEffect(() => {
+  // Before paint, so a page that docks the card never shows the shell's row for a frame (a layout jump below md).
+  useLayoutEffect(() => {
     if (!docked) return
     useDock.getState().add(1)
     return () => useDock.getState().add(-1)
@@ -34,7 +37,9 @@ export function Checklist({ docked = false }: { docked?: boolean }) {
       aria-label="Getting started"
       className={cn(
         'text-sm',
-        docked ? 'rounded-lg border bg-card' : 'fixed bottom-14 left-3 z-40 w-64 rounded-lg border bg-popover shadow-xl',
+        docked
+          ? 'rounded-lg border bg-card'
+          : 'shrink-0 border-t bg-card md:fixed md:bottom-14 md:left-3 md:z-40 md:w-64 md:rounded-lg md:border md:bg-popover md:shadow-xl',
       )}
     >
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2">
