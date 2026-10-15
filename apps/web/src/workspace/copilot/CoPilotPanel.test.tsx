@@ -162,3 +162,37 @@ test('residual: "show BOQ" says the element is not drawn on a canvas and keeps t
   expect(await within(convo).findByText(/BOQ is not drawn on the 3D hall or the SLD/)).toBeInTheDocument()
   expect(useUi.getState().tab).toBe('matrix')
 })
+
+test('N1: paraphrased "why" questions that name an element and a problem route to the explain tool', () => {
+  expect(parseIntent('What caused FA-01 to fail?')).toEqual({ tool: 'explain_finding', element: 'FA-01', rule: undefined })
+  expect(parseIntent('what is wrong with H-Z2')).toEqual({ tool: 'explain_finding', element: 'H-Z2', rule: undefined })
+  expect(parseIntent('Is FA-01 failing?')).toEqual({ tool: 'explain_finding', element: 'FA-01', rule: undefined })
+  expect(parseIntent('any issue on R05 FA-01?')).toEqual({ tool: 'explain_finding', element: 'FA-01', rule: 'R05' })
+  expect(parseIntent('Tell me about the problem with h-z2')).toEqual({ tool: 'explain_finding', element: 'H-Z2', rule: undefined })
+  expect(parseIntent('What is the cause of the H-Z2 failure')).toEqual({ tool: 'explain_finding', element: 'H-Z2', rule: undefined })
+  // a problem word without an element, or an element without one, does not guess
+  expect(parseIntent('what failed?')).toBeNull()
+  expect(parseIntent('tell me about FA-01')).toBeNull()
+  // existing routes are unchanged
+  expect(parseIntent('show H-Z2')).toEqual({ tool: 'focus_element', element: 'H-Z2' })
+  expect(parseIntent('what if racks go to 200 kW')).toEqual({ tool: 'what_if', param: 'rack_kw', value: 200 })
+})
+
+test('N1: "What caused FA-01 to fail?" answers from r1 like "why FA-01", instead of the help line', async () => {
+  const user = userEvent.setup()
+  renderPanel(fakeServices(), realHallA())
+  await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'What caused FA-01 to fail?{Enter}')
+  const convo = await screen.findByRole('list', { name: 'Conversation' })
+  expect(await within(convo).findByText(/^In r1: Voltage drop .* via FA-01 is 2\.16% against a limit of 2%\./)).toBeInTheDocument()
+  expect(within(convo).queryByText(/^Try:/)).not.toBeInTheDocument()
+  expect(useUi.getState().findingId).toBe('R05:FA-01')
+})
+
+test('N1: the input shows both kinds of question in full — a short placeholder plus a visible hint it is described by', () => {
+  renderPanel()
+  const box = screen.getByRole('textbox', { name: 'Ask the co-pilot' })
+  // the full examples (273 px at 12 px) cannot fit the ~200 px input, so they sit on their own line under it
+  expect(box).toHaveAttribute('placeholder', 'Ask why, or “what if…”')
+  expect(box).toHaveAccessibleDescription('Try “why FA-01” or “what if racks go to 200 kW”')
+  expect(screen.getByText('Try “why FA-01” or “what if racks go to 200 kW”')).toBeVisible()
+})
