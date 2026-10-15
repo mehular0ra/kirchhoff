@@ -114,3 +114,22 @@ def verify_quote(pdf: PdfText, page: int, quote: str, value: float | int | str |
     if not unit_in_quote(unit, q):
         return QuoteCheck(False, "unit_not_in_quote")
     return QuoteCheck(True, "ok", pdf.find_bbox(page, q))
+
+
+def _clause_pattern(label: str) -> re.Pattern | None:
+    if label.startswith("§"):
+        num = re.escape(label[1:])
+        return re.compile(rf"(?:§\s*|\b(?:Section|Sec\.|Clause|Cl\.)\s+){num}(?![0-9]|\.[0-9])")
+    if label.startswith("App. "):
+        return re.compile(rf"\b(?:App\.?\s*|Appendix\s+|Annex\s+){re.escape(label[5:])}(?![A-Za-z0-9])")
+    return None
+
+
+def clause_on_page(pdf: PdfText, page: int, label: str) -> bool:
+    """P2 final fix wave (Important 2): a normalised clause label (`§4.2`, `App. B`) is shown only if the tender
+    actually prints it on the cited page, or on the page before (a clause that runs onto the next page), so a
+    chip never carries a clause id the model invented, such as "Section 12345"."""
+    pat = _clause_pattern(label)
+    if pat is None or page < 1 or page > pdf.page_count:
+        return False
+    return any(pat.search(pdf.page_text(p)) for p in (page, page - 1) if p >= 1)

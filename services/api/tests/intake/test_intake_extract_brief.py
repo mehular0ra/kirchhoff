@@ -5,16 +5,18 @@ from kirchhoff.agents.trust import is_clean
 from kirchhoff.contracts import Citation, Requirement
 from kirchhoff.intake.brief import UNVERIFIED_TEMPLATE, _topology_backstop, build_brief, canonical_topology
 from kirchhoff.intake.extract import ExtractedContradiction, TenderExtraction, extract_tender, read_drawing
-from kirchhoff.intake.verify import PdfText, QuoteCheck, verify_quote
+from kirchhoff.intake.verify import PdfText, QuoteCheck, clause_on_page, verify_quote
 from kirchhoff.runs.fakes import FAKE_REPLIES
 
 AGREES = {"agrees": True, "differences": []}
 
 
 def _brief(tender_pdf, extraction):
+    """The production checks: quotes verified on their page, clause labels printed on their page."""
     with PdfText(tender_pdf) as pdf:
         return build_brief("hall-b", "tender-hall-a", extraction,
-                           lambda p, q, v, u=None: verify_quote(pdf, p, q, v, u), AGREES, set())
+                           lambda p, q, v, u=None: verify_quote(pdf, p, q, v, u), AGREES, set(),
+                           clause_printed=lambda page, label: clause_on_page(pdf, page, label))
 
 
 def test_extract_and_build_brief(tender_pdf):
@@ -178,12 +180,14 @@ def test_unrelated_topology_question_does_not_suppress_the_backstop(tender_pdf):
 @pytest.mark.parametrize("main_clause,alt_clause", [("Clause 12345", "App. B"), ("§4.2", "App. 12345")])
 def test_forged_clause_label_never_reaches_the_backstop_text(tender_pdf, main_clause, alt_clause):
     # Fix round 4, finding 1: clause labels are LLM free text that verify_quote never checks, so a forged
-    # label with raw digits verifies alongside a genuine quote. The backstop's text must still be clean.
+    # label with raw digits verifies alongside a genuine quote. P2 final fix wave: such a label is not printed
+    # on its page, so it is dropped (None) -- the chip shows "Tender · p.N" -- and no text can carry it.
     ex = _redundancy_reqs()
     ex.requirements[0].clause, ex.requirements[1].clause = main_clause, alt_clause
-    (q,) = _brief(tender_pdf, ex).open_questions
-    assert q.id == "Q-redundancy" and q.default_resolution == "2N"
-    assert "12345" not in q.text and is_clean(q.text, set()), q.text
+    brief = _brief(tender_pdf, ex)
+    assert [r.citation.clause for r in brief.requirements] == [
+        None if "12345" in main_clause else "§4.2", None if "12345" in alt_clause else "App. B"]
+    assert all("12345" not in q.text and is_clean(q.text, set()) for q in brief.open_questions)
 
 
 def test_forged_clause_label_never_reaches_a_model_question_text(tender_pdf):
@@ -216,7 +220,8 @@ def test_blank_clause_label_never_drives_the_backstop(tender_pdf):
 
 def _brief_all_verified(extraction):
     return build_brief("hall-b", "tender-hall-a", extraction,
-                       lambda p, q, v, u=None: QuoteCheck(True, "ok", (0.0, 0.0, 1.0, 1.0)), AGREES, set())
+                       lambda p, q, v, u=None: QuoteCheck(True, "ok", (0.0, 0.0, 1.0, 1.0)), AGREES, set(),
+                       clause_printed=lambda page, label: True)
 
 
 def _topology_reqs(alt_c_key: str, alt_b_key: str, main_key: str = "redundancy"):
@@ -285,3 +290,84 @@ def test_question_text_never_shows_a_placeholder_or_an_llm_quantity(tender_pdf, 
     c = _contradiction(_MAIN_42, _APP_B, summary=leak)
     (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
     assert q.text == "§4.2 and App. B disagree; the main body governs by default."
+
+
+# --- P2 final fix wave, Important 2 (trust sweep, P2-R16): every clause label, question id, default and option
+# shown at the plan gate is built from verified data, never from the model's free text ------------------------
+
+from kirchhoff.intake.textnorm import normalize_clause  # noqa: E402
+
+
+@pytest.mark.parametrize("raw,label", [
+    ("App. B", "App. B"), ("Appendix B", "App. B"), ("App B", "App. B"), ("App.B", "App. B"), ("Annex B", "App. B"),
+    ("appendix b: acceptable alternatives", "App. B"), ("App. B Appendix B", "App. B"), ("§4.2", "§4.2"),
+    ("§ 4.2", "§4.2"), ("Section 4.2", "§4.2"), ("Clause 6.3.4", "§6.3.4"), ("4.2", "§4.2"),
+    ("§4.2 (450 kW per row)", "§4.2"), ("§4.2.", "§4.2"),
+    ("Application", None), ("26 weeks", None), ("Table 3", None), ("App. 12345", None), ("  ", None), (None, None)])
+def test_clause_labels_are_normalised_or_dropped(raw, label):
+    assert normalize_clause(raw) == label
+
+
+def test_a_clause_label_must_be_printed_on_its_page(tender_pdf):
+    with PdfText(tender_pdf) as pdf:
+        assert clause_on_page(pdf, 4, "§4.2") and clause_on_page(pdf, 7, "App. B") and clause_on_page(pdf, 6, "§6.3.4")
+        assert not clause_on_page(pdf, 7, "§4.2") and not clause_on_page(pdf, 4, "§12345")
+        assert not clause_on_page(pdf, 4, "§4.25") and not clause_on_page(pdf, 4, "App. B")
+
+
+def test_appendix_b_written_first_still_defaults_to_2n_and_offers_it(tender_pdf):
+    # The tender prints "App. B Appendix B: acceptable alternatives" on page 7, so the model may write either.
+    c = ExtractedContradiction(topic="redundancy", clause_a="Appendix B", page_a=7,
+                               quote_a="Block or distributed redundancy acceptable", value_a="BLOCK or DR",
+                               clause_b="Section 4.2", page_b=4, quote_b="The critical power distribution shall be 2N",
+                               value_b="2N", summary="Appendix B accepts block or distributed redundancy.")
+    (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
+    assert q.default_resolution == "2N" and q.options == ["2N", "compare_all"]
+    assert [x.clause for x in q.citations] == ["App. B", "§4.2"]
+
+
+def test_default_and_options_come_from_the_verified_main_body_quote_not_the_models_value(tender_pdf):
+    c = ExtractedContradiction(topic="redundancy", clause_a="§4.2", page_a=4,
+                               quote_a="The critical power distribution shall be 2N, with each rack fed from two "
+                                       "independent systems.", value_a="two independent systems (2 x 100%)",
+                               clause_b="App. B", page_b=7, quote_b="Block or distributed redundancy acceptable",
+                               value_b="BLOCK", summary="x")
+    (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
+    assert q.default_resolution == "2N" and q.options == ["2N", "compare_all"]
+
+
+def test_question_ids_use_letters_only_and_a_numeric_default_must_be_in_the_quote():
+    lead = dict(topic="lead time 26", clause_a="§2.3", page_a=2, quote_a="no later than 26 weeks from contract award",
+                clause_b="App. B", page_b=7, quote_b="Alternatives may ship within thirty weeks", value_b="30 weeks",
+                summary="x")
+    ok = ExtractedContradiction(value_a="26 weeks", **lead)
+    forged = ExtractedContradiction(value_a="20 weeks", **{**lead, "topic": "lead"})  # not what the quote says
+    (q,) = _brief_all_verified(TenderExtraction(requirements=[], contradictions=[ok, forged])).open_questions
+    assert q.id == "Q-lead-time" and q.default_resolution == "26 weeks" and q.options == ["26 weeks", "compare_all"]
+
+
+def test_every_question_id_is_unique(tender_pdf):
+    c1 = _contradiction(_MAIN_42, _APP_B, topic="redundancy")
+    c2 = _contradiction(_MAIN_42, ("§6.2", 6, "CDUs shall be provided N+1 per hydraulic zone"), topic="Redundancy!")
+    qs = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c1, c2])).open_questions
+    assert [q.id for q in qs] == ["Q-redundancy", "Q-redundancy-2"]
+
+
+def test_clause_chip_with_extra_text_shows_only_the_verified_clause_id(tender_pdf):
+    c = _contradiction(("§4.2 (450 kW per row)",) + _MAIN_42[1:], _APP_B)
+    (q,) = _brief(tender_pdf, TenderExtraction(requirements=[], contradictions=[c])).open_questions
+    assert [x.clause for x in q.citations] == ["§4.2", "App. B"]
+
+
+def test_requirement_ids_clauses_and_unverified_units_carry_no_model_digits(tender_pdf):
+    ex = TenderExtraction.model_validate({"requirements": [
+        {"key": "rack_kw_132", "clause": "Section 3.1", "page": 3, "value": 132, "unit": "kW",
+         "verbatim_quote": "each rack rated 132 kW"},
+        {"key": "made_up", "clause": "Clause 12345", "page": 4, "value": 99, "unit": "99 kW",
+         "verbatim_quote": "This made-up sentence claims 99 units that are not on this page."},
+        {"key": "dv_max_pct", "clause": "§4.6", "page": 7, "value": 2.0, "unit": "%",
+         "verbatim_quote": "shall not exceed 2.0% at the worst-case design current"}]})
+    good, bad, wrong_page = _brief(tender_pdf, ex).requirements
+    assert good.id == "REQ-rack_kw" and good.verified and good.citation.clause == "§3.1"
+    assert bad.id == "REQ-made_up" and not bad.verified and bad.unit is None and bad.citation.clause is None
+    assert not wrong_page.verified and wrong_page.citation.clause is None  # §4.6 is not printed on page 7

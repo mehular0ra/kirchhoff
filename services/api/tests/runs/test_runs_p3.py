@@ -117,6 +117,29 @@ def test_auto_picks_2n_by_the_resolved_clause(p123, make_run):
     assert any(e["title"].startswith("Auto mode chose 2N") for e in _events(p123, rid) if e["kind"] == "ledger")
 
 
+def test_auto_picks_2n_when_the_model_writes_appendix_b_first(p123, make_run):
+    """P2 final fix wave, Important 2: the tender prints "App. B Appendix B: ..." on page 7, so the model may
+    label the appendix "Appendix B" and list it first. The default must still come from the verified §4.2
+    quote (2N), or choose_option skips the topology filter and Auto mode picks the cheaper DR."""
+    import copy
+
+    from kirchhoff.runs.fakes import FAKE_REPLIES
+
+    reply = copy.deepcopy(FAKE_REPLIES["intake:p1.extract"])
+    reply["text"]["contradictions"] = [{
+        "topic": "redundancy", "clause_a": "Appendix B", "page_a": 7,
+        "quote_a": "Block or distributed redundancy acceptable", "value_a": "BLOCK or DR",
+        "clause_b": "Section 4.2", "page_b": 4, "quote_b": "The critical power distribution shall be 2N",
+        "value_b": "2N", "summary": "Appendix B accepts block or distributed redundancy."}]
+    p123.runner.replies["intake:p1.extract"] = reply
+    rid = _to_review(p123, make_run, autonomy="auto")
+    run = _run(p123, rid)
+    (q,) = run["open_questions"]
+    assert q["default_resolution"] == q["resolution"] == "2N" and "2N" in q["options"]
+    assert [c["clause"] for c in q["citations"]] == ["App. B", "§4.2"]
+    assert (run["gate"], run["selected_option"]) == ("review", "2N")
+
+
 def test_invalid_agent_choice_falls_back_to_the_stated_criterion(p123, make_run):
     p123.runner.replies["power:p3.fix.1:R05:FA-01"] = {"text": {"candidate_id": "nope", "reason": "x"}}
     rid = _to_review(p123, make_run)

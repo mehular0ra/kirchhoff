@@ -9,7 +9,7 @@ from kirchhoff.intake.brief import build_brief
 from kirchhoff.intake.drawing import DxfSummary, compare_drawing, parse_dxf_geometry
 from kirchhoff.intake.extract import extract_tender, read_drawing
 from kirchhoff.intake.score import load_ground_truth, score_intake
-from kirchhoff.intake.verify import PdfText, verify_quote
+from kirchhoff.intake.verify import PdfText, clause_on_page, verify_quote
 
 from .policy import PLAN_TEMPLATE
 from .steps import PhaseContext, PhaseOutcome, StepOutput, run_step
@@ -57,7 +57,7 @@ def _intake(ctx: PhaseContext) -> StepOutput:
                        "did not report this verified clause conflict itself.")
 
         brief = build_brief(ctx.run().get("project_id", "hall-b"), DOC_ID, extraction, verify, {}, allowed,
-                            on_backstop)
+                            on_backstop, clause_printed=lambda page, label: clause_on_page(pdf, page, label))
     def parse_dxf_geometry_tool() -> dict:
         """Parse the hall DXF: grid labels and overall size."""
         return parse_dxf_geometry(files.dxf).model_dump(mode="json")
