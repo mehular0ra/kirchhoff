@@ -25,9 +25,9 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
   // "No agents working" only makes sense for a live run; a recorded design says what it is (D4).
   const signed = signedRevision(bundle)
   return (
-    <div className="flex h-11 items-center gap-3 border-b px-4 text-sm">
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-zinc-400">
-        <Link to="/app" className="hover:text-zinc-100">
+    <div className="flex h-11 min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-b px-4 text-sm">
+      <nav aria-label="Breadcrumb" className="flex min-w-40 items-center gap-1 overflow-hidden text-zinc-400">
+        <Link to="/app" className="shrink-0 hover:text-zinc-100">
           Kirchhoff
         </Link>
         <ChevronRight aria-hidden className="size-3.5" />

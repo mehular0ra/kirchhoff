@@ -125,3 +125,15 @@ test('D12: an archived project without revisions opens a read-only summary with 
   expect(screen.queryByRole('navigation', { name: 'Agent lanes' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Back to projects' })).toHaveAttribute('href', '/app')
 })
+
+test('D13: the workspace carries a dismissible "Best on a desktop" note for phones, pointing at the pages that read well there', async () => {
+  const user = userEvent.setup()
+  open()
+  const note = await screen.findByLabelText('Best on a desktop')
+  expect(note).toHaveClass('md:hidden') // phones only
+  expect(within(note).getByRole('link', { name: 'review page' })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
+  expect(within(note).getByRole('link', { name: 'Integrations' })).toHaveAttribute('href', '/app/integrations')
+  await user.click(within(note).getByRole('button', { name: 'Dismiss' }))
+  expect(screen.queryByLabelText('Best on a desktop')).not.toBeInTheDocument()
+  expect(localStorage.getItem('kirchhoff.desktopNote.dismissed')).toBe('true')
+})

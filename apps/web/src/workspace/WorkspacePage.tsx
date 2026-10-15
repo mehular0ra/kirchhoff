@@ -13,6 +13,7 @@ import { AgentLanes } from './AgentLanes'
 import { ArchivedSummary } from './ArchivedSummary'
 import { CanvasTabs } from './CanvasTabs'
 import { CoPilotPanel } from './copilot/CoPilotPanel'
+import { DesktopNote } from './DesktopNote'
 import { DocsTab } from './docs/DocsTab'
 import { FindingDrawer } from './finding/FindingDrawer'
 import { GateBanner } from './gates/GateBanner'
@@ -86,9 +87,14 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
 
   return (
     <WorkspaceProvider bundle={data.bundle} source={data.source}>
-      <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto]">
-        <WorkspaceHeader actions={<HeaderActions />} />
-        <div className="grid min-h-0 grid-cols-[16rem_minmax(0,1fr)_20rem]">
+      {/* One column that may shrink below its content, so a phone never widens the page: the panes scroll
+          sideways inside their own frame instead, and the tour's cards stay on the visible screen (D13). */}
+      <div className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
+        <div className="min-w-0">
+          <WorkspaceHeader actions={<HeaderActions />} />
+          <DesktopNote reviewHref={data.bundle.revisions.length ? `/app/p/${pid}/review/${data.bundle.revisions[data.bundle.revisions.length - 1].id}${runId ? `?run=${runId}` : ''}` : null} />
+        </div>
+        <div className="grid min-h-0 grid-cols-[16rem_minmax(22rem,1fr)_20rem] overflow-x-auto">
           <aside className="flex min-h-0 flex-col border-r">
             <div className="min-h-0 flex-1">
               <AgentLanes />

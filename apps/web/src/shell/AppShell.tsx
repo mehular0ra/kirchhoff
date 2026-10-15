@@ -13,7 +13,8 @@ import { useShortcuts } from './useShortcuts'
 
 const nav = [
   { to: '/app', label: 'Projects', end: true },
-  { to: '/app/inbox', label: 'Bids inbox', end: false },
+  // "Inbox" below sm so the nav fits a 390 px phone on one line (D14); the link's name stays "Bids inbox".
+  { to: '/app/inbox', label: 'Bids inbox', short: 'Inbox', end: false },
   { to: '/app/integrations', label: 'Integrations', end: false },
 ]
 
@@ -31,7 +32,7 @@ export function AppShell() {
         Skip to content
       </a>
       <DemoBanner />
-      <header className="flex h-11 shrink-0 items-center gap-6 border-b px-4">
+      <header className="flex h-11 shrink-0 items-center gap-3 border-b px-4 sm:gap-6">
         <Link to="/app" className="flex items-center gap-2 font-semibold tracking-tight">
           <KirchhoffMark />
           Kirchhoff
@@ -43,10 +44,18 @@ export function AppShell() {
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
-                cn('rounded px-2 py-1 text-zinc-400 hover:text-zinc-100', isActive && 'bg-accent text-zinc-100')
+                cn('rounded px-2 py-1 whitespace-nowrap text-zinc-400 hover:text-zinc-100', isActive && 'bg-accent text-zinc-100')
               }
+              aria-label={n.short ? n.label : undefined}
             >
-              {n.label}
+              {n.short ? (
+                <>
+                  <span className="sm:hidden">{n.short}</span>
+                  <span className="hidden sm:inline">{n.label}</span>
+                </>
+              ) : (
+                n.label
+              )}
             </NavLink>
           ))}
         </nav>

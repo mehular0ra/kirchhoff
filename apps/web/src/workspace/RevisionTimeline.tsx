@@ -20,7 +20,7 @@ export function RevisionTimeline() {
     )
   }
   return (
-    <footer aria-label="Revisions" className="flex h-11 items-center gap-3 overflow-x-auto border-t px-4 text-xs">
+    <footer aria-label="Revisions" className="flex h-11 items-center gap-3 overflow-x-auto whitespace-nowrap border-t px-4 text-xs">
       <span className="font-medium uppercase tracking-wide text-zinc-400">Revisions</span>
       <ol className="flex items-center gap-2">
         {bundle.revisions.map((r, i) => {

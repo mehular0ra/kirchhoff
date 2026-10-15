@@ -142,3 +142,24 @@ test('D11: when the demo world cannot load, the dashboard offers Try again inste
   expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
 })
+
+test('D14: below md the Getting-started checklist starts collapsed to a one-line pill', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  const spy = vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query: string) => ({ matches: query.includes('max-width: 767px'), media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList,
+  )
+  shellAt('/app')
+  const checklist = (await screen.findAllByRole('complementary', { name: 'Getting started' }))[0]
+  expect(within(checklist).getByRole('button', { name: /Getting started/ })).toHaveAttribute('aria-expanded', 'false')
+  expect(within(checklist).queryByText('Open a signed design')).not.toBeInTheDocument()
+  spy.mockRestore()
+})
+
+test('D14: the main nav keeps each link on one line and names the inbox link "Bids inbox" at every width', async () => {
+  localStorage.setItem('kirchhoff.welcomed', 'true')
+  shellAt('/app')
+  const nav = screen.getByRole('navigation', { name: 'Main' })
+  const inbox = within(nav).getByRole('link', { name: 'Bids inbox' })
+  expect(inbox).toHaveClass('whitespace-nowrap')
+  expect(within(inbox).getByText('Inbox')).toHaveClass('sm:hidden')
+})
