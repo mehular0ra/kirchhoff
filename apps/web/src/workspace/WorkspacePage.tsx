@@ -21,6 +21,7 @@ import { RevisionTimeline } from './RevisionTimeline'
 import { RunBar } from './RunBar'
 import { SldView } from './sld/SldView'
 import { LIVE_TARGET, StartRunPanel } from './StartRunPanel'
+import { StoryStrip } from './StoryStrip'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceProvider } from './WorkspaceContext'
 
@@ -108,7 +109,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
             )}
             <GateBanner />
             <div className="min-h-0 flex-1">
-              <CanvasTabs panes={panes} />
+              <CanvasTabs panes={panes} aside={<StoryStrip />} />
             </div>
           </section>
           <aside aria-label="Co-pilot" className="min-h-0 overflow-y-auto border-l">

@@ -19,6 +19,7 @@ import { STATUS_META, statusRank, worstStatus } from '@/lib/status'
 import type { FindingStatus } from '@/lib/types'
 import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
+import { legendKeys } from '../legendKeys'
 import { useWorkspace } from '../WorkspaceContext'
 import { nodeTypes, type SldFlowNode } from './SldNodes'
 import { buildSldGraph, layoutSld, MAX_LEVEL, NODE_SIZE } from './sldGraph'
@@ -188,7 +189,7 @@ function SldCanvas() {
       <Background gap={24} color="#1f242b" />
       <Controls showInteractive={false} position="top-right" />
       <Panel position="bottom-left">
-        <Legend diff={!!view.diff} whatIf={whatIfActive} />
+        <Legend {...legendKeys(view)} />
       </Panel>
     </ReactFlow>
   )

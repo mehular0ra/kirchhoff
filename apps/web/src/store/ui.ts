@@ -20,7 +20,8 @@ export interface WhatIfView {
 interface UiState {
   tab: CanvasTab
   viewRev: string | null // null = latest revision
-  compare: boolean
+  /** null = default: on for a signed revision that has a parent, so Hall A opens on its fix story (UX-1 I1). */
+  compare: boolean | null
   findingId: string | null
   focusId: string | null
   citation: Citation | null
@@ -46,7 +47,7 @@ interface UiState {
 const initial = {
   tab: 'hall' as CanvasTab,
   viewRev: null,
-  compare: false,
+  compare: null,
   findingId: null,
   focusId: null,
   citation: null,

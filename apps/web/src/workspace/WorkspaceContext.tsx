@@ -5,6 +5,7 @@ import { diffModels, type ModelDiff } from '@/lib/diff'
 import { chainHighlights } from '@/lib/impact'
 import type { Discipline } from '@/lib/model'
 import {
+  approvalFor,
   currentRun,
   findingsFor,
   latestRevision,
@@ -25,6 +26,8 @@ export interface WorkspaceView {
   model: DesignModel | null
   findings: Finding[]
   status: Map<string, FindingStatus>
+  /** "Compare with parent" as shown: the visitor's choice, else on for a signed revision with a parent (I1). */
+  compare: boolean
   /** Present only while "Compare with parent" is on and the revision has a parent. */
   diff: ModelDiff | null
   /** Elements that failed in the parent revision and pass now (cold-open "turns green"). */
@@ -46,6 +49,7 @@ export function buildView(bundle: Bundle, source: DataSource, ui: Pick<ReturnTyp
   const resolved = new Set([...parentStatus].filter(([id, s]) => s === 'fail' && status.get(id) === 'pass').map(([id]) => id))
   const model = rev?.model ?? null
   const whatIf = ui.whatIf?.result ?? null
+  const compare = !!parent && (ui.compare ?? !!approvalFor(bundle, rev?.id))
   return {
     bundle,
     source,
@@ -54,7 +58,8 @@ export function buildView(bundle: Bundle, source: DataSource, ui: Pick<ReturnTyp
     model,
     findings,
     status,
-    diff: ui.compare && parent ? diffModels(parent.model, model) : null,
+    compare,
+    diff: compare && parent ? diffModels(parent.model, model) : null,
     resolved,
     whatIf,
     highlights: chainHighlights(whatIf, model),
