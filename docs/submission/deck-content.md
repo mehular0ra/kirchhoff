@@ -289,7 +289,7 @@ flowchart LR
 Every Google service in this list carries load.
 
 - Gemini does the reading, the citations, the planning, the choices with reasons, the explanations and the voice.
-- ADK graphs order the agents, the tools, the gates and the fix loop.
+- ADK agents call engine tools; the run orchestrator orders the phases, the gates and the fix loop.
 - Cloud Run hosts the agent and engine API and the private enterprise sandbox.
 - Firestore is the live event bus and the audit trail.
 - Firebase serves the app, gives every visitor an anonymous workspace, attests requests with App Check, and connects the browser to Gemini Live.

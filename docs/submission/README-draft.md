@@ -81,7 +81,7 @@ flowchart LR
 ```
 
 - **Firebase Hosting** serves the React app and a static demo world, so browsing works even if the backend is down. **Firebase Auth** signs every visitor in anonymously into a private workspace. **App Check** attests every request. **Firebase AI Logic** connects the browser to Gemini Live for voice.
-- **Cloud Run `kirchhoff-api`** runs FastAPI, the ADK agent workflows and the engine. It verifies the Firebase ID token, the App Check token and workspace ownership on every call. Runs execute as background phases that hold a Firestore lease with heartbeats. If a worker dies, resume skips finished steps and re-runs the rest.
+- **Cloud Run `kirchhoff-api`** runs FastAPI, the ADK agents (LlmAgent + function tools) and the engine. It verifies the Firebase ID token, the App Check token and workspace ownership on every call. Runs execute as background phases that hold a Firestore lease with heartbeats. If a worker dies, resume skips finished steps and re-runs the rest.
 - **Cloud Run `kirchhoff-enterprise`** is the private ERP and CRM sandbox, built from the same image. Only our dedicated least-privilege service account can invoke it.
 - **Firestore** stores run state, leases, the live event stream, revisions, findings, approvals and the sandbox seed. Clients read only their own workspace and never write.
 - **Cloud Storage** holds tenders, drawings and exports, served through signed URLs. **Cloud Build** builds the single image.
@@ -140,7 +140,7 @@ The `dev-api` target points at our Google Cloud project. To use your own, change
 
 ```
 apps/web/              React app (static demo world in public/demo)
-services/api/          FastAPI, ADK workflows, kirchhoff_engine, rule pack, enterprise sandbox, tests
+services/api/          FastAPI, ADK agents, kirchhoff_engine, rule pack, enterprise sandbox, tests
 scenarios/hall_a/      tender PDF, hall drawing, catalogue, ERP/CRM seed, golden-run capture
 scenarios/demo_world/  fictional organisation, projects and integrations generators (fixed seed)
 infra/                 Firebase config, Firestore and Storage rules, deploy scripts

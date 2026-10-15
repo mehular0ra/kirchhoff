@@ -4,7 +4,7 @@ Kirchhoff, by team Ordinal: Gemini agents design power and liquid cooling for an
 
 ## Gemini on Vertex AI
 
-**In Kirchhoff.** Gemini 3.8 Flash on Vertex AI (global) runs every agent in Google ADK 2.x workflow graphs. Intake reads the tender and flags contradictions, Power and Cooling choose between engine-verified fixes with reasons, and Co-pilot answers by text or voice.
+**In Kirchhoff.** Gemini 3.8 Flash on Vertex AI (global) runs every agent as a Google ADK 2.x agent (LlmAgent with function tools). Intake reads the tender and flags contradictions, Power and Cooling choose between engine-verified fixes with reasons, and Co-pilot answers by text or voice.
 
 **Why.** Native PDF input, structured output and function calling in one GA model; ADK puts LLM nodes and deterministic tools in one auditable graph.
 

@@ -24,10 +24,11 @@ photos:
 
 metrics:
   # Slide 10, on-slide "Per design:" bullet: measured USD per full design run.
-  usd_per_run: ""
+  # Live P1→P4 run on Vertex AI, 15 Oct 2026; the golden capture may replace it.
+  usd_per_run: "~$0.057 (measured on a live run, 15 Oct 2026)"
   # Slide 10, speaker notes (full sentence): Gemini tokens and USD per full run,
   # measured from the recorded run (spec §4, metric 4).
-  tokens_and_usd_per_run: ""
+  tokens_and_usd_per_run: "Measured on a live run, 15 Oct 2026: a full P1→P4 run on Vertex AI took 176.5 s and used 10,432 input tokens and 12,991 output tokens, about $0.057 per design at $0.75 per million input and $3.75 per million output tokens. The golden capture may replace this figure."
   # Slide 12, speaker notes (full sentence): median time from upload to a
   # checker-clean revision over 5 live runs, excluding human-gate time (spec §4, metric 1).
   upload_to_clean_median: ""

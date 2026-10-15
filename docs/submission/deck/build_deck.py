@@ -1639,7 +1639,8 @@ def s14_links(slide, sec: Section, ctx: Ctx, deck: Deck):
         else:
             q = box(slide, qx, y + (rh - qs) / 2, qs, qs, fill=WHITE, line=SHOT_LINE, lw=1.0, dash=MSO_LINE.DASH,
                     radius=0.06, name="QR placeholder")
-            box_text(q, Para("QR appears when the URL is filled", align="c"), size=6.5, color=SHOT_TEXT,
+            box_text(q, [Para(t, align="c") for t in balance("QR appears when the URL is filled", 0.62, 6.5)],
+                     size=6.5, color=SHOT_TEXT,
                      anchor="m", margin=(0.06, 0.04, 0.06, 0.04))
 
 
