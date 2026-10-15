@@ -15,7 +15,7 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 
 `build` has every workstream merged. Its suites pass: 515 pytest, 164 vitest and `tsc -b`. A live P1→P4 run on Vertex passed in 177 s (about $0.06 of Gemini per design).
 
-**Live:** https://kirchhoff.web.app still shows the P0 shell until the first deploy from `build` (issue #6).
+**Live:** https://kirchhoff.web.app still shows the P0 shell until Jayadratha's first deploy of `bd9311e` (issue #6).
 
 ## UI/UX track (P3)
 
@@ -23,17 +23,25 @@ Updated by Mehul's controller session on each push. Detailed per-task history, r
 |---|---|---|
 | UX-0 | Final fix wave: tour step 3, 3D hall readability, lane text, fix costs, App Check hang, contrast, bundle size | running |
 | UX-1 | Design review of the fixed UI at desktop and phone size: ranked defects plus ranked improvements | after UX-0 |
-| UX-2 | One improvement round on the top UX-1 items | Thu 16 |
-| UX-3 | Human pass: #7 exploratory QA on the deployed site, plus Mehul's click-through | Thu 16 evening |
+| UX-2 | One improvement round on the top UX-1 items | Thu 15 |
+| UX-3 | Human pass: #7 exploratory QA on the deployed site, plus Mehul's click-through | Thu 15 evening |
 
-**UI freeze: Fri 17 Oct 12:00 IST** (the video records this UI).
+**UI freeze: Fri 16 Oct 12:00 IST** (the video records this UI).
 
 ## Jayadratha's work (GitHub issues)
 
-1. **#6 Cloud ops runbook.** Seed the sandbox, apply the bucket CORS, and deploy when the controller comments "deploy `<sha>`". GCP access is being granted.
-2. **#2 Bids inbox I-2.** The inbox agent, the fit check, the endpoints and the precompute script. Branch from `build`. Cut line Thu 16 Oct 12:00 IST.
-3. **#7 E2E tests (P4 Task 13) and exploratory QA.** Run them on the deployed site after #6.
-4. **Team assets** for the deck and video: photos, two-sentence bios, and any clips for the TEAM SLOTs in `docs/submission/video-script.md`.
+| Issue | Task | Target (IST) |
+|---|---|---|
+| #6 | Cloud ops: seed, CORS, deploy `bd9311e` (GCP access granted 15 Oct) | now |
+| #2 → PR #8 | Bids inbox I-2: changes requested (unit-aware verification, sanitize source/unit, precompute backend) | Fri 16 Oct 12:00 cut line (the date governs) |
+| #3 → PR #9 | Live Triage button: icon fix, then rebase after the ws3-web fix wave lands | after the fix wave |
+| #7 | E2E suite (PR #12 merged) + exploratory QA; QA issues #10, #11 | ongoing |
+| #13 | P2 Task 17: asset agent `/api/asset/{pack}` | Fri 16 Oct 10:00 |
+| #14 | Fill citation bboxes in the engine-built demo bundles | Thu 15 Oct 20:00 |
+| #15 | P4 Task 15: App Check (staged; full enforcement only on Mehul's "go") | code Fri 16 Oct 12:00 |
+| #16 | Secrets and PII audit of the full history before going public | Fri 16 Oct 18:00 |
+| #17 | Deck screenshots via Playwright after the UI freeze | Fri 16 Oct afternoon |
+| (none) | Team assets: photos, bios, TEAM SLOT clips | Fri 16 Oct |
 
 ## Not claimable (controller-owned, sequential)
 
