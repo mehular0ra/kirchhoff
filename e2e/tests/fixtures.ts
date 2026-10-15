@@ -13,8 +13,8 @@ export const BANNER = 'Demo workspace — all companies, people and data are fic
  * Local runs (make e2e-local) never reach Google: no anonymous sign-ins in the real Firebase project, no reCAPTCHA,
  * no Firestore. The app is static-first, so browsing must work with all of it refused.
  */
-const BLOCK_GOOGLE = process.env.E2E_LOCAL === '1' || process.env.E2E_BLOCK_GOOGLE === '1'
-const GOOGLE = [/\.googleapis\.com/, /\.firebaseio\.com/, /\.firebaseapp\.com\/__\/auth/, /recaptcha/, /\.gstatic\.com/]
+export const BLOCK_GOOGLE = process.env.E2E_LOCAL === '1' || process.env.E2E_BLOCK_GOOGLE === '1'
+export const GOOGLE = [/\.googleapis\.com/, /\.firebaseio\.com/, /\.firebaseapp\.com\/__\/auth/, /recaptcha/, /\.gstatic\.com/]
 
 export const test = base.extend<{ welcomed: boolean }>({
   welcomed: [true, { option: true }],

@@ -12,6 +12,7 @@ const desktop = { ...devices['Desktop Chrome'], viewport: { width: 1440, height:
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts', // local runs only: pays the Vite dev server's first-compile cost before test 1
   outputDir: './out/artifacts',
   timeout: 120_000,
   expect: { timeout: 15_000 },

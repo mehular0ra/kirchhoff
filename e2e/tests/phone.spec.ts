@@ -27,8 +27,8 @@ test.describe('first visit on a phone', () => {
   test.use({ welcomed: false })
 
   test('phone: every tour card stays inside the viewport', async ({ page }) => {
-    // Known bug (issue #10): the cards of steps 1, 3 and 4 are outside the viewport.
-    test.fail(true, 'issue #10: tour cards of steps 1, 3 and 4 are off-screen')
+    // Issue #20 (follow-up to #10): on a 412 px phone the cards of steps 3 and 4 used to be partly off-screen. The UX-2
+    // round fixes it, so this is a real assertion: it fails on a build without UX-2, by design.
     await startTour(page)
     const cards = await tourCardPositions(page)
     expect(cards.filter((c) => !c.inView), 'cards outside the viewport').toEqual([])
