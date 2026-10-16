@@ -18,21 +18,36 @@ import { buildLabels, layoutLabels, type LayoutItem, type SceneLabel } from './h
 import { buildHallScene, midpoint, resample, type HallScene, type SceneBox, type SceneTube, type V3 } from './hallScene'
 import { useTubeGeometry } from './useTubeGeometry'
 
-// Readability (final review I1): mid-grey racks with light outlines on a slightly lifted floor, lit
-// by a sky/ground hemisphere plus key and fill lights, rendered without tone mapping (`flat`) so
-// status colours keep their hue.
+// Readability on white (final review I1, light theme): a pale model — light cabinets with graphite
+// outlines on a cool-grey floor, graphite busways and feeders, sky-blue pipes — lit by a sky/ground
+// hemisphere plus key and fill lights, rendered without tone mapping (`flat`) so status colours keep
+// their hue. Fail red, warn amber and the what-if chain colours are the only saturated colours on stage.
 const BASE = {
-  rack: '#94a3b8',
-  column: '#3a4350',
-  'busway-feeder': '#d4d4d8',
-  'cable-feeder': '#a1a1aa',
-  'row-busway': '#e4e4e7',
-  pipe: '#38bdf8',
-  cdu: '#3b82c4',
+  rack: '#e3e7ed',
+  column: '#cdd3dc',
+  'busway-feeder': '#4b5768',
+  'cable-feeder': '#6b7686',
+  'row-busway': '#3b4657',
+  pipe: '#0ea5e9',
+  cdu: '#8bb8f2',
 } as const
-const DIM = '#2a3038'
-const RESOLVED = '#34d399'
-const CHANGED = '#fbbf24'
+const SCENE = {
+  background: '#f7f8fa',
+  floor: '#eceff3',
+  gridCell: '#d9dee5',
+  gridSection: '#bcc4cf',
+  room: '#dfe4ea',
+  roomEdge: '#8b95a3',
+  keepout: '#e11d48',
+  bay: '#e0f2fe',
+  bayEdge: '#0284c7',
+  rackOutline: '#334155',
+  cduEdge: '#1e40af',
+} as const
+const DIM = '#cfd5dd'
+const RESOLVED = '#10b981'
+const CHANGED = '#f59e0b'
+const NO_GLOW = '#000000'
 
 function hasWebGL(): boolean {
   try {
@@ -46,13 +61,13 @@ function hasWebGL(): boolean {
 function colourFor(id: string, base: string, v: WorkspaceView): { color: string; emissive: string; dim: boolean } {
   if (v.highlights.size) {
     const chain = v.highlights.get(id)
-    return chain ? { color: CHAIN_COLORS[chain[0]], emissive: CHAIN_COLORS[chain[0]], dim: false } : { color: DIM, emissive: '#000000', dim: true }
+    return chain ? { color: CHAIN_COLORS[chain[0]], emissive: CHAIN_COLORS[chain[0]], dim: false } : { color: DIM, emissive: NO_GLOW, dim: true }
   }
   if (v.diff && v.resolved.has(id)) return { color: RESOLVED, emissive: RESOLVED, dim: false }
   const s = v.status.get(id)
   if (s === 'fail' || s === 'warn') return { color: STATUS_META[s].hex, emissive: STATUS_META[s].hex, dim: false }
-  if (v.diff?.byId.get(id) === 'changed') return { color: CHANGED, emissive: '#000000', dim: false }
-  return { color: base, emissive: '#000000', dim: false }
+  if (v.diff?.byId.get(id) === 'changed') return { color: CHANGED, emissive: NO_GLOW, dim: false }
+  return { color: base, emissive: NO_GLOW, dim: false }
 }
 
 function useCoords(scene: HallScene) {
@@ -103,9 +118,9 @@ function AnimatedTube({ tube, view, pos, onPick }: { tube: SceneTube; view: Work
       <meshStandardMaterial
         color={c.color}
         emissive={c.emissive}
-        emissiveIntensity={c.emissive === '#000000' ? 0 : 0.6}
+        emissiveIntensity={c.emissive === NO_GLOW ? 0 : 0.35}
         transparent={c.dim}
-        opacity={c.dim ? 0.25 : 1}
+        opacity={c.dim ? 0.4 : 1}
         metalness={0.2}
         roughness={0.5}
       />
@@ -134,7 +149,7 @@ function RackOutlines({ racks, coords, dim }: { racks: SceneBox[]; coords: Coord
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
     <lineSegments geometry={geometry}>
-      <lineBasicMaterial color="#e2e8f0" transparent opacity={dim ? 0.12 : 0.55} />
+      <lineBasicMaterial color={SCENE.rackOutline} transparent opacity={dim ? 0.15 : 0.6} />
     </lineSegments>
   )
 }
@@ -340,21 +355,21 @@ function HallScene3D({
 
   return (
     <>
-      <color attach="background" args={['#0b0d10']} />
-      <hemisphereLight args={['#f1f5f9', '#1e293b', 0.85]} />
-      <ambientLight intensity={0.2} />
-      <directionalLight position={[20, 40, 15]} intensity={1.25} />
+      <color attach="background" args={[SCENE.background]} />
+      <hemisphereLight args={['#ffffff', '#d5dbe3', 0.6]} />
+      <ambientLight intensity={1.5} />
+      <directionalLight position={[20, 40, 15]} intensity={0.9} />
       <directionalLight position={[-25, 18, -20]} intensity={0.35} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <planeGeometry args={[scene.hall.w, scene.hall.d]} />
-        <meshStandardMaterial color="#161b22" />
+        <meshBasicMaterial color={SCENE.floor} />
       </mesh>
-      <Grid position={[0, 0.01, 0]} args={[scene.hall.w, scene.hall.d]} cellSize={1.2} sectionSize={12} cellColor="#202730" sectionColor="#3a4452" fadeDistance={160} />
+      <Grid position={[0, 0.01, 0]} args={[scene.hall.w, scene.hall.d]} cellSize={1.2} sectionSize={12} cellColor={SCENE.gridCell} sectionColor={SCENE.gridSection} fadeDistance={160} />
       {scene.rooms.map((r) => (
         <mesh key={r.id} position={pos(r.center)}>
           <boxGeometry args={size(r.size)} />
-          <meshStandardMaterial color="#1b2129" />
-          <Edges color="#4b5563" />
+          <meshStandardMaterial color={SCENE.room} />
+          <Edges color={SCENE.roomEdge} />
         </mesh>
       ))}
       <Instances limit={Math.max(1, scene.columns.length)}>
@@ -367,15 +382,15 @@ function HallScene3D({
       {scene.keepouts.map((k) => (
         <mesh key={k.id} position={pos(k.center)}>
           <boxGeometry args={size(k.size)} />
-          <meshStandardMaterial color="#e11d48" transparent opacity={0.1} depthWrite={false} />
-          <Edges color="#fb7185" />
+          <meshStandardMaterial color={SCENE.keepout} transparent opacity={0.08} depthWrite={false} />
+          <Edges color={SCENE.keepout} />
         </mesh>
       ))}
       {scene.bays.map((b) => (
         <mesh key={b.id} position={pos(b.center)}>
           <boxGeometry args={size(b.size)} />
-          <meshStandardMaterial color="#0c2a44" transparent opacity={0.75} />
-          <Edges color="#38bdf8" />
+          <meshStandardMaterial color={SCENE.bay} transparent opacity={0.85} />
+          <Edges color={SCENE.bayEdge} />
         </mesh>
       ))}
       <Instances limit={Math.max(1, scene.racks.length)}>
@@ -410,8 +425,8 @@ function HallScene3D({
             }}
           >
             <boxGeometry args={size(c.size)} />
-            <meshStandardMaterial color={col.color} emissive={col.emissive} emissiveIntensity={col.emissive === '#000000' ? 0 : 0.4} />
-            <Edges color="#bfdbfe" />
+            <meshStandardMaterial color={col.color} emissive={col.emissive} emissiveIntensity={col.emissive === NO_GLOW ? 0 : 0.3} />
+            <Edges color={SCENE.cduEdge} />
           </mesh>
         )
       })}
