@@ -14,7 +14,7 @@ team:
   jayadratha_role_background: "AI research engineer · electrical engineer (IIEST Shibpur, Vikram Solar) with an MS by Research in graph ML, IIIT Hyderabad; built the bids inbox, asset agent and test suite, ran cloud"
   # Slide 15, speaker notes: two sentences per person on what each of us built
   # and the background that makes us credible here.
-  notes_bios: "Mehul Arora built Kirchhoff's agent layer, its deterministic engine and the web app. He builds production multi-agent LLM systems on Gemini, Google ADK and Cloud Run, and earlier did graph neural network research for his MS by Research at IIIT Hyderabad and data science on US power-market datasets. Jayadratha Gayen built the bids inbox, the asset agent and the end-to-end test suite, and ran Kirchhoff's cloud deployments and golden capture. He is an electrical engineer (B.Tech, IIEST Shibpur) who worked at Vikram Solar and trained in grid operations at the Eastern Regional Load Despatch Centre, and an AI research engineer with an MS by Research in graph machine learning from IIIT Hyderabad, published at TMLR and ASONAM 2025."
+  notes_bios: "Mehul Arora built Kirchhoff's agent layer, its deterministic engine and the web app. He builds production multi-agent LLM systems on Gemini, Google ADK and Cloud Run, and earlier did graph neural network research for his MS by Research at IIIT Hyderabad and data science on US power-market datasets. Jayadratha Gayen built the bids inbox, the asset agent and the end-to-end test suite, and ran Kirchhoff's cloud deployments and golden capture. He is an electrical engineer (B.Tech, IIEST Shibpur) who worked at Vikram Solar and trained in grid operations at the Eastern Regional Load Despatch Centre, and an AI research engineer with an MS by Research in graph machine learning from IIIT Hyderabad, published at TMLR and ASONAM 2025, and a GSoC 2025 contributor (INCF); he also trained on low- and high-tension systems at CESC."
 
 photos:
   # Slide 15 headshots. Paths are relative to this folder, e.g. "photos/mehul.jpg".
@@ -25,16 +25,16 @@ photos:
 metrics:
   # Slide 10, on-slide "Per design:" bullet: measured USD per full design run.
   # Live P1→P4 run on Vertex AI, 15 Oct 2026; the golden capture may replace it.
-  usd_per_run: "~$0.057 (measured on a live run, 15 Oct 2026)"
+  usd_per_run: "~$0.066 (measured on the golden-capture run, 16 Oct 2026)"
   # Slide 10, speaker notes (full sentence): Gemini tokens and USD per full run,
   # measured from the recorded run (spec §4, metric 4).
-  tokens_and_usd_per_run: "Measured on a live run, 15 Oct 2026: a full P1→P4 run on Vertex AI took 176.5 s and used 10,432 input tokens and 12,991 output tokens, about $0.057 per design at $0.75 per million input and $3.75 per million output tokens. The golden capture may replace this figure."
+  tokens_and_usd_per_run: "Measured on the golden-capture run on Vertex AI, 16 Oct 2026: a full P1→P4 run took 177.5 s and used 10,628 input and 15,566 output tokens, about $0.066 per design at $0.75 per million input and $3.75 per million output tokens; two other live runs cost $0.068 and $0.101."
   # Slide 12, speaker notes (full sentence): median time from upload to a
   # checker-clean revision over 5 live runs, excluding human-gate time (spec §4, metric 1).
-  upload_to_clean_median: ""
+  upload_to_clean_median: "Median 149 s from the start of a run to a checker-clean revision over 3 live runs on the deployed site (143.8 s, 149.2 s and 211.4 s), excluding the time spent waiting at gates."
   # Slide 12, speaker notes (full sentence): intake accuracy against our ground truth
   # (spec §4, metric 2).
-  intake_accuracy: "Measured on a live intake run on Vertex AI, 15 Oct 2026: requirement recall 0.84 against our hand-labelled ground truth for the Hall A tender, with 27 of 28 extracted quotes verified word for word against the tender PDF; the one unverified quote was shown as unverified, never as fact."
+  intake_accuracy: "Requirement recall of 0.78 to 0.84 against our hand-labelled ground truth over four live runs (0.78 on the golden-capture run the site shows), with 25 of 26 extracted quotes verified word for word against the tender PDF on that run; unverified quotes are shown as unverified, never as fact."
 
 sources:
   # Slide 12, speaker notes: citation for the 4–8 week first-coordinated-electrical-package baseline.
@@ -49,7 +49,7 @@ spec_verified:
   # On-slide "(spec)" markers flag numbers taken from the design spec that have not
   # yet been measured on the running product. Set a key to true once that number is
   # verified on the deployed product; the build then drops its marker.
-  s04_power_topologies: ""   # slide 4 grid: "2N, DR, block"
-  s06_phases_gates: ""       # slide 6: "Four phases. Three gates. One signed revision."
-  s10_warm_instance: ""      # slide 10: "1 warm Cloud Run instance"
-  s10_budget_alerts: ""      # slide 10: "USD 200 budget with alerts"
+  s04_power_topologies: true   # slide 4 grid: "2N, DR, block"
+  s06_phases_gates: true       # slide 6: "Four phases. Three gates. One signed revision."
+  s10_warm_instance: true      # slide 10: "1 warm Cloud Run instance"
+  s10_budget_alerts: true      # slide 10: "USD 200 budget with alerts"

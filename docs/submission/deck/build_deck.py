@@ -216,7 +216,7 @@ class OpenItem:
 class Fill:
     def __init__(self, path: Path):
         self.base = path.parent
-        self.data = yaml.safe_load(path.read_text()) if path.exists() else {}
+        self.data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
         self.open: list[OpenItem] = []
         self._counters: dict[tuple[int, str], int] = {}
         self._spec_counters: dict[int, int] = {}
