@@ -1,11 +1,11 @@
 {
-  "digest": "e9cb9ead1b8aa793639b26f53d97fb93a6a2e751b54ebfcbb54436ef87b15f46",
+  "digest": "552fca9a2345b4fc4995b35477b7596354b58134e5e9e6ac1b757c1ae5a21bf5",
   "files": {
     "apps/web/public/demo/files/grid-132kv/summary.pdf": "885181e3146f294f6b04f73e10ec2886fffc95200303ba19a05c09217f4bb1cb",
     "apps/web/public/demo/files/hall-a/boq.csv": "7b404831e89d88de720e7ac88ad2fe69717c83a05d5a567ad9501a2596cb5b37",
-    "apps/web/public/demo/files/hall-a/calc-report.pdf": "77f30bb4a0eb6ce47b4f452baced4aa45fa96ea1288c5fecbb3bc381440eaf54",
+    "apps/web/public/demo/files/hall-a/calc-report.pdf": "145daf9bf61197df7304a6519861624496ef0c7330d0098afcb505113439b6e3",
     "apps/web/public/demo/files/pune-edge-1/boq.csv": "ec3c0ec978f21259b0fddf585999eb81928a1fbf85f12b28680d18103f105ac2",
-    "apps/web/public/demo/files/pune-edge-1/calc-report.pdf": "196ec9896cdb0b90fcb119340b1a591b8d60bbd910cdbf43dde87687530cc1a8",
+    "apps/web/public/demo/files/pune-edge-1/calc-report.pdf": "ccb25ae72d9179856e2de11d3a05961a4608da5ed31436a99916b3184ee8b541",
     "apps/web/public/demo/files/solar-5mwp/summary.pdf": "4e9c0fca171b847c7699f4e69b8f3fec4ee297de1d6b5a28593f4acb9a76f88b",
     "apps/web/public/demo/files/vindhya-lv/boq.csv": "dd689ac83ac5bb272f4aed67241f1e0d2d81d4ee8b92d3c20eaae18fafc2ab01",
     "apps/web/public/demo/integrations.json": "00fbf6fc9d54ff1fa166b556cd493cefc041da9deb45e209bf95216192af3671",
