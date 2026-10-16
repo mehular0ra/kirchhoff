@@ -64,7 +64,8 @@ export const TOUR_STEPS: TourStep[] = [
       const f = firstFailure(ctx.hallA)
       return f ? `/app/p/hall-a?tab=matrix&rev=${f.rev}&finding=${encodeURIComponent(f.id)}` : '/app/p/hall-a?tab=matrix'
     },
-    target: '[data-tour="tender-chip"]',
+    // Inside the finding drawer only: the Requirements panel lists tender chips too, and they come first in the DOM.
+    target: '[data-slot="sheet-content"] [data-tour="tender-chip"]',
     cardTarget: '[data-slot="sheet-content"]',
     side: 'left',
     title: () => 'Open a finding and its source',
