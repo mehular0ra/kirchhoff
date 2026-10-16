@@ -55,6 +55,7 @@ Cloud Run, Firestore, Firebase, SAP S/4HANA, Ariba, Gmail, Google Drive, MEP, CD
 GLOSSARY: list[tuple[str, str]] = [
     (r"\bkirch\s*h?off?s?\b|\bkirk\s*off\b|\bkirchof+\b|\bkirchhof\b", "Kirchhoff"),
     (r"\bordinal\b", "Ordinal"),
+    (r"\bjay?a?\s*drath?a?\b", "Jayadratha"),  # 16 Oct: Gemini heard "Jayadrath" in the intro
     (r"\bgemini\b", "Gemini"),
     (r"\bvertex\s*a\.?\s*i\b", "Vertex AI"),
     (r"\bcloud\s*run\b", "Cloud Run"),
@@ -125,12 +126,20 @@ def transcribe_vertex(path: Path) -> list[Word]:
             "required": ["w", "start", "end"]}}},
         "required": ["words"],
     }
-    resp = client.models.generate_content(
-        model=MODEL,
-        contents=[types.Part.from_bytes(data=path.read_bytes(), mime_type="audio/wav"), PROMPT],
-        config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema,
-                                           temperature=0.0),
-    )
+    # The first real run (16 Oct, on the intro) came back with no candidate parts and no finish reason once, then
+    # succeeded unchanged on the next call; so retry an empty reply a few times before giving up.
+    for attempt in range(1, 4):
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=[types.Part.from_bytes(data=path.read_bytes(), mime_type="audio/wav"), PROMPT],
+            config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema,
+                                               temperature=0.0),
+        )
+        if resp.text:
+            break
+        print(f"{path.name}: empty reply from {MODEL} (attempt {attempt} of 3)", file=sys.stderr)
+    else:
+        raise SystemExit(f"{path.name}: {MODEL} returned no transcript after 3 attempts")
     data = json.loads(resp.text)
     dur = wav_seconds(path)
     words = []
