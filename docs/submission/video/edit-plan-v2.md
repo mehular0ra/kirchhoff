@@ -114,5 +114,5 @@ The script was tested only in `--dry-run` mode, on one clip made with macOS `say
 1. Mehul's intro recording, and Jayadratha's if it is used, then a re-render of the intro clips. The current intro clips carry a silent placeholder track and read "voice track pending".
 2. Done for `d9b6f46`. Re-render again after any later capture; `build_data.py` prints WARNING lines for anything it has to derive.
 3. The repo URL in `scenes/team.json`.
-4. Fold the v2 clip order into `assemble.sh` after #25.
+4. Done (#25): `PLAN=v2 ./assemble.sh <work_dir>` builds this order (the header of `assemble.sh` lists the inputs and options; `python3 assemble_selftest.py` tests it). It writes `beat-starts.txt` with the measured `wav@start` arguments for `transcribe.py`.
 5. Music, as before: optional and royalty-free only, never under the intro voice.
