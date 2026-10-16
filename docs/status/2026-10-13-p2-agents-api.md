@@ -195,3 +195,68 @@ Deferred → P2 final wave:
   - Deps.erp() holds _lock during the HTTP fetch (Task 12);
   - seeded._erp private attribute in a test;
   - conftest mid-file imports.
+Task 16: implemented 5d11a73, plus Task 15 residuals 4a2ef0b (526 passed) — review dispatched (opus)
+Task 16: review Needs fixes (opus). Tool parity OK; pools OK; residuals (a)–(c) OK, with (c) failing 3/3 when the pools are merged.
+  - Critical: focus_element passes LLM text into answer (reproduced "7.77 percent").
+  - Important: unbounded multipart read; voice deadline excludes deps.erp(); voice error mapping (ValueError, missing 503).
+  Fix list: task-16-fix1.md
+Task 16: fix round 1 dispatched (resumed implementer; FIX_BASE 4a2ef0b)
+NOTE: commit e7c1953 (a docs/status/BOARD.md edit) landed on ws2-agents by mistake. When merging ws2-agents into build, take build's docs/status/BOARD.md. Calendar correction: Thu=15, Fri=16, Sat=17 Oct; the plans' '(Thu 16)' labels mean Fri 16 Oct.
+Task 16: fix round 1/5 implemented 9628bfb (focus_element ids validated against the model; Content-Length check before the form is parsed plus a bounded read; lazy ERP inside one voice deadline; BadRevisionRef and a 503 enterprise_unavailable; minors; 535 passed) — scoped re-review dispatched (original opus reviewer)
+Task 16: fix round 1 re-review: Needs fixes (Important 1 partial: chunked uploads unbounded because max_part_size skips file parts). Critical, Important 2 and Important 3 addressed. Fix list: task-16-fix2.md. QUEUED (implementer cap: P3 fix wave plus Task 18).
+Task 18: implemented ea85f50 + 003eab3 (BlobExporter, /api/files with ?redirect=0 and inline fallback, traversal and cross-tenant 404s, labels and number provenance asserted with pdfplumber; hello removed; compat → contracts.extra; 539 passed) — review QUEUED (agent cap)
+Task 16: fix round 2 dispatched (resumed implementer; FIX_BASE 9628bfb; branch now has Task 18 on top)
+Task 18: review Needs fixes (opus). Production is correct: web parity, IAM signBlob via kirchhoff-runtime (iam_setup.sh grants TokenCreator), inline fallback safe, compat removal clean. 2 Important, test-only (the traversal guard is untested; the "every number" check is presence-only), plus minors, including the degrade path for a failed export. Fix list: task-18-fix1.md.
+Task 18: fix round 1 dispatched (resumed implementer; FIX_BASE 003eab3)
+build: merged ws3-web (UX-0 approved) and pushed; PR #9 told to rebase.
+Task 16: fix round 2/5 implemented ecc417b (411 length_required plus a byte-counted stream bound; lazy scn/erp with the deadline taken before load_revision; masked exceptions fixed; event-based timeout test; strict parity; 546 passed) — scoped re-review dispatched (original reviewer)
+Task 16: fix round 2 re-review APPROVED (opus). 411 with no Content-Length; the stream bound is the cap plus one message (measured ≤ 2.1 MB read); browser multipart at 1.9 MB and 2.0 MB → 200; the focus_element-only call isn't blocked by Deps._lock; strict parity.
+Task 16: complete (commits 5d11a73..ecc417b, plus the Task 15 residuals in 4a2ef0b; review approved after 2 fix rounds)
+Task 16: minor (deferred → P2 final wave):
+  - every MultiPartException maps to 413 (raise _BodyTooLarge for the cap; malformed input → 400);
+  - import parse_options_header from python_multipart;
+  - close the form in finally;
+  - narrow `except ValidationError: raise` in answer_voice to the engine call;
+  - make test_api_voice.py:127 Event-based instead of a sleep.
+  Deploy smoke: `curl -F audio=@x.webm -F revision_ref=seed:hall-a@r2` against the deployed /api/voice with an ID token, to confirm Content-Length reaches Cloud Run → P4 smoke/runbook.
+Task 18: fix round 1/5 implemented 838464a (traversal guard proven RED/GREEN, subset number check, latin1 map, fmt_number, wrapped cells, SigningUnavailable, a production-exporter test, export failure degrades to status failed; 555 passed) — scoped re-review dispatched (original opus reviewer)
+Task 18: fix round 1 re-review APPROVED (opus): traversal guard mutation-verified; subset number test catches a stray "37"; wrapped cells fit the margin; a failed export degrades with status events; isinstance guard correct.
+Task 18: complete (commits ea85f50..838464a, review approved after 1 fix round)
+Task 18: minor (deferred → P2 final wave):
+  - phase3 try block also wraps the argument building (build args before the try);
+  - a degraded export never retries and has no ledger line (add ctx.ledger "Exports could not be published");
+  - the subset test should normalise via fmt_number;
+  - the wrap test should assert the right edge, and use pytest.raises.
+  WS3 nit: DocsTab.tsx:119 copy after a failed export.
+P2 status: Tasks 1–16 and 18 complete; Task 17 assigned to Jayadratha (#13). Next: the P2 final whole-branch review.
+P2 FINAL REVIEW (opus, 06f5494..838464a, WS2 paths): With fixes, 0 Critical / 4 Important / 13 Minor. The run model, leases, P1-R7 and security hold; a P1→P4 real-engine run through a Firestore-strict store had 0 unsafe writes. Report: final-review-report.md.
+Ruling P2-R19 (final fix wave, ONE opus implementer):
+  - Important 1: no unfilled placeholders or number words in narration, fix reasons, the docs summary, the PDF or the voice answer.
+  - Important 2: the trust sweep (P2-R16): normalise clause labels; take the topology default from the verified main-body quote; question ids from letters only, de-duplicated.
+  - Important 4: Deps.erp gets its own lock, serves the last snapshot when a refresh fails, and is fetched before the intake LLM call.
+  - The R13 template wording, a WS1 file: allowed by this ruling, provided model hashes and pinned numbers don't change.
+  - Task 18 minors: build the export args before the try, and add a ledger line on export failure.
+  - Task 6: closed-writer log level ERROR → WARNING.
+  - The JSON-repair cap and an optional clause (Minor 6), because it can drop the demo contradiction.
+  Important 3 (the real Firestore path has never run end to end) → OPERATIONAL: a deployed dry run tonight (Ask and Auto, plus capture.py export) by Jayadratha after the deploy. The capture operator answers "2N" at the plan gate (not compare_all) so the cards recommend 2N.
+  Cost if wrong: about 2 h of one implementer.
+P2 final fix wave: dispatched (BASE 838464a)
+USER INSTRUCTION (15 Oct 13:25 IST): once the running agents finish (UX-2, the P2 final fix wave, the reviews of PRs #8/#19 and #9/#18/#21), PAUSE. Dispatch no new agents until the user resumes. Record results and post the PR review comments only.
+PR reviews posted (15 Oct): #9 approved (merge first on resume); #18 approved (rebase after the P2 wave, then re-run make demo-world); #21 changes requested (flip the #20 test.fail to an assertion; merge after UX-2). Recommended merge order: #9 → UX-2 → #21 → P2 fix wave → #18 → #8/#19 (pending review).
+P2 final fix wave: implemented e49039a..7863e0e (7 commits); report final-fix-report.md
+PR reviews (15 Oct): #8 APPROVED (4 fixes verified; carry the `fit._say` patch — the P2 wave's brace rejection makes every fit sentence fall back, 9 inbox tests fail on ws2 without it — MUST land before Step 15). #19 CHANGES REQUESTED (pick only passing options; merge AFTER the P2 wave, plus two placeholder/number-word tests).
+Final merge order on resume: #9 → UX-2 (ws3-web) → #21 (after its #20 flip) → #8 → P2 fix wave (with the _say patch if #8 doesn't carry it; regenerate manifest via make demo-world, don't hand-resolve) → #18 (rebase + make demo-world) → #19.
+P2 FINAL FIX WAVE: implemented 838464a..7863e0e. Commits: e49039a (no placeholders or quantities in narration, fixes, docs, PDF, questions or voice), c41d622 (trust sweep: normalised clause labels, verified-quote default, letters-only ids), e35f877 (Deps.erp own lock, stale snapshot, prefetch), 562d80f (R13 wording + regenerated demo world), bfe8cc1 (export args/ledger), 6ef986f (log level), 7863e0e (JSON repair cap, optional clause). Hashes unchanged; engine 147 passed; full suite 625 passed / 2 timing failures (also on the baseline under load ~31).
+PENDING ON RESUME:
+  (1) scoped re-review of 838464a..7863e0e (opus);
+  (2) re-run the full suite on an idle machine;
+  (3) one live P2 smoke, to see how often narration falls back;
+  (4) merge per the ledger order (#9 → UX-2 → #21 → #8 → P2 wave + `_say` patch → #18 → #19), regenerating the demo world rather than hand-resolving;
+  (5) post "deploy <sha>" on #6 once the grant is in.
+  Deferred minors: a numeric contradiction value is dropped; the voice transcript is unsanitized; R13 reads "1 systems" on a fail.
+Quiet-machine re-run (14:47 IST): ws2-agents 7863e0e pytest 627 passed / 8 skipped / 0 failed (the earlier 2 failures were load timing); ws3-web b06ec8b vitest 274/274.
+P2 final fix wave: re-review APPROVED (opus); merged to build together with PR #8 (which carries the _say patch) at 100a529; demo world regenerated (05de261c8d047e7c); 703 passed. ws2-agents fast-forwarded to build. Next: narration fallback templates built from engine records, plus one live P2 smoke.
+Narration fallbacks: c82fe89 + ceb29d3 (engine-record fallback templates for 7 narrate sites, _n plural helper; 714 passed). Live P2 smoke: PASSED 154 s; 3/5 narrations were LLM text, 2/5 used the engine fallback; tokens 2,471 in / 3,054 out. Review dispatched (sonnet).
+Narration fallbacks: re-review APPROVED; the exact BOQ count landed in 16f82a1; merged to build.
+Voice #36: a8df781 (one round trip, 20 s, single attempt) + 2a7e3b3 (web 25 s timeout) + 71b847b (explain from the engine-filled explanation, r1 look-back, R13 transcript, id spelling) + 008c701 (optional result.revision; the PTT drawer switches revision). Live 'why FA-01' 4.1–4.6 s. 652 py / 294 web. Review dispatched (opus, the original Task 16 reviewer).
+Voice #36: review APPROVED + minors 59681dd; merged to build 1e1db73 (685 py / 304 web). Capture build = 1e1db73 posted on #6.
