@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """Build burned-in captions from Mehul's real voiceover, not from the script.
 
-Flow: record one WAV per beat → transcribe each with Gemini on Vertex AI (word timings) →
+Flow: record one WAV per beat → transcribe each with Cloud Speech-to-Text (Chirp 2, en-IN, word timings) →
 glossary pass (product names, units, ids, British/Indian spelling) → cue rules → one SRT on the
 final video timeline.
 
 Each WAV is given with the time, in the final cut, where that beat's voice starts:
 
-  GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=ordinal-mep GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep \\
-  uv run --with google-genai python docs/submission/video/transcribe.py \\
+  GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep uv run --python 3.12 --with google-cloud-speech \\
+      python docs/submission/video/transcribe.py \\
       vo/b01-intro.wav@5.4 vo/b03-problem.wav@15.0 vo/b04-requirements.wav@24.0 ... \\
       --out docs/submission/video/captions-v2.srt
 
 Or list the beats in a JSON file ([{"wav": "vo/b03.wav", "start": 15.0}, ...]) and pass --beats.
 
-Gemini is called once per WAV and the word list is cached next to it (<wav>.words.json), so
+Why Chirp, not Gemini (16 Oct, on Mehul's intro): gemini-3.8-flash heard the words well but Vertex blocked
+most calls with prompt_feedback SAFETY (a fixed filter: no category ratings, unchanged by thresholds, wording
+or schema), and gemini-3.5-flash-lite invented timings past the end of the clip. Chirp 2 with phrase hints for
+our names got every product word and timed each word to the audio. `--engine gemini` keeps the Gemini path
+(it needs google-genai and GOOGLE_GENAI_USE_VERTEXAI=true).
+
+Each WAV is transcribed once and the word list is cached next to it (<wav>.words.json), so
 re-running after a timing change costs nothing; --refresh forces a new call. --dry-run never
 touches the network: it spreads the words of --text evenly over the WAV, which is enough to
 test the glossary and cue rules (that is how this script was tested, on one macOS `say` clip).
@@ -33,7 +39,15 @@ import wave
 from dataclasses import dataclass
 from pathlib import Path
 
-MODEL = "gemini-3.8-flash"
+MODEL = os.environ.get("TRANSCRIBE_MODEL", "gemini-3.8-flash")
+STT_MODEL, STT_LOCATION, STT_LANGUAGE = "chirp_2", "us-central1", "en-IN"
+# Phrase hints for Chirp: the names it otherwise mishears ("ketchup" for Kirchhoff, "Jatropha" for Jayadratha).
+STT_PHRASES = ["Kirchhoff", "Jayadratha", "Mehul", "Ordinal", "Gemini", "Vertex AI", "Cloud Run", "Firestore",
+               "Firebase", "SAP S/4HANA", "Ariba", "Gmail", "Google Drive", "MEP", "CDU", "UPS", "AI data centre",
+               "power and cooling", "busway", "transformer", "tender", "2N", "R05", "R11", "R15", "FA-01", "H-Z2",
+               "kirchhoff.web.app"]
+STT_BOOST = 15
+ATTEMPTS = 8
 PROJECT = "ordinal-mep"
 LOCATION = "global"
 MAX_LINE = 42
@@ -126,9 +140,11 @@ def transcribe_vertex(path: Path) -> list[Word]:
             "required": ["w", "start", "end"]}}},
         "required": ["words"],
     }
-    # The first real run (16 Oct, on the intro) came back with no candidate parts and no finish reason once, then
-    # succeeded unchanged on the next call; so retry an empty reply a few times before giving up.
-    for attempt in range(1, 4):
+    # Vertex blocks this call at random with prompt_feedback SAFETY after generating the transcript (16 Oct: 30-50 %
+    # of calls on Mehul's intro, with or without the schema or the prompt's wording). Retrying is the fix; 8 tries
+    # clear it about 98 % of the time. gemini-3.5-flash-lite is never blocked but invents timings (17 s of words in
+    # a 12 s clip), so it is not the default; TRANSCRIBE_MODEL overrides MODEL.
+    for attempt in range(1, ATTEMPTS + 1):
         resp = client.models.generate_content(
             model=MODEL,
             contents=[types.Part.from_bytes(data=path.read_bytes(), mime_type="audio/wav"), PROMPT],
@@ -137,16 +153,49 @@ def transcribe_vertex(path: Path) -> list[Word]:
         )
         if resp.text:
             break
-        print(f"{path.name}: empty reply from {MODEL} (attempt {attempt} of 3)", file=sys.stderr)
+        why = resp.prompt_feedback.block_reason if resp.prompt_feedback else "no text"
+        print(f"{path.name}: empty reply from {MODEL} ({why}; attempt {attempt} of {ATTEMPTS})", file=sys.stderr)
     else:
-        raise SystemExit(f"{path.name}: {MODEL} returned no transcript after 3 attempts")
+        raise SystemExit(f"{path.name}: {MODEL} returned no transcript after {ATTEMPTS} attempts; run it again")
     data = json.loads(resp.text)
     dur = wav_seconds(path)
     words = []
+    late = [x for x in data.get("words", []) if float(x["start"]) > dur + 0.5]
+    if late:
+        raise SystemExit(f"{path.name}: {MODEL} timed {len(late)} words after the end of the {dur:.2f} s clip; "
+                         "its timings are not usable")
     for x in data.get("words", []):
         s, e = max(0.0, float(x["start"])), min(dur, float(x["end"]))
         if x.get("w", "").strip():
             words.append(Word(x["w"].strip(), s, max(s + 0.05, e)))
+    return words
+
+
+def transcribe_chirp(path: Path) -> list[Word]:
+    """Cloud Speech-to-Text v2, Chirp 2: word offsets measured on the audio, Indian English, phrase hints."""
+    from google.api_core.client_options import ClientOptions
+    from google.cloud.speech_v2 import SpeechClient
+    from google.cloud.speech_v2.types import cloud_speech as cs
+
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT", PROJECT)
+    client = SpeechClient(client_options=ClientOptions(api_endpoint=f"{STT_LOCATION}-speech.googleapis.com",
+                                                       quota_project_id=project))
+    phrases = cs.PhraseSet(phrases=[{"value": v, "boost": STT_BOOST} for v in STT_PHRASES])
+    config = cs.RecognitionConfig(
+        auto_decoding_config=cs.AutoDetectDecodingConfig(), model=STT_MODEL, language_codes=[STT_LANGUAGE],
+        features=cs.RecognitionFeatures(enable_word_time_offsets=True, enable_automatic_punctuation=True),
+        adaptation=cs.SpeechAdaptation(phrase_sets=[cs.SpeechAdaptation.AdaptationPhraseSet(inline_phrase_set=phrases)]))
+    resp = client.recognize(request=cs.RecognizeRequest(
+        recognizer=f"projects/{project}/locations/{STT_LOCATION}/recognizers/_", config=config,
+        content=path.read_bytes()))
+    words = []
+    for result in resp.results:
+        for w in (result.alternatives[0].words if result.alternatives else []):
+            s, e = w.start_offset.total_seconds(), w.end_offset.total_seconds()
+            if w.word.strip():
+                words.append(Word(w.word.strip(), s, max(s + 0.05, e)))
+    if not words:
+        raise SystemExit(f"{path.name}: {STT_MODEL} heard no words; check the recording's level")
     return words
 
 
@@ -184,7 +233,12 @@ def wrap(text: str) -> list[str]:
             score = abs(len(a) - len(b))
             if best is None or score < best[0]:
                 best = (score, [a, b])
-    return best[1] if best else [text[:MAX_LINE], text[MAX_LINE:]]
+    if best:
+        return best[1]
+    # No two-line split fits: split at the middle word, never inside a word (16 Oct: the old fallback cut at 42
+    # characters, so "AI dat / a centre" passed fits()); fits() then rejects it and the caller starts a new cue.
+    mid = len(words) // 2
+    return [" ".join(words[:mid]), " ".join(words[mid:])]
 
 
 def fits(text: str) -> bool:
@@ -223,6 +277,9 @@ def build_cues(words: list[Word]) -> list[dict]:
             out[-1]["text"] += " " + c["text"]
             continue
         out.append(c)
+    # Measured word offsets can overlap by a few ms (Chirp, 16 Oct), so a cue never runs into the next one.
+    for a, b in zip(out, out[1:]):
+        a["end"] = min(a["end"], b["start"] - 0.04)
     return out
 
 
@@ -239,7 +296,9 @@ def main() -> int:
     ap.add_argument("wavs", nargs="*", help="WAV@START: a beat's voice file and where it starts in the final cut (s)")
     ap.add_argument("--beats", type=Path, help='JSON list of {"wav": ..., "start": ...}')
     ap.add_argument("--out", type=Path, default=Path(__file__).resolve().parent / "captions-v2.srt")
-    ap.add_argument("--refresh", action="store_true", help="ignore cached <wav>.words.json and call Gemini again")
+    ap.add_argument("--refresh", action="store_true", help="ignore cached <wav>.words.json and transcribe again")
+    ap.add_argument("--engine", choices=["chirp", "gemini"], default="chirp",
+                    help="chirp: Cloud Speech-to-Text (default); gemini: Gemini on Vertex AI, often blocked (see top)")
     ap.add_argument("--dry-run", action="store_true", help="no network: spread --text evenly over the WAV")
     ap.add_argument("--text", default="", help="dry run only: the words to spread")
     args = ap.parse_args()
@@ -267,9 +326,11 @@ def main() -> int:
             words = [Word(**w) for w in json.loads(cache.read_text(encoding="utf-8"))]
             src = f"cache {cache.name}"
         else:
-            words = transcribe_vertex(path)
+            if args.engine == "gemini":
+                words, src = transcribe_vertex(path), f"Gemini {MODEL} on Vertex AI ({LOCATION})"
+            else:
+                words, src = transcribe_chirp(path), f"Speech-to-Text {STT_MODEL} ({STT_LOCATION}, {STT_LANGUAGE})"
             cache.write_text(json.dumps([w.__dict__ for w in words], indent=1), encoding="utf-8")
-            src = f"Gemini {MODEL} on Vertex AI ({LOCATION})"
         cues = build_cues(words)  # glossary runs on the cue text, so multi-word terms are caught
         for c in cues:
             c["text"] = glossary(c["text"])
