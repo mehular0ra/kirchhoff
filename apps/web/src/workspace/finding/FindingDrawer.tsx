@@ -41,8 +41,8 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
 
   useEffect(() => setExplain(null), [findingId])
 
-  const fix = readFix(f?.fix ?? null)
-  const rejected = readFix(f?.rejected_fix ?? null)
+  const fix = readFix(f?.fix ?? null, f?.rule_id)
+  const rejected = readFix(f?.rejected_fix ?? null, f?.rule_id)
   return (
     <Sheet open={!!f} onOpenChange={(o) => !o && close()}>
       <SheetContent side="right" className="w-[28rem] overflow-y-auto sm:max-w-[28rem]">

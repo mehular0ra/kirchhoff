@@ -4,9 +4,11 @@ import { useEffect } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ServicesProvider } from '@/services/services'
 import { useUi } from '@/store/ui'
-import { normalizeBundle, type ProjectBundle } from '@/lib/types'
+import { normalizeBundle, type Bundle, type ProjectBundle } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
 import hallASigned from '@/test/fixtures/hall-a-signed.json'
+// The golden capture (Jayadratha's PR #43): what the video and the screenshots are shot on.
+import hallACaptured from '../../../public/demo/projects/hall-a.json'
 import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { WorkspaceProvider } from '../WorkspaceContext'
 import { bboxToCss } from './bbox'
@@ -28,12 +30,12 @@ vi.mock('react-pdf', () => ({
   },
 }))
 
-function renderDrawer(services = fakeServices()) {
+function renderDrawer(services = fakeServices(), bundle: Bundle = fixtureBundle()) {
   resetStores()
   return render(
     <ServicesProvider services={services}>
       <TooltipProvider>
-        <WorkspaceProvider bundle={fixtureBundle()} source="static">
+        <WorkspaceProvider bundle={bundle} source="static">
           <FindingDrawer />
           <PdfViewer />
         </WorkspaceProvider>
@@ -47,30 +49,73 @@ test('bbox converts pdfplumber points to CSS pixels at the render scale', () => 
   expect(bboxToCss(null, 2)).toBeNull()
 })
 
-test('fix dicts are read into label, reason and deltas', () => {
+test('fix dicts are read into label, reason, deltas (cost first) and the one-line headline', () => {
   const f = fixtureBundle().findings.r1[0]
-  expect(readFix(f.fix)).toEqual({
+  expect(readFix(f.fix, f.rule_id)).toEqual({
     label: 'Parallel cable feeder',
     reason: 'Largest ΔV margin for a similar cost',
     deltas: [
-      ['dv_pct', 0.84],
       ['cost_delta', 18000],
+      ['dv_pct', 0.84],
+    ],
+    headline: [
+      ['cost_delta', 18000],
+      ['dv_pct', 0.84],
     ],
   })
 })
 
-test('I3: a real WS4 fix with a top-level cost_delta shows the cost first, then the labelled deltas', () => {
-  // r1 R05:FA-01 in public/demo/projects/hall-a.json (cost_delta sits beside `deltas`, not inside it).
-  const fix = readFix({
-    candidate: 'FA-01:cable-CBL-240-8P',
-    label: 'Replace FA-01 with a parallel cable feeder',
-    reason: 'Power chose this fix: largest voltage-drop margin per dollar.',
-    cost_delta: 15580.0,
-    deltas: { dv_pct: 0.8362, dv_limit_pct: 2.0, rating_a: 2500.0 },
-  })!
+test('I3: a provisional WS4 fix with a top-level cost_delta shows the cost first, then the labelled deltas', () => {
+  const fix = readFix(
+    {
+      candidate: 'FA-01:cable-CBL-240-8P',
+      label: 'Replace FA-01 with a parallel cable feeder',
+      reason: 'Power chose this fix: largest voltage-drop margin per dollar.',
+      cost_delta: 15580.0,
+      deltas: { dv_pct: 0.8362, dv_limit_pct: 2.0, rating_a: 2500.0 },
+    },
+    'R05',
+  )!
   expect(fix.deltas.map(([k, v]) => fmtKeyValue(k, v))).toEqual(['Cost Δ +$15,580', 'ΔV 0.84%', 'ΔV limit 2%', 'Rating 2,500 A'])
-  const rejected = readFix({ candidate: 'H-Z2:reroute', label: 'Reroute H-Z2 clear of FB-03', cost_delta: -910.0, deltas: { crossings: 0.0, added_pipe_m: -4.0, changed_pipes: 2.0, index_dp_kpa: 65.51 } })!
-  expect(rejected.deltas.map(([k, v]) => fmtKeyValue(k, v))).toEqual(['Cost Δ -$910', 'Crossings 0', 'Added pipe -4 m', 'Changed pipes 2', 'Index-circuit Δp 65.51 kPa'])
+  const rejected = readFix({ candidate: 'H-Z2:reroute', label: 'Reroute H-Z2 clear of FB-03', cost_delta: -910.0, deltas: { crossings: 0.0, added_pipe_m: -4.0, changed_pipes: 2.0, index_dp_kpa: 65.51 } }, 'R11')!
+  expect(rejected.deltas.map(([k, v]) => fmtKeyValue(k, v))).toEqual(['Cost Δ -$910', '0 crossings', 'Added pipe -4 m', '2 changed pipes', 'Index-circuit Δp 65.51 kPa'])
+})
+
+const captured = () => normalizeBundle(structuredClone(hallACaptured) as unknown as ProjectBundle)
+/** The resulting metric each captured rule's fix is judged on (engine/fixes.py `_metrics`). */
+const PRIMARY: Record<string, string> = { R05: 'dv_pct', R11: 'crossings' }
+
+test('golden capture: every r1 fix record orders by key, cost then the resulting metric then its limit, values unchanged', () => {
+  const records = captured().findings.r1.flatMap((f) => [f.fix, f.rejected_fix].filter(Boolean).map((rec) => ({ f, rec: rec! })))
+  expect(new Set(records.map(({ f }) => f.rule_id))).toEqual(new Set(['R05', 'R11']))
+  for (const { f, rec } of records) {
+    const view = readFix(rec, f.rule_id)!
+    const recorded = { ...(typeof rec.cost_delta === 'number' ? { cost_delta: rec.cost_delta } : {}), ...(rec.deltas as Record<string, unknown>) }
+    expect(Object.fromEntries(view.deltas)).toEqual(recorded) // nothing dropped, added or changed
+    expect(view.deltas).toHaveLength(Object.keys(recorded).length)
+    const keys = view.deltas.map(([k]) => k)
+    expect(keys.slice(0, 2)).toEqual(['cost_delta', PRIMARY[f.rule_id]])
+    expect(view.headline).toEqual(view.deltas.slice(0, 2))
+    keys.forEach((k, i) => k.includes('limit') && expect(keys[i - 1]).not.toMatch(/limit|cost/)) // a limit follows its result
+    expect(view.label).not.toMatch(/\b[a-z]+_[a-z_]+\b/) // tier tokens read as words
+  }
+})
+
+test.each(['R05:FA-01', 'R11:H-Z2'])('golden capture: the r1 %s drawer lists the cost, then the resulting metric', (id) => {
+  const bundle = captured()
+  const f = bundle.findings.r1.find((x) => x.id === id)!
+  renderDrawer(fakeServices(), bundle)
+  act(() => {
+    useUi.getState().setViewRev('r1')
+    useUi.getState().openFinding(id)
+  })
+  const card = screen.getByText('Chosen fix').parentElement!
+  const items = within(card).getAllByRole('listitem').map((li) => li.textContent)
+  const deltas = f.fix!.deltas as Record<string, number>
+  const primary = PRIMARY[f.rule_id]
+  expect(items.slice(0, 2)).toEqual([fmtKeyValue('cost_delta', deltas.cost_delta ?? (f.fix!.cost_delta as number)), fmtKeyValue(primary, deltas[primary])])
+  expect(items).toHaveLength(Object.keys(deltas).length)
+  for (const text of [...items, within(card).getByText(/^(Replace|Drop) /).textContent ?? '']) expect(text).not.toMatch(/\b[a-z]+_[a-z_]+\b/)
 })
 
 test('drawer fills placeholders and shows formula, value vs limit and both fixes', () => {

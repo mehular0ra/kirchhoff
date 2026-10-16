@@ -182,6 +182,15 @@ const SUFFIX_UNITS: [string, string][] = [
   ['_m', 'm'],
 ]
 
+/**
+ * Keys that count things read as "<n> <noun>": "crossings" 0 → "0 crossings", "changed_pipes" 1 → "1 changed pipe".
+ * A key counts when its last word is one of the count nouns ("lines", "checks", ...); weeks are a duration.
+ */
+export function isCountKey(key: string): boolean {
+  const last = key.toLowerCase().split('_').pop() ?? ''
+  return last !== 'weeks' && COUNT_UNITS.has(last)
+}
+
 /** Turns an engine dict key into a label and unit: "ampacity_a" → { label: "Ampacity", unit: "A" }. */
 export function describeKey(key: string): { label: string; unit?: string; usd?: boolean } {
   const known = KEY_LABELS[key]
@@ -208,19 +217,23 @@ function singular(word: string): string {
   return word.endsWith('s') ? word.slice(0, -1) : word
 }
 
+/** "0 crossings", "1 changed pipe": the number first, the noun singular for a count of one. */
+function fmtCount(n: number, noun: string): string {
+  return `${fmtNum(n)} ${Math.abs(n) === 1 ? singular(noun) : noun}`
+}
+
 /** A list of ids reads as a short list; anything else as a count of its entries (counting is allowed). */
 function fmtCollection(label: string, value: unknown[] | Record<string, unknown>): string {
   if (Array.isArray(value) && value.length && value.every((x) => typeof x === 'string' || typeof x === 'number')) {
     const shown = value.slice(0, 4).map((x) => (typeof x === 'number' ? fmtNum(x) : x))
     return `${label} ${shown.join(', ')}${value.length > 4 ? ` +${value.length - 4} more` : ''}`
   }
-  const n = Array.isArray(value) ? value.length : Object.keys(value).length
-  const noun = label.toLowerCase()
-  return `${n} ${n === 1 ? singular(noun) : noun}`
+  return fmtCount(Array.isArray(value) ? value.length : Object.keys(value).length, label.toLowerCase())
 }
 
 /**
- * Formats one engine key/value pair for display, e.g. ("dv_pct", 0.84) → "ΔV 0.84%". WS2's tool
+ * Formats one engine key/value pair for display, e.g. ("dv_pct", 0.84) → "ΔV 0.84%", ("crossings", 0) →
+ * "0 crossings" (a count reads number first, never "Crossings 0"). WS2's tool
  * summaries also carry lists and dicts (options, pipes, clashes, candidates): those read as a
  * count or a short id list, never "[object Object]" (final review I2).
  */
@@ -228,6 +241,7 @@ export function fmtKeyValue(key: string, value: unknown): string {
   const d = describeKey(key)
   if (typeof value === 'number') {
     if (d.usd) return `${d.label} ${fmtUsd(value, key.endsWith('delta'))}`
+    if (isCountKey(key)) return fmtCount(value, d.label.toLowerCase())
     return `${d.label} ${fmtQty(value, d.unit === 'USD' ? null : d.unit)}${d.unit === 'USD' ? ' USD' : ''}`
   }
   if (typeof value === 'boolean') return `${d.label} ${value ? '✓' : '✗'}`

@@ -9,6 +9,9 @@ import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle, type WhatIfResult } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
 import hallASigned from '@/test/fixtures/hall-a-signed.json'
+import { fillPlaceholders, fmtNum, fmtUsd, tidyTokens } from '@/lib/format'
+// The golden capture (Jayadratha's PR #43): what the video and the screenshots are shot on.
+import hallACaptured from '../../../public/demo/projects/hall-a.json'
 import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { RevisionTimeline } from '../RevisionTimeline'
 import { WorkspaceProvider } from '../WorkspaceContext'
@@ -108,6 +111,31 @@ test('D1: "why did FA-01 fail?" on signed r2 answers from r1, where R05 failed, 
   expect(answer.textContent).toMatch(/Fixed in r2: Replace FA-01 with a parallel cable feeder .*\+\$15,580.*ΔV 0\.84%/)
   expect(useUi.getState().viewRev).toBe('r1')
   expect(useUi.getState().findingId).toBe('R05:FA-01')
+})
+
+const capturedHallA = () => normalizeBundle(structuredClone(hallACaptured) as unknown as ProjectBundle)
+
+test.each([
+  // R05: the cost, then the RESULTING voltage drop; the record stores `dv_limit_pct` first, and it is not the result
+  ['FA-01', (d: Record<string, number>) => `ΔV ${fmtNum(d.dv_pct)}%`],
+  // R11: the cost, then the crossings left, read as a count
+  ['H-Z2', (d: Record<string, number>) => `${fmtNum(d.crossings)} ${d.crossings === 1 ? 'crossing' : 'crossings'}`],
+])('D1 on the golden capture: "why did %s fail?" cites r1 and the fix by cost and resulting metric', async (element, metric) => {
+  const user = userEvent.setup()
+  const bundle = capturedHallA()
+  const failed = bundle.findings.r1.find((f) => f.element_id === element && f.status === 'fail')!
+  const fix = failed.fix!
+  const deltas = fix.deltas as Record<string, number>
+  renderPanel(fakeServices(), bundle)
+  await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), `why did ${element} fail?{Enter}`)
+  const convo = await screen.findByRole('list', { name: 'Conversation' })
+  const answer = await within(convo).findByText(/^In r1: /)
+  const cost = fmtUsd(deltas.cost_delta ?? (fix.cost_delta as number), true)
+  const label = tidyTokens(String(fix.label))
+  // (the bubble carries a visually hidden "Co-pilot: " speaker label before the answer)
+  expect(answer.textContent!.replace(/^Co-pilot: /, '')).toBe(`In r1: ${fillPlaceholders(failed.explanation || failed.title, failed)} Fixed in r2: ${label} · Cost Δ ${cost} · ${metric(deltas)}.`)
+  expect(answer.textContent).not.toMatch(/\b[a-z]+_[a-z_]+\b/) // no raw tier token or snake_case key
+  expect(useUi.getState().findingId).toBe(failed.id)
 })
 
 test('D1: a Gemini Live explain_finding call with r2\'s passing finding id also walks back to r1', async () => {
