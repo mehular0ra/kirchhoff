@@ -53,9 +53,9 @@ export function useIntegrations(): IntegrationsState {
 // The card's own status line is icon + text, never colour alone (M1): "ok" for connected (live or always-on
 // stores), "offline" for a cached/unreachable fallback, "info" for a feature that isn't live yet.
 const STATUS_TONE: Record<'ok' | 'offline' | 'info', { icon: LucideIcon; cls: string }> = {
-  ok: { icon: CircleCheck, cls: 'text-emerald-400' },
-  offline: { icon: CloudOff, cls: 'text-amber-300' },
-  info: { icon: Info, cls: 'text-zinc-400' },
+  ok: { icon: CircleCheck, cls: 'text-emerald-700' },
+  offline: { icon: CloudOff, cls: 'text-amber-700' },
+  info: { icon: Info, cls: 'text-muted-foreground' },
 }
 
 function Card({
@@ -81,20 +81,20 @@ function Card({
 }) {
   const StatusIcon = STATUS_TONE[statusTone].icon
   return (
-    <article aria-label={title} data-tour={tour} className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+    <article aria-label={title} data-tour={tour} className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs">
       {/* The badge wraps under a long title instead of being squashed (D18). */}
       <header className="flex flex-wrap items-center gap-2">
-        <Icon aria-hidden className="size-4 text-zinc-400" />
-        <h2 className="font-medium text-zinc-100">{title}</h2>
+        <Icon aria-hidden className="size-4 text-muted-foreground" />
+        <h2 className="font-medium text-foreground">{title}</h2>
         {sandbox && <SandboxLabel className="ml-auto shrink-0 whitespace-nowrap" />}
       </header>
-      <p className="text-xs text-zinc-400">{kind}</p>
+      <p className="text-xs text-muted-foreground">{kind}</p>
       <p className={`flex items-center gap-1.5 text-xs ${STATUS_TONE[statusTone].cls}`}>
         <StatusIcon aria-hidden className="size-3.5 shrink-0" /> {status}
       </p>
       <ul className="flex flex-wrap gap-1.5 text-xs">
         {counts.map((c) => (
-          <li key={c} className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-200">
+          <li key={c} className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-foreground">
             {c}
           </li>
         ))}
@@ -124,8 +124,8 @@ function DataSheet({ title, label, children }: { title: string; label: string; c
   )
 }
 
-const th = 'border-b px-2 py-1 text-left font-medium text-zinc-400'
-const td = 'border-b border-zinc-800/70 px-2 py-1'
+const th = 'border-b px-2 py-1 text-left font-medium text-muted-foreground'
+const td = 'border-b border-border px-2 py-1'
 
 /** "6 × TX-3150, 30 × UPS-500" — the PR's own lines, as the review page shows them (D5). */
 const prLines = (lines: { qty: number; material_id: string }[]) => lines.map((l) => `${l.qty} × ${l.material_id}`).join(', ')
@@ -144,9 +144,9 @@ export function IntegrationsPage() {
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col gap-5 overflow-auto p-6">
       <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-lg font-semibold">Integrations</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Integrations</h1>
         {!live && (
-          <span role="status" className="inline-flex items-center gap-1.5 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-200">
+          <span role="status" className="inline-flex items-center gap-1.5 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700">
             {connecting ? (
               <>
                 <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> Connecting to the live sandbox… showing the cached
@@ -160,27 +160,27 @@ export function IntegrationsPage() {
           </span>
         )}
       </div>
-      <section aria-label="Latest handoff" data-tour="integrations-prs" className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+      <section aria-label="Latest handoff" data-tour="integrations-prs" className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs">
         {/* One sandbox label for the section, not one per row (D5). */}
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Latest handoff from signed designs</h2>
+          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Latest handoff from signed designs</h2>
           <SandboxLabel className="ml-auto" />
         </div>
         <ul className="flex flex-col gap-1.5 text-sm">
           {handoffPrs.map((p) => (
             <li key={p.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="font-mono text-zinc-100">{p.id}</span>
-              <span className="text-zinc-300">
+              <span className="font-mono text-foreground">{p.id}</span>
+              <span className="text-zinc-700">
                 {projectName(p.project_id)} · <span className="font-mono">{p.revision}</span>
               </span>
-              <span className="font-mono text-xs text-zinc-200">{prLines(p.lines)}</span>
-              <span className="text-xs text-zinc-400">{p.status}</span>
+              <span className="font-mono text-xs text-foreground">{prLines(p.lines)}</span>
+              <span className="text-xs text-muted-foreground">{p.status}</span>
             </li>
           ))}
           {handoffOpps.map((o) => (
             <li key={o.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="text-zinc-100">{o.name}</span>
-              <span className="text-zinc-400">CRM stage: {o.stage}</span>
+              <span className="text-foreground">{o.name}</span>
+              <span className="text-muted-foreground">CRM stage: {o.stage}</span>
             </li>
           ))}
         </ul>
@@ -299,10 +299,10 @@ export function IntegrationsPage() {
             <ul className="flex flex-col gap-1 text-sm">
               {data.documents.map((d) => (
                 <li key={d.id} className="flex items-center gap-2">
-                  <a href={d.url} target="_blank" rel="noreferrer" className="text-sky-300 hover:underline">
+                  <a href={d.url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
                     {d.name}
                   </a>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-muted-foreground">
                     {d.project_id} · {d.kind}
                   </span>
                 </li>
@@ -315,8 +315,8 @@ export function IntegrationsPage() {
             <ul className="flex flex-col gap-2 text-sm">
               {data.notifications.map((n) => (
                 <li key={n.id}>
-                  <p className="text-zinc-100">{n.title}</p>
-                  <p className="text-xs text-zinc-400">{fmtTs(n.ts)}</p>
+                  <p className="text-foreground">{n.title}</p>
+                  <p className="text-xs text-muted-foreground">{fmtTs(n.ts)}</p>
                 </li>
               ))}
             </ul>

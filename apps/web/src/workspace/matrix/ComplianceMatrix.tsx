@@ -46,7 +46,7 @@ function Cell({ f, r, c }: { f: Finding; r: number; c: number }) {
         'inline-flex w-full animate-in items-center justify-center gap-1 rounded px-1 py-0.5 text-[11px] duration-300 fade-in-0 zoom-in-90',
         m.text,
         m.bg,
-        'hover:ring-1 hover:ring-zinc-500',
+        'hover:ring-1 hover:ring-zinc-400',
       )}
     >
       <Icon aria-hidden className="size-3.5" />
@@ -70,7 +70,7 @@ function ElementCell({ id, r, worst }: { id: string; r: number; worst: Finding |
       onFocus={() => nav.setActive(key)}
       // An element no canvas draws (R12 "BOQ") opens its finding rather than an empty 3D view.
       onClick={() => (drawnOn.length || !worst ? focus(id, drawnOn) : openFinding(worst.id))}
-      className="whitespace-nowrap font-mono text-zinc-100 hover:underline"
+      className="whitespace-nowrap font-mono text-foreground hover:underline"
     >
       {id}
     </button>
@@ -163,11 +163,11 @@ export function ComplianceMatrix() {
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b px-3 py-2 text-xs">
         {whatIf && (
-          <span className="rounded border border-amber-400/50 bg-amber-500/10 px-1.5 py-0.5 text-amber-200">
+          <span className="rounded border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 text-amber-700">
             What-if view (not saved)
           </span>
         )}
-        <span className="font-mono text-zinc-200" aria-live="polite">
+        <span className="font-mono text-foreground" aria-live="polite">
           {/* A what-if result lists only the checks that fail or warn (M13). */}
           {whatIf ? `${findings.length} what-if findings` : `${findings.length} checks`}
         </span>
@@ -183,7 +183,7 @@ export function ComplianceMatrix() {
               </span>
             )
           })}
-        {whatIf && <span className="text-zinc-400">({c.warn > 0 ? 'only failing and warning checks are listed' : 'only failing checks are listed'})</span>}
+        {whatIf && <span className="text-muted-foreground">({c.warn > 0 ? 'only failing and warning checks are listed' : 'only failing checks are listed'})</span>}
         <IllustrativeLabel className="ml-auto" />
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -201,7 +201,7 @@ export function ComplianceMatrix() {
               {table.getHeaderGroups().map((g) => (
                 <tr key={g.id}>
                   {g.headers.map((h) => (
-                    <th key={h.id} scope="col" className="border-b px-1 py-1.5 text-left font-mono font-medium text-zinc-400">
+                    <th key={h.id} scope="col" className="border-b px-1 py-1.5 text-left font-mono font-medium text-muted-foreground">
                       {h.id === 'element' ? (
                         'Element'
                       ) : (
@@ -220,13 +220,13 @@ export function ComplianceMatrix() {
             </thead>
             <tbody>
               {table.getRowModel().rows.map((row, i) => (
-                <tr key={row.id} data-tour={i === 0 ? 'matrix-row' : undefined} className="hover:bg-zinc-900/60">
+                <tr key={row.id} data-tour={i === 0 ? 'matrix-row' : undefined} className="hover:bg-muted/60">
                   {row.getAllCells().map((cell) => (
                     <td
                       key={cell.id}
                       // A not-checked cell stays empty (a CSS dot) but keeps an accessible name; no element per blank cell.
                       aria-label={cell.column.id !== 'element' && !row.original.cells[cell.column.id] ? `${cell.column.id} ${row.original.element}: not checked` : undefined}
-                      className="border-b border-zinc-800/70 px-1 py-1 empty:text-center empty:text-zinc-600 empty:after:content-['·']"
+                      className="border-b border-border px-1 py-1 empty:text-center empty:text-zinc-400 empty:after:content-['·']"
                     >
                       <table.FlexRender cell={cell} />
                     </td>

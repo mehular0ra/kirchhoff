@@ -18,9 +18,9 @@ const NAMES: Record<TopologyOption['id'], string> = {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 text-xs">
-      <dt className="text-zinc-400">{label}</dt>
+      <dt className="text-muted-foreground">{label}</dt>
       <dd>
-        <Num className="text-zinc-100">{value}</Num>
+        <Num className="text-foreground">{value}</Num>
       </dd>
     </div>
   )
@@ -60,7 +60,7 @@ export function OptionCards() {
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto p-3" data-tour="options">
       {atGate && (
-        <p className="flex items-center gap-2 text-sm text-amber-200">
+        <p className="flex items-center gap-2 text-sm text-amber-700">
           <Hand aria-hidden className="size-4" /> Option gate · pick the topology to route and check
         </p>
       )}
@@ -71,12 +71,12 @@ export function OptionCards() {
             <article
               key={o.id}
               aria-label={`Option ${NAMES[o.id]}`}
-              className={cn('flex flex-col gap-2 rounded-lg border bg-card p-3', chosen && 'border-emerald-400/70')}
+              className={cn('flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs', chosen && 'border-emerald-500/60 ring-1 ring-emerald-500/20')}
             >
               <header className="flex items-center justify-between">
-                <h3 className="font-medium text-zinc-100">{NAMES[o.id]}</h3>
+                <h3 className="font-medium text-foreground">{NAMES[o.id]}</h3>
                 {chosen && (
-                  <span className="inline-flex items-center gap-1 text-xs text-emerald-300">
+                  <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
                     <Check aria-hidden className="size-3.5" /> Selected
                   </span>
                 )}
@@ -92,9 +92,9 @@ export function OptionCards() {
               {(o.swaps ?? []).length > 0 && (
                 <ul className="flex flex-col gap-1 border-t pt-2 text-xs" aria-label="Swaps applied">
                   {(o.swaps ?? []).map((s, i) => (
-                    <li key={i} className="flex items-center gap-1 font-mono text-green-300">
+                    <li key={i} className="flex items-center gap-1 font-mono text-green-700">
                       {String(s.from)} <ArrowRight aria-hidden className="size-3" /> {String(s.to)}
-                      <span className="text-zinc-400">({String(s.reason)}, line {String(s.line)})</span>
+                      <span className="text-muted-foreground">({String(s.reason)}, line {String(s.line)})</span>
                     </li>
                   ))}
                 </ul>
@@ -109,7 +109,7 @@ export function OptionCards() {
         })}
       </div>
       {error && (
-        <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-300">
+        <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-700">
           <CircleX aria-hidden className="size-3.5" /> {error}
         </p>
       )}

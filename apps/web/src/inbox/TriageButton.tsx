@@ -50,19 +50,19 @@ export function TriageButton({ email }: { email: InboxEmail }) {
         {state === 'done' ? 'Triage again' : 'Triage live'}
       </Button>
       {state === 'running' && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-sky-200">
+        <p role="status" className="flex items-center gap-1.5 text-xs text-blue-700">
           <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" />
           {PROGRESS[stage]}
         </p>
       )}
       {state === 'done' && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-emerald-300">
+        <p role="status" className="flex items-center gap-1.5 text-xs text-emerald-700">
           <CircleCheck aria-hidden className="size-3.5 shrink-0" />
           Live triage complete.
         </p>
       )}
       {state === 'failed' && (
-        <p role="status" className="flex items-start gap-1.5 text-xs text-amber-200">
+        <p role="status" className="flex items-start gap-1.5 text-xs text-amber-700">
           <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           <span>
             Live triage unavailable: {note} {email.triage ? 'The recorded triage stays on screen.' : ''}

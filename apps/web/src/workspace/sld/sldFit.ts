@@ -54,8 +54,10 @@ export function topAnchoredViewport(
 }
 
 const GLYPH: Partial<Record<FindingStatus, string>> = { fail: '✕', warn: '⚠' }
-const STATUS_LABEL_TEXT: Partial<Record<FindingStatus, string>> = { fail: '#fda4af', warn: '#fde68a' }
-const STATUS_LABEL_BG: Partial<Record<FindingStatus, string>> = { fail: '#2a0d14', warn: '#2a2108' }
+// On white: -700 text on a -50 pill with the status hex as its border (AA, 6:1 and 4.8:1).
+const STATUS_LABEL_TEXT: Partial<Record<FindingStatus, string>> = { fail: '#be123c', warn: '#b45309' }
+const STATUS_LABEL_BG: Partial<Record<FindingStatus, string>> = { fail: '#fff1f2', warn: '#fffbeb' }
+const EDGE = { quiet: '#8a93a0', changed: '#d97706', label: '#3f4550', labelBg: '#ffffff' } as const
 
 export interface EdgeAppearance {
   color: string
@@ -78,19 +80,19 @@ export function edgeAppearance({
   label: string | null
 }): EdgeAppearance {
   const open = !!status && statusRank(status) >= statusRank('warn')
-  const color = chain ? CHAIN_COLORS[chain] : open ? STATUS_META[status!].hex : change ? '#fbbf24' : '#52525b'
+  const color = chain ? CHAIN_COLORS[chain] : open ? STATUS_META[status!].hex : change ? EDGE.changed : EDGE.quiet
   const statusText = open ? ` · ${GLYPH[status!]} ${STATUS_META[status!].label}` : ''
   return {
     color,
     strokeWidth: open ? 3.5 : label ? 2.5 : 1.5,
     label: label ? `${label}${statusText}${change ? ' · changed' : ''}` : undefined,
     labelStyle: {
-      fill: open ? STATUS_LABEL_TEXT[status!]! : '#e4e4e7',
+      fill: open ? STATUS_LABEL_TEXT[status!]! : EDGE.label,
       fontFamily: 'JetBrains Mono Variable, monospace',
       fontSize: open ? 13 : 11,
       fontWeight: open ? 600 : 400,
     },
-    labelBgStyle: open ? { fill: STATUS_LABEL_BG[status!]!, stroke: STATUS_META[status!].hex, strokeWidth: 1 } : { fill: '#0b0d10' },
+    labelBgStyle: open ? { fill: STATUS_LABEL_BG[status!]!, stroke: STATUS_META[status!].hex, strokeWidth: 1 } : { fill: EDGE.labelBg },
     labelBgPadding: open ? [6, 3] : [3, 2],
   }
 }

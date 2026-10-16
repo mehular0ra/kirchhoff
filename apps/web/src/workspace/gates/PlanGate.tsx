@@ -46,19 +46,22 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
   return (
     <section aria-label="Plan" className="flex flex-col gap-3 rounded-lg border bg-card p-3 text-sm" data-tour="plan-gate">
       <Hint id="gates" text="Gates pause the run until you decide. In Auto, plan and option gates resolve by the tender and log why.">
-        <h3 tabIndex={0} className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-          {interactive ? <Hand aria-hidden className="size-4 text-amber-300" /> : <ListChecks aria-hidden className="size-4" />}
+        <h3 tabIndex={0} className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {interactive ? <Hand aria-hidden className="size-4 text-amber-700" /> : <ListChecks aria-hidden className="size-4" />}
           {interactive ? 'Plan gate · waiting for you' : 'Plan'}
         </h3>
       </Hint>
-      <ol className="flex flex-col gap-1.5">
+      <ol className="flex flex-col gap-2">
         {plan.map((s, i) => (
-          <li key={s.id} className="flex flex-col gap-1">
-            <span className="flex items-center gap-2">
-              <span className="w-4 font-mono text-xs text-zinc-400">{i + 1}</span>
+          <li key={s.id} className="flex flex-col gap-0.5">
+            {/* Number, title, then the agent on its own line: titles align and keep the column's full width (polish). */}
+            <span className="flex items-baseline gap-2">
+              <span className="w-4 shrink-0 font-mono text-xs text-muted-foreground">{i + 1}</span>
+              <span className="min-w-0 text-foreground">{s.title}</span>
+            </span>
+            <span className="ml-6 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <AgentDot agent={s.agent} />
-              <span className="text-xs text-zinc-400">{AGENTS[s.agent].label}</span>
-              <span className="text-zinc-200">{s.title}</span>
+              {AGENTS[s.agent].label}
             </span>
             {interactive ? (
               <Input
@@ -69,15 +72,15 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
                 className="ml-6 h-7 text-xs"
               />
             ) : (
-              s.note && <span className="ml-6 text-xs text-zinc-400">Note: {s.note}</span>
+              s.note && <span className="ml-6 text-xs text-muted-foreground">Note: {s.note}</span>
             )}
           </li>
         ))}
       </ol>
       {questions.map((q) => (
         <fieldset key={q.id} className="flex flex-col gap-2 rounded border border-amber-500/30 bg-amber-500/5 p-2">
-          <legend className="px-1 text-xs font-medium text-amber-200">Open question</legend>
-          <p className="text-zinc-200">{q.text}</p>
+          <legend className="px-1 text-xs font-medium text-amber-700">Open question</legend>
+          <p className="text-foreground">{q.text}</p>
           <div className="flex flex-wrap gap-1.5">
             {q.citations.map((c) => (
               <TenderChip key={`${c.page}${c.clause}`} citation={c} />
@@ -98,8 +101,8 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
               </RadioGroup>
             </>
           ) : (
-            <p className="text-xs text-zinc-300">
-              Resolved: <span className="text-zinc-100">{answerLabel(q.resolution ?? q.default_resolution)}</span>
+            <p className="text-xs text-zinc-700">
+              Resolved: <span className="text-foreground">{answerLabel(q.resolution ?? q.default_resolution)}</span>
             </p>
           )}
         </fieldset>
@@ -110,7 +113,7 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
             Approve plan
           </Button>
           {error && (
-            <span role="alert" className="inline-flex items-center gap-1.5 text-xs text-rose-300">
+            <span role="alert" className="inline-flex items-center gap-1.5 text-xs text-rose-700">
               <CircleX aria-hidden className="size-3.5" /> {error}
             </span>
           )}

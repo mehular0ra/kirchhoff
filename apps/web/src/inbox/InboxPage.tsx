@@ -18,20 +18,20 @@ function EmailRow({ email, unread, active, nowMs }: { email: InboxEmail; unread:
       <Link
         to={`/app/inbox/${email.id}`}
         aria-current={active ? 'true' : undefined}
-        className="flex flex-col gap-1 px-4 py-3 hover:bg-zinc-800/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400"
+        className="flex flex-col gap-1 px-4 py-3 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"
       >
         <span className="flex items-center gap-2 text-sm">
           {unread && (
-            <span className="inline-flex items-center gap-1 rounded bg-sky-500/15 px-1.5 text-[11px] font-medium text-sky-200">
+            <span className="inline-flex items-center gap-1 rounded bg-blue-500/15 px-1.5 text-[11px] font-medium text-blue-700">
               <Mail aria-hidden className="size-3" />
               New
             </span>
           )}
-          <span className={cn('truncate', unread ? 'font-semibold text-zinc-100' : 'text-zinc-300')}>{email.from_org}</span>
-          <span className="ml-auto shrink-0 text-xs text-zinc-400">{fmtRelative(email.received_at, nowMs)}</span>
+          <span className={cn('truncate', unread ? 'font-semibold text-foreground' : 'text-zinc-700')}>{email.from_org}</span>
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{fmtRelative(email.received_at, nowMs)}</span>
         </span>
-        <span className="truncate text-sm text-zinc-300">{email.subject}</span>
-        <span className="flex items-center gap-2 text-xs text-zinc-400">
+        <span className="truncate text-sm text-zinc-700">{email.subject}</span>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
           {email.triage ? <VerdictBadge triage={email.triage} /> : <span>Not triaged yet</span>}
           {email.attachments.length > 0 && (
             <span className="inline-flex items-center gap-1">
@@ -40,7 +40,7 @@ function EmailRow({ email, unread, active, nowMs }: { email: InboxEmail; unread:
             </span>
           )}
           {email.status === 'pursued' && (
-            <span className="inline-flex items-center gap-1 text-emerald-300">
+            <span className="inline-flex items-center gap-1 text-emerald-700">
               <Handshake aria-hidden className="size-3" />
               Pursued
             </span>
@@ -68,16 +68,16 @@ export function InboxPage() {
       <section aria-labelledby="inbox-h" className={cn('flex min-h-0 flex-col border-r', emailId && 'hidden lg:flex')}>
         <header className="flex flex-col gap-1 border-b p-4">
           <div className="flex items-center gap-2">
-            <Inbox aria-hidden className="size-4 text-sky-300" />
-            <h1 id="inbox-h" className="text-lg font-semibold">
+            <Inbox aria-hidden className="size-4 text-blue-700" />
+            <h1 id="inbox-h" className="text-xl font-semibold tracking-tight">
               Bids inbox
             </h1>
             <SandboxLabel className="ml-auto" />
           </div>
-          <p className="font-mono text-xs text-zinc-400">{data.mailbox}</p>
-          <p className="text-xs text-zinc-400">{live ? 'Live · your workspace' : 'Recorded triage (static)'}</p>
-          <p className="text-xs text-zinc-400">{demoClockLabel(clock)}</p>
-          <p className="text-xs text-zinc-400">{appetiteLine(data.appetite)}</p>
+          <p className="font-mono text-xs text-muted-foreground">{data.mailbox}</p>
+          <p className="text-xs text-muted-foreground">{live ? 'Live · your workspace' : 'Recorded triage (static)'}</p>
+          <p className="text-xs text-muted-foreground">{demoClockLabel(clock)}</p>
+          <p className="text-xs text-muted-foreground">{appetiteLine(data.appetite)}</p>
         </header>
         <ol aria-label="Emails" className="min-h-0 flex-1 overflow-auto">
           {data.emails.map((e) => (

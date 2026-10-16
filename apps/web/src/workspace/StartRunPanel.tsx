@@ -57,8 +57,8 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col justify-center gap-5 p-6">
       <div>
-        <h1 className="text-lg font-semibold">{project?.name ?? 'Deccan AI Campus · Hall B'}</h1>
-        <p className="text-sm text-zinc-400">
+        <h1 className="text-xl font-semibold tracking-tight">{project?.name ?? 'Deccan AI Campus · Hall B'}</h1>
+        <p className="text-sm text-muted-foreground">
           Hall B uses the same tender, drawing and catalogue as Hall A. Kirchhoff's agents design it in your own
           workspace; you decide at each gate and sign at the end.
         </p>
@@ -66,9 +66,9 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
       <ul className="grid grid-cols-2 gap-2 text-xs">
         {INPUTS.map((i) => (
           <li key={i.name} className="flex items-center gap-2 rounded border bg-card px-2 py-1.5">
-            <FileText aria-hidden className="size-4 text-zinc-500" />
-            <span className="text-zinc-200">{i.name}</span>
-            <span className="ml-auto truncate font-mono text-zinc-400">{i.file}</span>
+            <FileText aria-hidden className="size-4 text-muted-foreground" />
+            <span className="text-foreground">{i.name}</span>
+            <span className="ml-auto truncate font-mono text-muted-foreground">{i.file}</span>
           </li>
         ))}
       </ul>
@@ -81,11 +81,11 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
         }}
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
-        className={`flex flex-col items-center gap-1 rounded-lg border border-dashed p-6 text-center text-sm ${over ? 'border-sky-400 bg-sky-500/10' : 'border-zinc-700'}`}
+        className={`flex flex-col items-center gap-1 rounded-lg border border-dashed p-6 text-center text-sm ${over ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-300'}`}
       >
-        <Upload aria-hidden className="size-5 text-zinc-400" />
+        <Upload aria-hidden className="size-5 text-muted-foreground" />
         Drop the tender PDF and drawing here to start
-        <span className="text-xs text-zinc-400">The demo always uses the Hall B package above; dropped files are not uploaded.</span>
+        <span className="text-xs text-muted-foreground">The demo always uses the Hall B package above; dropped files are not uploaded.</span>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <AutonomySwitch value={autonomy} onChange={setAutonomy} />
@@ -101,7 +101,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
         )}
       </div>
       {error && (
-        <p role="alert" className="flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-200">
+        <p role="alert" className="flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-700">
           <CircleX aria-hidden className="size-4 shrink-0" /> {error}
         </p>
       )}

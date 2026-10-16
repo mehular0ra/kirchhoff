@@ -50,7 +50,7 @@ export function WhatIfPanel() {
 
   return (
     <section aria-label="What-if" className="flex flex-col gap-2 border-b p-3">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">What if…</h3>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">What if…</h3>
       <div className="flex flex-wrap gap-1.5">
         {chips.map((c, i) => (
           <Button
@@ -80,7 +80,7 @@ export function WhatIfPanel() {
           className="h-7 rounded border bg-transparent px-1 text-xs"
         >
           {PARAMS.map((p) => (
-            <option key={p} value={p} className="bg-zinc-900">
+            <option key={p} value={p} className="bg-background">
               {paramLabel(p)}
             </option>
           ))}
@@ -98,17 +98,17 @@ export function WhatIfPanel() {
         </Button>
       </form>
       {error && (
-        <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-200">
+        <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-700">
           <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
           <span>{error}</span>
         </p>
       )}
       {active && (
-        <div className="flex flex-col gap-2 rounded border border-amber-400/40 bg-amber-500/5 p-2 text-xs" aria-live="polite">
+        <div className="flex flex-col gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs" aria-live="polite">
           <div className="flex items-center gap-2">
-            <span className="whitespace-nowrap font-medium text-amber-100">{chipLabel(active.result)}</span>
+            <span className="whitespace-nowrap font-medium text-amber-700">{chipLabel(active.result)}</span>
             {/* The overlay is always drawn on the revision it was computed for (M13, #37), so this names that one. */}
-            <span className="text-zinc-400">
+            <span className="text-muted-foreground">
               {revisionLabel(view.rev)} · not saved · {active.origin === 'precomputed' ? 'precomputed by the engine' : 'engine, just now'}
             </span>
             <Button size="icon-xs" variant="ghost" className="ml-auto" aria-label="Clear what-if" onClick={clear}>
@@ -121,8 +121,8 @@ export function WhatIfPanel() {
               return (
                 <li key={chain.join('>')} className="flex items-center gap-1.5">
                   <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: CHAIN_COLORS[d] }} />
-                  <span className="text-zinc-400">{d === 'electrical' ? 'Electrical' : 'Cooling'}:</span>
-                  <span className="font-mono text-zinc-200">{chain.join(' → ')}</span>
+                  <span className="text-muted-foreground">{d === 'electrical' ? 'Electrical' : 'Cooling'}:</span>
+                  <span className="font-mono text-foreground">{chain.join(' → ')}</span>
                 </li>
               )
             })}
@@ -136,11 +136,11 @@ export function WhatIfPanel() {
             {(showAll ? sorted : sorted.slice(0, COLLAPSED)).map((f) => (
               <li key={f.id} className="flex flex-wrap items-center gap-x-1.5">
                 <StatusBadge status={f.status} compact />
-                <span className="font-mono text-zinc-100">
+                <span className="font-mono text-foreground">
                   {f.rule_id} · {f.element_id}
                 </span>
                 {typeof f.value === 'number' && (
-                  <span className="text-zinc-400">
+                  <span className="text-muted-foreground">
                     <Num>{fmtQty(f.value, f.unit)}</Num> vs limit <Num>{fmtQty(f.limit ?? null, f.unit)}</Num>
                   </span>
                 )}

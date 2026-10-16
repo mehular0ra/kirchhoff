@@ -20,7 +20,7 @@ export function TenderChip({ citation, onOpen, verified = true }: { citation: Ci
             completeItem('inspect_source')
             onOpen?.()
           }}
-          className="inline-flex items-center gap-1 rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[11px] text-sky-200 hover:bg-sky-500/20"
+          className="inline-flex items-center gap-1 rounded border border-blue-500/40 bg-blue-500/10 px-1.5 py-0.5 font-mono text-[11px] text-blue-700 hover:bg-blue-500/20"
         >
           <FileText aria-hidden className="size-3" />
           {label}
@@ -35,7 +35,7 @@ export function TenderChip({ citation, onOpen, verified = true }: { citation: Ci
 
 export function ClauseChip({ standard, clause }: { standard: string; clause?: string | null }) {
   return (
-    <span className="inline-flex items-center rounded border border-zinc-700 bg-zinc-800/60 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">
+    <span className="inline-flex items-center rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-700">
       {standard}
       {clause ? ` ${clause}` : ''}
     </span>

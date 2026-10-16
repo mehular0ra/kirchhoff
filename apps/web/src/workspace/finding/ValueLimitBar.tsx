@@ -24,7 +24,7 @@ export function ValueLimitBar({
       <p className="flex items-center gap-1.5 text-sm">
         <Icon aria-hidden className={cn('size-4 shrink-0', m.text)} />
         <span className={m.text}>{m.label}</span>{' '}
-        <span className="text-zinc-200">
+        <span className="text-foreground">
           · <Num>{fmtQty(value, unit)}</Num> (limit <Num>{fmtNum(limit)}</Num>)
         </span>
       </p>
@@ -37,19 +37,19 @@ export function ValueLimitBar({
       <div
         role="img"
         aria-label={`Value ${fmtQty(value, unit)} against limit ${fmtQty(limit, unit)}: ${m.label}`}
-        className="relative h-2.5 rounded-full bg-zinc-800"
+        className="relative h-2.5 rounded-full bg-zinc-200"
       >
         <div
           className={cn('absolute inset-y-0 left-0 rounded-full', status === 'fail' ? 'bg-rose-500' : status === 'warn' ? 'bg-amber-400' : 'bg-emerald-500')}
           style={{ width: pct(value) }}
         />
-        <div className="absolute -inset-y-1 w-0.5 bg-zinc-100" style={{ left: pct(limit) }} />
+        <div className="absolute -inset-y-1 w-0.5 bg-foreground" style={{ left: pct(limit) }} />
       </div>
       <div className="flex justify-between text-xs">
         <span className={m.text}>
           Value <Num>{fmtQty(value, unit)}</Num>
         </span>
-        <span className="text-zinc-300">
+        <span className="text-zinc-700">
           Limit <Num>{fmtQty(limit, unit)}</Num>
         </span>
       </div>

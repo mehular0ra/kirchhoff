@@ -26,14 +26,14 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
   const signed = signedRevision(bundle)
   return (
     <div className="flex h-11 min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-b px-4 text-sm">
-      <nav aria-label="Breadcrumb" className="flex min-w-40 items-center gap-1 overflow-hidden text-zinc-400">
-        <Link to="/app" className="shrink-0 hover:text-zinc-100">
+      <nav aria-label="Breadcrumb" className="flex min-w-40 items-center gap-1 overflow-hidden text-muted-foreground">
+        <Link to="/app" className="shrink-0 hover:text-foreground">
           Kirchhoff
         </Link>
         <ChevronRight aria-hidden className="size-3.5" />
-        <h1 className="truncate font-medium text-zinc-100">
+        <h1 className="truncate font-medium text-foreground">
           {p.name}
-          {p.sample && <span className="text-zinc-400"> (sample)</span>}
+          {p.sample && <span className="text-muted-foreground"> (sample)</span>}
         </h1>
       </nav>
       <DropdownMenu>
@@ -53,19 +53,19 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-300">{SOURCE_LABEL[source]}</span>
-      <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400" aria-live="polite">
+      <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700">{SOURCE_LABEL[source]}</span>
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
         {working.length ? (
           <>
             {working.map((l) => (
               <AgentDot key={l.agent} agent={l.agent} className="animate-pulse motion-reduce:animate-none" />
             ))}
-            {working.length} agents working
+            {working.length} {working.length === 1 ? 'agent' : 'agents'} working
           </>
         ) : source === 'live' ? (
           'No agents working'
         ) : signed ? (
-          <span className="inline-flex items-center gap-1 text-emerald-300">
+          <span className="inline-flex items-center gap-1 text-emerald-700">
             <Stamp aria-hidden className="size-3.5" />
             {`signed ${signed.id}`}
           </span>

@@ -30,9 +30,9 @@ function ReplayBar({ replay, controls }: { replay: ReplayState; controls: Replay
   if (replay.total === 0) {
     // Nothing to replay yet (D10): say so instead of "event 0/0" with working speed controls.
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-zinc-950/60 px-3 py-1.5 text-xs text-zinc-300">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-surface px-3 py-1.5 text-xs text-zinc-700">
         <span className="inline-flex items-center gap-1.5">
-          <Info aria-hidden className="size-3.5 shrink-0 text-zinc-400" /> This demo snapshot has no recorded run to replay yet; it shows the signed result.
+          <Info aria-hidden className="size-3.5 shrink-0 text-muted-foreground" /> This demo snapshot has no recorded run to replay yet; it shows the signed result.
         </span>
         <Link to="/app/p/hall-b" className="underline underline-offset-2">
           Run Hall B live to watch the agents work
@@ -41,7 +41,7 @@ function ReplayBar({ replay, controls }: { replay: ReplayState; controls: Replay
     )
   }
   return (
-    <div className="flex items-center gap-3 border-b bg-zinc-950/60 px-3 py-1.5 text-xs">
+    <div className="flex items-center gap-3 border-b bg-surface px-3 py-1.5 text-xs">
       <Button
         variant="ghost"
         size="icon-xs"
@@ -50,11 +50,11 @@ function ReplayBar({ replay, controls }: { replay: ReplayState; controls: Replay
       >
         {replay.playing ? <Pause aria-hidden /> : <Play aria-hidden />}
       </Button>
-      <span className="inline-flex items-center gap-1 text-zinc-300">
+      <span className="inline-flex items-center gap-1 text-zinc-700">
         <Clock aria-hidden className="size-3.5" /> Elapsed (recorded) <Num>{fmtElapsed(replay.elapsedS)}</Num>
       </span>
-      <span className="text-zinc-400">Time-compressed replay of a recorded run</span>
-      <span className="text-zinc-400" data-dev>
+      <span className="text-muted-foreground">Time-compressed replay of a recorded run</span>
+      <span className="text-muted-foreground" data-dev>
         event <Num>{replay.cursor}</Num>/<Num>{replay.total}</Num>
       </span>
       <span className="ml-auto flex items-center gap-1" data-dev>
@@ -99,13 +99,13 @@ function LiveBar() {
     )
     if (stage === 0)
       return (
-        <div role="status" className="flex items-center gap-1.5 border-b px-3 py-1.5 text-xs text-zinc-400">
+        <div role="status" className="flex items-center gap-1.5 border-b px-3 py-1.5 text-xs text-muted-foreground">
           <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> Connecting to your run…
         </div>
       )
     if (stage === 1)
       return (
-        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-xs text-zinc-400">
+        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> Still waiting for your run to start; a
             cold start can take up to a minute.
@@ -115,7 +115,7 @@ function LiveBar() {
       )
     // M2: a stale ?run= link, a reset workspace or another visitor's run never appears.
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200">
+      <div role="alert" className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700">
         <span className="inline-flex items-center gap-1.5">
           <CircleX aria-hidden className="size-3.5" /> This run is not in your workspace: it may have been reset, or belong to another visitor.
         </span>
@@ -129,23 +129,23 @@ function LiveBar() {
   const end = run.finished_at ?? now
   const st =
     run.status === 'running'
-      ? { icon: LoaderCircle, text: `Running · ${PHASE_LABEL[run.phase ?? ''] ?? 'starting'}`, cls: 'text-sky-300', spin: true }
+      ? { icon: LoaderCircle, text: `Running · ${PHASE_LABEL[run.phase ?? ''] ?? 'starting'}`, cls: 'text-blue-700', spin: true }
       : run.status === 'at_gate'
-        ? { icon: Hand, text: `Waiting for you · ${run.gate} gate`, cls: 'text-amber-300', spin: false }
+        ? { icon: Hand, text: `Waiting for you · ${run.gate} gate`, cls: 'text-amber-700', spin: false }
         : run.status === 'done'
-          ? { icon: CircleCheck, text: 'Run complete', cls: 'text-emerald-400', spin: false }
-          : { icon: CircleX, text: run.status === 'expired' ? 'Expired at a gate after 24 h' : 'Run failed', cls: 'text-rose-400', spin: false }
+          ? { icon: CircleCheck, text: 'Run complete', cls: 'text-emerald-700', spin: false }
+          : { icon: CircleX, text: run.status === 'expired' ? 'Expired at a gate after 24 h' : 'Run failed', cls: 'text-rose-700', spin: false }
   const Icon = st.icon
   return (
-    <div className="flex items-center gap-3 border-b bg-zinc-950/60 px-3 py-1.5 text-xs" aria-live="polite">
+    <div className="flex items-center gap-3 border-b bg-surface px-3 py-1.5 text-xs" aria-live="polite">
       <span className={`inline-flex items-center gap-1 ${st.cls}`}>
         <Icon aria-hidden className={`size-3.5 ${st.spin ? 'animate-spin motion-reduce:animate-none' : ''}`} />
         {st.text}
       </span>
-      <span className="inline-flex items-center gap-1 text-zinc-400">
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
         <Clock aria-hidden className="size-3.5" /> Elapsed <Num>{fmtElapsed(end - run.started_at)}</Num>
       </span>
-      <span className="text-zinc-400">Autonomy: {run.autonomy === 'ask' ? 'Ask' : 'Auto'}</span>
+      <span className="text-muted-foreground">Autonomy: {run.autonomy === 'ask' ? 'Ask' : 'Auto'}</span>
       {run.status === 'failed' && (
         <Button size="xs" variant="outline" className="ml-auto" onClick={() => void api.resume(run.id).catch(() => undefined)}>
           <RotateCcw aria-hidden /> Resume

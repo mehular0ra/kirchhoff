@@ -118,8 +118,8 @@ export function CoPilotPanel() {
   return (
     <div className="flex flex-col">
       <section aria-label="Ask the co-pilot" className="flex flex-col gap-2 border-b p-3">
-        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
-          <span aria-hidden className="size-2 rounded-full bg-[linear-gradient(135deg,#e879f9,#38bdf8)]" /> Co-pilot
+        <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span aria-hidden className="size-2 rounded-full bg-[linear-gradient(135deg,#d946ef,#0ea5e9)]" /> Co-pilot
         </h3>
         <form
           className="flex gap-1.5"
@@ -142,7 +142,7 @@ export function CoPilotPanel() {
           </Button>
         </form>
         {/* The examples in full (N1): too long for the input's placeholder at this width, so they get their own line. */}
-        <p id="copilot-hint" className="-mt-1 text-[11px] text-zinc-400">
+        <p id="copilot-hint" className="-mt-1 text-[11px] text-muted-foreground">
           Try “why FA-01” or “what if racks go to 200 kW”
         </p>
         {micAvailable ? (
@@ -153,13 +153,13 @@ export function CoPilotPanel() {
               </Button>
             )}
             {voice.mode === 'connecting' && (
-              <span className="inline-flex items-center gap-1 text-xs text-zinc-300">
+              <span className="inline-flex items-center gap-1 text-xs text-zinc-700">
                 <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> Connecting to Gemini Live…
               </span>
             )}
             {voice.mode === 'live' && (
               <>
-                <span className="inline-flex items-center gap-1 text-xs text-fuchsia-200">
+                <span className="inline-flex items-center gap-1 text-xs text-fuchsia-700">
                   <Mic aria-hidden className="size-3.5 animate-pulse motion-reduce:animate-none" /> Listening (Gemini Live)
                 </span>
                 <Button size="xs" variant="ghost" onClick={() => void voice.stopLive()}>
@@ -187,10 +187,10 @@ export function CoPilotPanel() {
             )}
           </div>
         ) : (
-          <p className="text-xs text-zinc-400">This browser or device has no microphone access; use the typed box above.</p>
+          <p className="text-xs text-muted-foreground">This browser or device has no microphone access; use the typed box above.</p>
         )}
         {voice.note && (
-          <p className="flex items-start gap-1 text-xs text-zinc-400">
+          <p className="flex items-start gap-1 text-xs text-muted-foreground">
             <Info aria-hidden className="mt-px size-3.5 shrink-0" />
             {voice.note}
           </p>
@@ -198,7 +198,7 @@ export function CoPilotPanel() {
         {log.length > 0 && (
           <ol aria-label="Conversation" className="flex flex-col gap-1 text-xs" aria-live="polite">
             {log.map((e) => (
-              <li key={e.id} className={e.who === 'you' ? 'text-zinc-400' : 'text-zinc-100'}>
+              <li key={e.id} className={e.who === 'you' ? 'text-muted-foreground' : 'text-foreground'}>
                 <span className="font-medium">{e.who === 'you' ? 'You' : 'Co-pilot'}:</span> {e.text}
               </li>
             ))}

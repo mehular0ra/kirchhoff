@@ -36,7 +36,7 @@ function PrStatus({ status }: { status: PurchaseRequisition['status'] }) {
   const Icon = meta.icon
   const text = status === 'blocked' ? 'blocked: SLD, BOQ and PR lines disagree (R12)' : status
   return (
-    <span className={`inline-flex items-center gap-1 ${status === 'blocked' ? 'text-rose-300' : 'text-zinc-300'}`}>
+    <span className={`inline-flex items-center gap-1 ${status === 'blocked' ? 'text-rose-700' : 'text-zinc-700'}`}>
       <Icon aria-hidden className="size-3.5" /> {text}
     </span>
   )
@@ -46,10 +46,10 @@ function ChangeLine({ c }: { c: ElementChange }) {
   return (
     <li className="flex flex-col gap-0.5 rounded border bg-card px-2 py-1 text-xs">
       <span>
-        <span className="font-mono text-zinc-100">{c.id}</span> <span className="text-zinc-400">{c.kind}</span>
+        <span className="font-mono text-foreground">{c.id}</span> <span className="text-muted-foreground">{c.kind}</span>
       </span>
       {c.fields.map((f) => (
-        <span key={f.field} className="font-mono text-zinc-300">
+        <span key={f.field} className="font-mono text-zinc-700">
           {f.field}: {f.field === 'route' ? 'rerouted' : `${show(f.before)} → ${show(f.after)}`}
         </span>
       ))}
@@ -108,19 +108,19 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
             <ArrowLeft aria-hidden /> Workspace
           </Link>
         </Button>
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-xl font-semibold tracking-tight">
           Review · {bundle.project.name} · <span className="font-mono">{rev.id}</span>
         </h1>
-        <span className="font-mono text-xs text-zinc-400" title={rev.hash}>
+        <span className="font-mono text-xs text-muted-foreground" title={rev.hash}>
           sha256 {shortHash(rev.hash)}
         </span>
         <IllustrativeLabel className="ml-auto" />
       </header>
 
       <section aria-label="Findings summary" className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Checker summary</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Checker summary</h2>
         <p className="flex flex-wrap gap-3 text-sm">
-          <span className="font-mono text-zinc-200">{findings.length} checks</span>
+          <span className="font-mono text-foreground">{findings.length} checks</span>
           {(['fail', 'warn', 'pass', 'n/a'] as const).map((s) => (
             <span key={s} className={`font-mono ${STATUS_META[s].text}`}>
               {counts[s]} {STATUS_META[s].label.toLowerCase()}
@@ -131,10 +131,10 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
           {open.map((f) => (
             <li key={f.id} className="flex items-center gap-2 text-sm">
               <StatusBadge status={f.status} />
-              <Link className="font-mono text-zinc-200 hover:underline" to={`${workspace}${runQuery ? '&' : '?'}tab=matrix&rev=${rev.id}&finding=${encodeURIComponent(f.id)}`}>
+              <Link className="font-mono text-foreground hover:underline" to={`${workspace}${runQuery ? '&' : '?'}tab=matrix&rev=${rev.id}&finding=${encodeURIComponent(f.id)}`}>
                 {f.rule_id} · {f.element_id}
               </Link>
-              <span className="text-zinc-400">{f.title}</span>
+              <span className="text-muted-foreground">{f.title}</span>
             </li>
           ))}
         </ul>
@@ -143,8 +143,8 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
       <section aria-label="Changes from parent" className="flex flex-col gap-2">
         {parent ? (
           <>
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Changes from {parent.id}</h2>
-            {diff && (diff.changes.length ? <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">{diff.changes.map((c) => <ChangeLine key={c.id} c={c} />)}</ul> : <p className="text-sm text-zinc-400">No model changes.</p>)}
+            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Changes from {parent.id}</h2>
+            {diff && (diff.changes.length ? <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">{diff.changes.map((c) => <ChangeLine key={c.id} c={c} />)}</ul> : <p className="text-sm text-muted-foreground">No model changes.</p>)}
           </>
         ) : (
           <EmptyState title="First revision — nothing to compare against" />
@@ -152,25 +152,25 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
       </section>
 
       <section aria-label="Assumptions ledger" className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Assumptions ledger</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assumptions ledger</h2>
         <LedgerList ledger={rev.ledger ?? []} />
       </section>
 
       <section aria-label="Sign-off" className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Sign-off</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sign-off</h2>
         {approval ? (
           <ApprovalStamp approval={approval} revision={rev} />
         ) : atReview ? (
           <div className="flex max-w-xl flex-col gap-2">
             <Textarea aria-label="Review comment" placeholder="Comment for the record (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
             {failing > 0 && (
-              <p role="alert" className="flex items-center gap-1.5 text-sm text-rose-300">
+              <p role="alert" className="flex items-center gap-1.5 text-sm text-rose-700">
                 <CircleX aria-hidden className="size-4 shrink-0" /> Approve is disabled: {failing} findings still fail after the fix loop. Reject, or open
                 the findings to see why.
               </p>
             )}
             {!isLatest && failing === 0 && latest && (
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-muted-foreground">
                 Sign-off applies to the latest revision, <span className="font-mono">{latest.id}</span>.
               </p>
             )}
@@ -184,17 +184,17 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
             </div>
             {sent &&
               (sent.ok ? (
-                <p role="status" className="flex items-center gap-1.5 text-sm text-zinc-300">
-                  <CircleCheck aria-hidden className="size-4 shrink-0 text-emerald-400" /> {sent.text}
+                <p role="status" className="flex items-center gap-1.5 text-sm text-zinc-700">
+                  <CircleCheck aria-hidden className="size-4 shrink-0 text-emerald-700" /> {sent.text}
                 </p>
               ) : (
-                <p role="alert" className="flex items-center gap-1.5 text-sm text-rose-300">
+                <p role="alert" className="flex items-center gap-1.5 text-sm text-rose-700">
                   <CircleX aria-hidden className="size-4 shrink-0" /> {sent.text}
                 </p>
               ))}
           </div>
         ) : (
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Sign-off happens at the review gate of a live run. Start one on Hall B to sign as You (Demo Reviewer).
           </p>
         )}
@@ -202,22 +202,22 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
 
       {(prs.length > 0 || bundle.crm) && approval?.decision === 'approved' && (
         <section aria-label="Handoff" className="flex flex-col gap-2">
-          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
+          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Handoff <SandboxLabel />
           </h2>
           <ul className="flex flex-col gap-1 text-sm">
             {prs.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-zinc-100">{p.id}</span>
+                <span className="font-mono text-foreground">{p.id}</span>
                 <PrStatus status={p.status} />
-                <span className="text-zinc-400">
+                <span className="text-muted-foreground">
                   {p.lines.map((l) => `${l.qty} × ${l.material_id}`).join(', ')} · {fmtTs(p.created_at)}
                 </span>
               </li>
             ))}
             {bundle.crm && (
-              <li className="text-zinc-300">
-                CRM opportunity moved to <span className="text-zinc-50">{bundle.crm.stage}</span>
+              <li className="text-zinc-700">
+                CRM opportunity moved to <span className="text-foreground">{bundle.crm.stage}</span>
               </li>
             )}
           </ul>
@@ -234,7 +234,7 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
             ))}
           </div>
           {exportError && (
-            <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-300">
+            <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-700">
               <CircleX aria-hidden className="size-3.5 shrink-0" /> {exportError.text}
               <Button size="xs" variant="ghost" onClick={() => tryExport(exportError.ref)}>
                 <RotateCcw aria-hidden /> Try again
@@ -243,7 +243,7 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
           )}
         </section>
       )}
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-muted-foreground">
         <Num>{findings.length}</Num> deterministic checks by the rule pack; the AI cannot mark its own homework.
       </p>
     </div>

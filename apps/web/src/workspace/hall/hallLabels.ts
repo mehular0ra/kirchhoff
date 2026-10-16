@@ -81,7 +81,7 @@ export function buildLabels(scene: HallScene, v: WorkspaceView): SceneLabel[] {
         kind: 'finding',
         text: meta ? `${meta.label} · ${f.rule_id} · ${f.element_id}` : `resolved · ${f.rule_id} · ${f.element_id}`,
         clause: f.tender_refs?.[0]?.clause ?? null,
-        tone: meta ? meta.text : 'text-emerald-300',
+        tone: meta ? meta.text : 'text-emerald-700',
         icon: meta ? meta.icon : STATUS_META.pass.icon,
         findingId: f.id,
       })
@@ -90,9 +90,9 @@ export function buildLabels(scene: HallScene, v: WorkspaceView): SceneLabel[] {
   const findings = out.slice(0, MAX_FINDING_LABELS)
 
   const context: SceneLabel[] = [
-    ...scene.keepouts.map((k) => ({ id: k.id, at: [k.center[0], k.center[1], k.size[2] + 0.2] as V3, text: 'Keep-out (fire suppression)', tone: 'text-rose-300' })),
-    ...scene.bays.map((b) => ({ id: b.id, at: [b.center[0], b.center[1], 0.05] as V3, text: `CDU bay ${b.zone}`, tone: 'text-sky-300' })),
-    ...scene.rooms.map((r) => ({ id: r.id, at: r.labelAt, text: r.label, tone: 'text-zinc-300' })),
+    ...scene.keepouts.map((k) => ({ id: k.id, at: [k.center[0], k.center[1], k.size[2] + 0.2] as V3, text: 'Keep-out (fire suppression)', tone: 'text-rose-700' })),
+    ...scene.bays.map((b) => ({ id: b.id, at: [b.center[0], b.center[1], 0.05] as V3, text: `CDU bay ${b.zone}`, tone: 'text-blue-700' })),
+    ...scene.rooms.map((r) => ({ id: r.id, at: r.labelAt, text: r.label, tone: 'text-zinc-700' })),
   ].map((c) => ({ ...c, kind: 'context' as const, clause: null, icon: null, findingId: null }))
   return [...findings, ...context]
 }

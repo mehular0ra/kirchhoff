@@ -16,14 +16,14 @@ export function RequirementsPanel() {
   const brief = bundle.brief
   if (!brief)
     return (
-      <p className="p-3 text-xs text-zinc-400">
+      <p className="p-3 text-xs text-muted-foreground">
         {/* N5: a replayed recording has no brief either, same as a static sample (?replay=1 is still source 'replay'). */}
         {source !== 'live' ? SAMPLE_WITHOUT_BRIEF : 'Requirement cards appear when Intake has read the tender.'}
       </p>
     )
   return (
     <section aria-label="Requirements" className="flex flex-col gap-2 p-3">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Citations</h3>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Citations</h3>
       <ol className="flex flex-col gap-2">
         {brief.requirements.map((r, i) => (
           <motion.li
@@ -34,17 +34,17 @@ export function RequirementsPanel() {
             className="rounded border bg-card p-2 text-xs"
           >
             {/* Defence in depth (§6.3): never show an unaccepted requirement's text as if it were the tender's. */}
-            <p className={r.verified ? 'text-zinc-200' : 'text-amber-200'}>{r.verified ? r.text : UNVERIFIED_TEXT}</p>
+            <p className={r.verified ? 'text-foreground' : 'text-amber-700'}>{r.verified ? r.text : UNVERIFIED_TEXT}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              {r.verified && typeof r.value === 'number' && <span className="font-mono text-zinc-300">{fmtQty(r.value, r.unit)}</span>}
-              {r.verified && typeof r.value === 'string' && <span className="font-mono text-zinc-300">{r.value}</span>}
+              {r.verified && typeof r.value === 'number' && <span className="font-mono text-zinc-700">{fmtQty(r.value, r.unit)}</span>}
+              {r.verified && typeof r.value === 'string' && <span className="font-mono text-zinc-700">{r.value}</span>}
               <TenderChip citation={r.citation} verified={r.verified} />
               {r.verified ? (
-                <span className="inline-flex items-center gap-1 text-emerald-400">
+                <span className="inline-flex items-center gap-1 text-emerald-700">
                   <CircleCheck aria-hidden className="size-3.5" /> quote verified
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-amber-300">
+                <span className="inline-flex items-center gap-1 text-amber-700">
                   <TriangleAlert aria-hidden className="size-3.5" /> quote not verified
                 </span>
               )}

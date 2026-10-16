@@ -22,7 +22,7 @@ export function Legend({
 }) {
   const shown = (['pass', 'warn', 'fail'] as FindingStatus[]).filter((s) => statuses.has(s))
   return (
-    <div className="flex flex-col gap-1 rounded-md border bg-zinc-950/90 p-2 text-[11px] text-zinc-300">
+    <div className="flex flex-col gap-1 rounded-md border bg-background/90 p-2 text-[11px] text-zinc-700 shadow-sm backdrop-blur-sm">
       {(shown.length > 0 || diff || resolved) && (
         <div className="flex flex-wrap gap-2">
           {shown.map((s) => {
@@ -35,8 +35,8 @@ export function Legend({
               </span>
             )
           })}
-          {diff && <span className="rounded border border-dashed border-amber-400 px-1 text-amber-200">changed</span>}
-          {resolved && <span className="rounded border border-emerald-400 px-1 text-emerald-200">✓ resolved</span>}
+          {diff && <span className="rounded border border-dashed border-amber-500 px-1 text-amber-700">changed</span>}
+          {resolved && <span className="rounded border border-emerald-500 px-1 text-emerald-700">✓ resolved</span>}
         </div>
       )}
       {whatIf && (

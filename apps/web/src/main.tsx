@@ -12,7 +12,6 @@ import { productionServices } from './services/production'
 import { ServicesProvider } from './services/services'
 
 initPresentationMode()
-document.documentElement.classList.add('dark')
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

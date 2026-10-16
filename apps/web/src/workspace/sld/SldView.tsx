@@ -224,7 +224,7 @@ function SldCanvas() {
         else focus(edge.id)
       }}
     >
-      <Background gap={24} color="#1f242b" />
+      <Background gap={24} color="#d5dae1" />
       <Controls showInteractive={false} position="top-right" />
       <Panel position="bottom-left">
         <Legend {...legendKeys(view)} />
