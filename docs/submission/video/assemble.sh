@@ -4,7 +4,10 @@
 #
 # Concatenates the per-beat clips (named per GitHub issue #25: vNN-<beat>.mp4),
 # applies the trims and speed ramps from edit-plan.md, mixes in the voiceover
-# (and an optional ducked music bed), and burns in captions.srt.
+# (and an optional ducked music bed), and puts captions.srt in a caption band
+# UNDER the picture (caption_band.sh: picture at 90 % inside the 16:9 frame, so a
+# caption never covers the app's own text). The finished file is then checked by
+# check_export.py (the export gate: 16:9, picture untouched, captions inside the band).
 #
 # This script never touches the repo. It only reads from and writes to the
 # WORK_DIR you pass it on the command line. Put your clips, vo.wav, and
@@ -51,14 +54,17 @@ if [ ! -d "$WORK_DIR" ]; then
   echo "ERROR: work_dir '$WORK_DIR' does not exist." >&2
   exit 1
 fi
-WORK_DIR="$(cd "$WORK_DIR" && pwd)"   # absolute path; we never cd into the repo
+# An absolute directory a native ffmpeg can open: on Git Bash for Windows `pwd -W` gives C:/... (plain `pwd` gives
+# /c/..., which ffmpeg cannot open); everywhere else `pwd -W` fails and plain `pwd` is used.
+native_pwd() { pwd -W 2>/dev/null || pwd; }
+WORK_DIR="$(cd "$WORK_DIR" && native_pwd)"   # absolute path; we never cd into the repo
 echo "Working folder: $WORK_DIR"
 echo "Beat 5 speed factor: ${BEAT5_SPEED}x"
 
 TMP_DIR="$WORK_DIR/.assemble_tmp"
 mkdir -p "$TMP_DIR"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && native_pwd)"
 SRT_PATH="$SCRIPT_DIR/captions.srt"
 if [ ! -f "$SRT_PATH" ]; then
   echo "WARNING: captions.srt not found next to this script ($SRT_PATH)." >&2
@@ -183,39 +189,44 @@ fi
 echo "Mixed audio (-14 LUFS target): $MIXED_AUDIO"
 
 # ---------------------------------------------------------------------------
-# 6. Mux video + mixed audio, trimming/padding audio to the video length,
-#    then burn in captions.srt (if found) in the same pass.
+# 6. Mux video + mixed audio, trimming/padding audio to the video length, and put
+#    captions.srt (if found) in the caption band under a 90 % picture (see
+#    caption_band.sh). Without captions the picture stays full-frame.
 # ---------------------------------------------------------------------------
 FINAL_OUT="$WORK_DIR/final.mp4"
-
-if [ -n "$SRT_PATH" ]; then
-  # Burn-in requires a local, escaped path for the subtitles filter.
-  ESCAPED_SRT=$(printf '%s' "$SRT_PATH" | sed "s/:/\\\\:/g")
-  ffmpeg -y -loglevel error \
-    -i "$ASSEMBLED_VIDEO" -i "$MIXED_AUDIO" \
-    -vf "subtitles='${ESCAPED_SRT}'" \
-    -map 0:v -map 1:a \
-    -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
-    -c:a aac -b:a 192k \
-    -shortest \
-    "$FINAL_OUT"
-else
-  ffmpeg -y -loglevel error \
-    -i "$ASSEMBLED_VIDEO" -i "$MIXED_AUDIO" \
-    -map 0:v -map 1:a \
-    -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
-    -c:a aac -b:a 192k \
-    -shortest \
-    "$FINAL_OUT"
-fi
+bash "$SCRIPT_DIR/caption_band.sh" "$ASSEMBLED_VIDEO" "$MIXED_AUDIO" "${SRT_PATH:--}" "$FINAL_OUT"
 
 echo ""
 echo "Done. Final export: $FINAL_OUT"
 echo "Check runtime is strictly under 3:00:"
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FINAL_OUT" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 7. The export gate: the final file must be 16:9 with the picture untouched and every
+#    caption inside the band (check_export.py, standard library + ffmpeg only).
+# ---------------------------------------------------------------------------
+GATE_FAILED=0
+PY="$(command -v python3 || command -v python || true)"
+if [ -z "$PY" ]; then
+  echo "WARNING: python3 not found, the export gate did NOT run. Run it by hand:" >&2
+  echo "  python3 $SCRIPT_DIR/check_export.py $FINAL_OUT --clean $ASSEMBLED_VIDEO" >&2
+elif [ -z "$SRT_PATH" ]; then
+  echo "WARNING: no captions were burned in, so the export gate (which checks them) was skipped." >&2
+else
+  echo ""
+  echo "Export gate (check_export.py):"
+  "$PY" "$SCRIPT_DIR/check_export.py" "$FINAL_OUT" --clean "$ASSEMBLED_VIDEO" --srt "$SRT_PATH" || GATE_FAILED=1
+fi
+
 echo ""
 echo "Reminders before upload:"
 echo "  - Re-sync captions.srt against the real vo.wav if you haven't already (see its header note)."
 echo "  - Verify every on-screen number against the actual recorded run (see edit-plan.md Open items)."
 echo "  - Confirm the fictional-data banner and disclaimers are visible where required."
 echo "  - Upload as Public on YouTube, not Unlisted."
+
+if [ "$GATE_FAILED" != "0" ]; then
+  echo "" >&2
+  echo "EXPORT GATE FAILED: do not upload $FINAL_OUT. See the FAIL lines above." >&2
+  exit 2
+fi
