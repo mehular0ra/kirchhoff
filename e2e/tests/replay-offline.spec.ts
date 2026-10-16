@@ -10,7 +10,7 @@ test.describe('static-first: /api, Firestore and App Check unreachable (spec §1
 
   test('a recorded run replays from the static bundle', async ({ page, request }) => {
     const bundle = (await (await request.get('/demo/projects/hall-a.json')).json()) as Bundle
-    test.skip(!bundle.events?.length, 'Hall A has no recorded events until the golden capture (Task 14)')
+    expect(bundle.events?.length ?? 0, 'the golden capture adds the recorded events').toBeGreaterThan(0) // no longer skipped (Task 14 landed)
     await page.goto('/app/p/hall-a?replay=1')
     await expect(page.getByText('Time-compressed replay of a recorded run')).toBeVisible()
     await expect(page.getByRole('button', { name: /^(Pause|Play) replay$/ })).toBeVisible()

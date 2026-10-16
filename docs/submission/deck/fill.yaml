@@ -10,11 +10,11 @@
 
 team:
   # Slide 15, on-slide: role and one-line background (one short sentence each).
-  mehul_role_background: ""
-  jayadratha_role_background: ""
+  mehul_role_background: "AI engineer · built Kirchhoff's agents, engine and app; builds production multi-agent systems on Gemini and Google ADK; MS by Research in ML, IIIT Hyderabad"
+  jayadratha_role_background: "AI research engineer · electrical engineer (IIEST Shibpur, Vikram Solar) with an MS by Research in graph ML, IIIT Hyderabad; built the bids inbox, asset agent and test suite, ran cloud"
   # Slide 15, speaker notes: two sentences per person on what each of us built
   # and the background that makes us credible here.
-  notes_bios: ""
+  notes_bios: "Mehul Arora built Kirchhoff's agent layer, its deterministic engine and the web app. He builds production multi-agent LLM systems on Gemini, Google ADK and Cloud Run, and earlier did graph neural network research for his MS by Research at IIIT Hyderabad and data science on US power-market datasets. Jayadratha Gayen built the bids inbox, the asset agent and the end-to-end test suite, and ran Kirchhoff's cloud deployments and golden capture. He is an electrical engineer (B.Tech, IIEST Shibpur) who worked at Vikram Solar and trained in grid operations at the Eastern Regional Load Despatch Centre, and an AI research engineer with an MS by Research in graph machine learning from IIIT Hyderabad, published at TMLR and ASONAM 2025."
 
 photos:
   # Slide 15 headshots. Paths are relative to this folder, e.g. "photos/mehul.jpg".
