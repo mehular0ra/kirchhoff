@@ -2,7 +2,7 @@
 
 Built from the organisers' own pages, read on Thu 15 Oct 2026 (issue #32). Every row gives the **owner**, the **status** and the **source**. A **FLAG** marks something we do not have yet or that needs a decision. **Jayadratha fills in and submits the form** (decided by Mehul, 16 Oct).
 
-**Deadline.** The official deadline is **Sun 18 Oct 2026**. The organisers publish **no time and no timezone** ([home page](https://aibuildercup.com/): "submit it before October 18"; the terms give none either). Our internal deadline is **Sat 17 Oct 2026, 20:00 IST**, so a wrong guess about the official cut-off costs nothing. Judging runs 19 Oct to 6 Nov; finalists are announced 7 Nov; the finale is 4 Dec in Singapore.
+**Deadline.** The official deadline is **Sun 18 Oct 2026, 11:59 PM IST**: the Hack2skill submission form shows "Ending Date 18/10/2026 11:59:00 PM(IST)" (seen 16 Oct; the home page and the terms give no time). Our internal deadline is **Sat 17 Oct 2026, 20:00 IST**, a day and four hours early on purpose. Judging runs 19 Oct to 6 Nov; finalists are announced 7 Nov; the finale is 4 Dec in Singapore.
 
 **Sources.**
 - **Home:** <https://aibuildercup.com/>
@@ -17,13 +17,14 @@ Built from the organisers' own pages, read on Thu 15 Oct 2026 (issue #32). Every
 | # | FLAG | Owner | Needed by |
 |---|---|---|---|
 | 1 | The repo is **private**. It must be public, with the final README, a licence decision and the final gitleaks run (#26). | Mehul (visibility), Jayadratha (#26) | Sat 17 Oct, before submitting |
-| 2 | The **video** is not recorded (script drafted, footage #25 after the Fri 12:00 IST freeze), and needs a public link. | Mehul (edit), Jayadratha (footage) | Sat 17 Oct |
+| 2 | The **video** is not final (footage is recorded on the freeze build, the assembler is #47, the voiceover and captions are still to do) and needs a public link. **Its length is unclear: see row 9.** | Mehul (edit), Jayadratha (footage) | Sat 17 Oct |
 | 3 | The **deck** still has `[TBD]` slots (slides 10, 12, 14, 15), no screenshots yet (#17) and no PDF. | Mehul (content), Jayadratha (shots, PDF) | Sat 17 Oct |
-| 4 | The **submission form is behind the Hack2skill login**. We have not seen its fields, so every field in this list is inferred from the organisers' pages. | Mehul | Fri 16 Oct |
-| 5 | The **cut-off time and timezone** for 18 Oct are unpublished, and the FAQ does not say whether a submission can be edited or resubmitted. | Mehul (ask support) | Fri 16 Oct |
+| 4 | The **submission form** was seen on 16 Oct (a capture of the dashboard page): six required fields, answered in `docs/submission/form-answers.md`. Not yet seen: the option list of the Challenges drop-down. | Jayadratha | Sat 17 Oct |
+| 5 | The form gives the cut-off (18 Oct, 11:59 PM IST), but nothing says whether a submission can be **edited or resubmitted** after saving, so submit only final versions. | Mehul (ask support) | Sat 17 Oct |
 | 6 | **Each member's eligibility** (age, not a student, based in JAPAC) is for the member to confirm; the organisers may check IDs at any time. | Each member | Now |
-| 7 | **Third-party licences** (npm and Python libraries, two fonts, an icon set) have no notice file in the repo. | Jayadratha | Sat 17 Oct |
+| 7 | **Third-party licences** (npm and Python libraries, two fonts, an icon set): done, the root `NOTICE` lists them (#45, merged) and a test fails when a dependency has no entry. | Jayadratha | Done |
 | 8 | A **successful live run** on the deployed site has not been captured yet (golden capture #24); a judge's first click depends on it. | Jayadratha (capture), Mehul | Fri 16 Oct, 12:00 IST |
+| 9 | **Video length: the form says 3 to 4 minutes, the terms say strictly under 3.** The form's rules say a video over the prescribed duration may be penalised or not progress, and that a video that does not adequately show the working product does not progress to evaluation. Both lengths cannot be met; a cut of 2:55 to 2:59 is the safe middle until support answers. | Mehul (decides), support | Sat 17 Oct, before the final edit |
 
 ## Deliverables the organisers require
 
@@ -32,9 +33,9 @@ The T&C list four items ("Technical Stack, Authenticity, and Freshness Standards
 | Item | The organisers' words | Owner | Status | Source |
 |---|---|---|---|---|
 | **Live URL** | "A working deployed live URL (on Cloud Run/GCP/Firebase)." | Mehul (releases), Jayadratha (deploys, #6) | `https://kirchhoff.web.app` is live on Firebase Hosting plus Cloud Run. Redeploy before the capture is in progress. Must stay up through judging (19 Oct to 6 Nov); the `min-instances` decision is #26 and #31. | T&C item 3a; FAQ "What to submit" |
-| **Demo video** | "strictly under three (3) minutes"; "a public YouTube or Vimeo video or public Google drive link (3 minutes)" | Mehul (edit and upload), Jayadratha (footage #25) | Script drafted, runtime 2:45 (15 s headroom). No recording yet. **FLAG:** the link must be **public**, not unlisted or private. No music rules in the T&C, but "content protected under third party rights" is banned (*Rules of Conduct*, item 2), so use no licensed music. | T&C item 3b; themes (Mandatory Submission Items) |
-| **Public GitHub repository** | "A public GitHub repository containing the source code." | Mehul | **FLAG:** private today (`mehular0ra/kirchhoff`). To make public before submitting. README is a draft (`docs/submission/README-draft.md`, #26). History audit (#16) is done: no secrets or personal data in file content; Mehul decided to leave the three metadata items (see #16). No `LICENSE` file yet. | T&C item 3c; FAQ |
-| **Proposal deck** | "a comprehensive presentation deck explaining the solution architecture and business case"; "a deck/PPT converted into a PDF" | Mehul (content), Jayadratha (screenshots #17, PDF export) | 16-slide template filled (`docs/submission/deck/Kirchhoff-AI-Builder-Cup.pptx`). **FLAG:** open `[TBD]` slots on slides 10 (cost), 12 (performance), 14 (links), 15 (team bios and photos); screenshots after the freeze; no PDF yet. The built deck already drops the template's instructions slide (15 slides). A PowerPoint export of the current build (preview only, not attached) renders slide 1 (the a, b, c list) and the wireframes slide (bullets and the 1 to 6 markers) correctly; the orange boxes are the screenshot placeholders. **No slide, page or file-size limit is published.** | T&C item 3d; themes |
+| **Demo video** | "strictly under three (3) minutes"; "a public YouTube or Vimeo video or public Google drive link (3 minutes)" | Mehul (edit and upload), Jayadratha (footage #25) | Script drafted, runtime 2:45 (15 s headroom). No recording yet. **The form's own wording differs:** "a 3 to 4 minute video demonstration", field "Demo Video Link (3-4 minutes)", and the demonstration must clearly show the working solution (row 9). **FLAG:** the link must be **public**, not unlisted or private. No music rules in the T&C, but "content protected under third party rights" is banned (*Rules of Conduct*, item 2), so use no licensed music. | T&C item 3b; themes (Mandatory Submission Items) |
+| **Public GitHub repository** | "A public GitHub repository containing the source code." | Mehul | **FLAG:** private today (`mehular0ra/kirchhoff`). To make public before submitting. README is a draft (`docs/submission/README-draft.md`, #26). History audit (#16) is done: no secrets or personal data in file content; Mehul decided to leave the three metadata items (see #16). The root `LICENSE` is Apache-2.0 and `NOTICE` lists the third-party licences (#45). | T&C item 3c; FAQ |
+| **Proposal deck** | "a comprehensive presentation deck explaining the solution architecture and business case"; "a deck/PPT converted into a PDF" | Mehul (content), Jayadratha (screenshots #17, PDF export) | 16-slide template filled (`docs/submission/deck/Kirchhoff-AI-Builder-Cup.pptx`). **FLAG:** open `[TBD]` slots on slides 10 (cost), 12 (performance), 14 (links), 15 (team bios and photos); screenshots after the freeze; no PDF yet. The built deck already drops the template's instructions slide (15 slides). A PowerPoint export of the current build (preview only, not attached) renders slide 1 (the a, b, c list) and the wireframes slide (bullets and the 1 to 6 markers) correctly; the orange boxes are the screenshot placeholders. The form takes the deck as a **PDF of up to 5 MB** and says it must use the prescribed template (a different format may be disqualified): the built deck keeps the template's slide size, sections and order, drops its instruction slide and adds a team slide. | T&C item 3d; themes |
 
 ## Other things the form or the rules ask for
 
@@ -50,16 +51,17 @@ The T&C list four items ("Technical Stack, Authenticity, and Freshness Standards
 | **Eligibility** | At least 21 years old at registration; working professionals, entrepreneurs or startups; "Students are not eligible" (one student disqualifies the team); physically based in, and legal residents of, JAPAC countries. The organiser may check government IDs, employment credentials and age at any point. | Each member | **FLAG:** each member confirms for themselves; nothing personal goes in this repo. | T&C *General Eligibility* items 4 to 8; home page; FAQ |
 | **Registration / dashboard** | Submission goes through the Hack2skill dashboard (registration shows "Closed", the application status is still available). | Mehul | Not previewable without logging in; **we have not seen the form**. | home page |
 
-## Form dry run (step 2 of #32)
+## The form (seen on 16 Oct)
 
-Not done: the Hack2skill dashboard needs a team login and shows nothing without it, so I did not log in with anyone's account. **Do not submit.** To finish this step, the person with the dashboard access can either (a) paste the field names and limits from the form here, or (b) tell me to look at it in their browser session. Questions to settle at the same time:
+A capture of the Hack2skill dashboard page ("Prototype Submission") shows six required fields: Challenges (drop-down), Prototype Link Deployed on GCP or Cloud run, Final Prototype PPT/Deck converted into PDF (up to 5 MB), GitHub Repository Link (Public Access), Demo Video Link (3-4 minutes), and Brief Description of Your Solution (1024 characters, must say how we use Firebase, Firestore, Cloud Run and Gemini). The ready answers are in `docs/submission/form-answers.md`, with a test that checks the description length and the services it names. **Do not submit** until row 9 (video length) and the repository visibility are settled.
 
-1. Is there a **cut-off time and timezone** on 18 Oct? (Not published; we plan for Sat 17 Oct, 20:00 IST.)
+Still to settle:
+
+1. The **Challenges** drop-down options (we choose Future of Work & Enterprise Productivity if it is offered).
 2. Can the entry be **edited or resubmitted** after the first save? (The FAQ is silent.) This decides whether a tagged release after submission can still be reflected in the deck or video.
-3. Does the form take the **GitHub URL** only, or also a licence statement or a link to the brief?
-4. Is a **Google Drive link** accepted for the video as "public" with "anyone with the link"? We plan on a public YouTube link.
+3. Is a **Google Drive link** accepted for the video as "public" with "anyone with the link"? We plan on a public YouTube link.
 
-Ask support at support+aibuildercup@hack2skill.com (Mehul, as team lead).
+Ask support at support+aibuildercup@hack2skill.com (Mehul, as team lead); the same email can ask about the video length.
 
 ## Judging criteria, for a last self-check
 
@@ -77,5 +79,5 @@ From themes. Weights add up to 100.
 1. Freeze check: `build` at the release candidate, deployed, smoke OK, no run holding a lease.
 2. Repo public, README final, notice file in, gitleaks clean, tag `v1.0-submission` (Mehul pushes the tag).
 3. Deck PDF exported (slides 1 and 7 checked for bullet and numbering glitches), video public, both links in slide 14.
-4. Fill the form from this list. **Jayadratha submits** before **Sat 17 Oct, 20:00 IST**.
+4. Fill the form from `docs/submission/form-answers.md`. **Jayadratha submits** before **Sat 17 Oct, 20:00 IST** (the form itself closes Sun 18 Oct, 11:59 PM IST).
 5. Keep the site up and `min-instances` decided through 6 Nov; post-submission changes only as tagged releases, deployed with no runs active.
