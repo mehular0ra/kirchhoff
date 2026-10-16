@@ -36,10 +36,6 @@ metrics:
   # (spec §4, metric 2).
   intake_accuracy: "Requirement recall of 0.78 to 0.84 against our hand-labelled ground truth over four live runs (0.78 on the golden-capture run the site shows), with 25 of 26 extracted quotes verified word for word against the tender PDF on that run; unverified quotes are shown as unverified, never as fact."
 
-sources:
-  # Slide 12, speaker notes: citation for the 4–8 week first-coordinated-electrical-package baseline.
-  first_package_baseline: ""
-
 links:
   # Slide 14: full URLs. A QR code is generated for each one that is filled.
   github_repo: "https://github.com/mehular0ra/kirchhoff"

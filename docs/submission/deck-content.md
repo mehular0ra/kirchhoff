@@ -384,7 +384,7 @@ Footer (small print): "All companies, people and data shown are fictional. IEC-b
 - **Determinism.** Output is byte-identical across Python hash seeds, so the same design always gives the same verdict.
 - **Business result in the sandbox.** A 98-week transformer becomes a 3.15 MVA unit shipped from stock, at 38.07% / 76.15% loading.
 
-**Impact estimate, labelled as an estimate.** We estimate about 10 engineer-hours saved per design-change iteration. The basis is the industry's own figure for reworking a design change by hand: "10+ hours", from Endra's September 2026 launch demo.¹³ That figure is unaudited and comes from commercial buildings.¹⁴ Kirchhoff re-checks every rule in milliseconds, and the engineer's time goes to review rather than recalculation. The spec's first-design baseline is 4–8 weeks for a first coordinated electrical package (spec; [TBD: source citation]). Kirchhoff produces a checked concept design, not construction drawings, so the honest comparison is first checked concept against first concept. [TBD: measured time from upload to a checker-clean revision, median of 5 live runs, excluding time at human gates (spec §4, metric 1).] [TBD: intake accuracy against our ground truth (spec §4, metric 2).]
+**Impact estimate, labelled as an estimate.** We estimate about 10 engineer-hours saved per design-change iteration. The basis is the industry's own figure for reworking a design change by hand: "10+ hours", from Endra's September 2026 launch demo.¹³ That figure is unaudited and comes from commercial buildings.¹⁴ Kirchhoff re-checks every rule in milliseconds, and the engineer's time goes to review rather than recalculation. We found no published figure for how long a first coordinated electrical package takes, so we don't quote one. Kirchhoff produces a checked concept design, not construction drawings, so the honest comparison is first checked concept against first concept. [TBD: measured time from upload to a checker-clean revision, median of 5 live runs, excluding time at human gates (spec §4, metric 1).] [TBD: intake accuracy against our ground truth (spec §4, metric 2).]
 
 **Visual**
 
@@ -506,7 +506,7 @@ Template closing slide. Put the copy beside "Thank you" in white.
 Everything below is a `[TBD]` (or team-photo) slot only the team can fill. Nothing else in this file should carry a `[TBD]`.
 
 - **Slide 10 (Estimated implementation cost):** measured USD per design run (on-slide bullet); Gemini tokens and USD per full run, measured from the recorded run (spec §4, metric 4) (speaker notes).
-- **Slide 12 (Prototype Performance report):** source citation for the 4–8 week first-coordinated-electrical-package baseline; measured time from upload to a checker-clean revision, median of 5 live runs, excluding time at human gates (spec §4, metric 1); intake accuracy against our ground truth (spec §4, metric 2).
+- **Slide 12 (Prototype Performance report):** measured time from upload to a checker-clean revision, median of 5 live runs, excluding time at human gates (spec §4, metric 1); intake accuracy against our ground truth (spec §4, metric 2).
 - **Slide 14 (Provide links to your):** GitHub public repository URL; demo video URL.
 - **Slide 15 (Team):** Mehul Arora's role and one-line background; Jayadratha's role and one-line background; two sentences per person on what each built and the credibility background (speaker notes); team photo (headshots of Mehul Arora and Jayadratha).
 

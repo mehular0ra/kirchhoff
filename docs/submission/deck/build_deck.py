@@ -192,7 +192,7 @@ def parse_content(md: str) -> tuple[dict[int, Section], dict[int, str]]:
 TBD_KEYS = {
     (10, "copy"): ["metrics.usd_per_run"],
     (10, "notes"): ["metrics.tokens_and_usd_per_run"],
-    (12, "notes"): ["sources.first_package_baseline", "metrics.upload_to_clean_median", "metrics.intake_accuracy"],
+    (12, "notes"): ["metrics.upload_to_clean_median", "metrics.intake_accuracy"],
     (14, "copy"): ["links.github_repo", "links.demo_video"],
     (15, "copy"): ["team.mehul_role_background", "team.jayadratha_role_background"],
     (15, "notes"): ["team.notes_bios"],
