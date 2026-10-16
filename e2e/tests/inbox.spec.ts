@@ -82,7 +82,13 @@ test('the scanned BOQ is marked as a scan, never verified', async ({ page, reque
     return
   }
   await expect(detail.getByText('Not verified (scan)').first()).toBeVisible()
-  await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('Clarify')
+  // The load is only on the scan, so its fit rule asks for a text copy. The verdict is the deterministic fit check's,
+  // read from the bundle: the golden capture verified "33 kV captive power switchyard" in the email body, and a
+  // substation is outside our asset packs, so the fail outranks the scan's warn (Decline, spec §20).
+  const fit = detail.getByRole('region', { name: 'Fit verdict' })
+  await expect(fit).toContainText('only on a scanned page')
+  const verdict = vindhya.triage.fit.verdict
+  await expect(fit).toContainText(verdict ? verdict[0].toUpperCase() + verdict.slice(1) : 'Not a bid')
 })
 
 test('the inbox works with /api, Firestore and App Check unreachable', async ({ page }) => {

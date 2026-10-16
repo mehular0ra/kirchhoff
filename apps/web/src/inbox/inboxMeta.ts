@@ -9,7 +9,7 @@ interface Meta {
 }
 
 export const VERDICT_META: Record<'pursue' | 'clarify' | 'decline' | 'none', Meta> = {
-  pursue: { label: 'Pursue', icon: CircleCheck, cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700' },
+  pursue: { label: 'Pursue', icon: CircleCheck, cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800' },
   clarify: { label: 'Clarify', icon: CircleQuestionMark, cls: 'border-amber-500/50 bg-amber-500/10 text-amber-700' },
   decline: { label: 'Decline', icon: CircleX, cls: 'border-rose-500/50 bg-rose-500/10 text-rose-700' },
   none: { label: 'Not a bid', icon: CircleMinus, cls: 'border-zinc-300 bg-zinc-500/10 text-zinc-700' },

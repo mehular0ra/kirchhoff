@@ -130,6 +130,17 @@ test('header actions: sign-off links to the latest revision; autonomy is locked 
   expect(screen.getByRole('radio', { name: /^Ask/ })).toBeDisabled()
 })
 
+// jsdom has no layout or paint, so this guards the classes. Measured in a real browser on the light theme: the
+// default disabled fade put the selected "Ask" at 2.37:1, which read as a broken control in every Hall A frame.
+test('a locked autonomy switch is read-only but keeps full contrast', () => {
+  wrap(<HeaderActions />)
+  for (const name of [/^Ask/, /^Auto/]) {
+    const item = screen.getByRole('radio', { name })
+    expect(item).toBeDisabled()
+    expect(item).toHaveClass('disabled:opacity-100')
+  }
+})
+
 test('D4: a signed latest revision shows "Signed · view review", never "Request sign-off"', () => {
   wrap(<HeaderActions />)
   expect(screen.getByRole('link', { name: 'Signed · view review' })).toHaveAttribute('href', '/app/p/hall-a/review/r2')
