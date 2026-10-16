@@ -11,6 +11,7 @@ import {
   fmtRelative,
   fmtTs,
   fmtUsd,
+  isCountKey,
   isCountRule,
   shortHash,
   tidyPlurals,
@@ -79,9 +80,18 @@ test('I3: delta keys get engineering labels (ΔV, Δp) and units', () => {
   expect(fmtKeyValue('dv_limit_pct', 2)).toBe('ΔV limit 2%')
   expect(fmtKeyValue('index_dp_kpa', 67.036)).toBe('Index-circuit Δp 67.04 kPa')
   expect(fmtKeyValue('added_pipe_m', -4)).toBe('Added pipe -4 m')
-  expect(fmtKeyValue('changed_pipes', 1)).toBe('Changed pipes 1')
   expect(fmtKeyValue('rating_a', 2500)).toBe('Rating 2,500 A')
   expect(fmtKeyValue('cost_delta', -910)).toBe('Cost Δ -$910')
+})
+
+test('counts read number first, singular for one (never "Crossings 0" or "Changed pipes 1")', () => {
+  expect(fmtKeyValue('changed_pipes', 1)).toBe('1 changed pipe')
+  expect(fmtKeyValue('changed_pipes', 2)).toBe('2 changed pipes')
+  expect(fmtKeyValue('crossings', 0)).toBe('0 crossings')
+  expect(fmtKeyValue('crossings', 1)).toBe('1 crossing')
+  expect(fmtKeyValue('lines', 12)).toBe('12 lines')
+  expect(fmtKeyValue('lead_time_weeks', 1)).toBe('Lead time 1 week') // a duration, not a count
+  expect([isCountKey('crossings'), isCountKey('changed_pipes'), isCountKey('lead_time_weeks'), isCountKey('count')]).toEqual([true, true, false, false])
 })
 
 test('backlog [7]: asset-pack keys read as engineers write them', () => {

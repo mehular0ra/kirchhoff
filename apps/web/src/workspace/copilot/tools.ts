@@ -76,11 +76,12 @@ function locate(view: WorkspaceView, id: string, element: string, rule?: string)
 
 /** One line from the chosen-fix record: "Fixed in r2: <label> · Cost Δ +$15,580 · ΔV 0.84%". Values from the record only. */
 function fixLine(located: Located, view: WorkspaceView): string {
-  const fix = readFix(located.finding.fix ?? null)
+  const fix = readFix(located.finding.fix ?? null, located.finding.rule_id)
   if (!fix) return ''
   const after = located.child ? findingsFor(view.bundle, located.child.id).find((f) => f.id === located.finding.id) : null
   const lead = after && !isProblem(after) && located.child ? `Fixed in ${located.child.id}` : 'Chosen fix'
-  const deltas = fix.deltas.slice(0, 2).map(([k, v]) => fmtKeyValue(k, v))
+  // The cost and the rule's resulting metric, chosen by key (readFix), never "the first two" (the limit, in a recorded bundle).
+  const deltas = fix.headline.map(([k, v]) => fmtKeyValue(k, v))
   return ` ${lead}: ${[fix.label, ...deltas].join(' · ')}.`
 }
 

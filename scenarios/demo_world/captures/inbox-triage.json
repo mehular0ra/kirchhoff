@@ -1,0 +1,665 @@
+{
+  "as_of": 1792132200.0,
+  "model": "gemini-3.8-flash",
+  "results": {
+    "em-hall-b": {
+      "attachments": [
+        {
+          "attachment_id": "att-hall-b-tender",
+          "kind": "tender",
+          "name": "DC-HA-TS-001 Rev 0 technical requirements.pdf",
+          "scanned": false
+        },
+        {
+          "attachment_id": "att-hall-b-drawing",
+          "kind": "drawing",
+          "name": "Data hall general arrangement.pdf",
+          "scanned": false
+        },
+        {
+          "attachment_id": "att-hall-b-addendum",
+          "kind": "addendum",
+          "name": "Addendum 1, Hall B.pdf",
+          "scanned": false
+        }
+      ],
+      "crm": {
+        "account": "Deccan Compute",
+        "opportunity_id": "opp-hall-b",
+        "opportunity_name": "Hall B design-build",
+        "proposed": false,
+        "proposed_name": null,
+        "stage": "Design in progress"
+      },
+      "email_id": "em-hall-b",
+      "fields": [
+        {
+          "bbox": null,
+          "display": "Deccan Compute",
+          "key": "client",
+          "label": "Client",
+          "page": null,
+          "quote": "Deccan Compute invites your bid",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Deccan Compute",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "AI campus near Hyderabad, Telangana",
+          "key": "site",
+          "label": "Site",
+          "page": null,
+          "quote": "AI campus near Hyderabad, Telangana",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "AI campus near Hyderabad, Telangana",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "AI data hall",
+          "key": "asset_type",
+          "label": "Asset type",
+          "page": null,
+          "quote": "Data Hall B",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "datahall",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "6.34 MW",
+          "key": "mw",
+          "label": "Load",
+          "page": null,
+          "quote": "6.336 MW",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": "MW",
+          "value": 6.336,
+          "verification": "verified"
+        },
+        {
+          "bbox": [
+            68.3622,
+            87.43220000000008,
+            250.64220000000003,
+            97.43220000000008
+          ],
+          "display": "2N",
+          "key": "redundancy",
+          "label": "Redundancy",
+          "page": 4,
+          "quote": "The critical power distribution shall be 2N",
+          "source": "att-hall-b-tender",
+          "source_label": "DC-HA-TS-001 Rev 0 technical requirements.pdf · p.4",
+          "unit": null,
+          "value": "2N",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "13 Nov 2026",
+          "key": "bid_due",
+          "label": "Bid due",
+          "page": null,
+          "quote": "13 November 2026",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "13 November 2026",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "26 weeks",
+          "key": "lead_time_weeks",
+          "label": "Lead-time limit",
+          "page": null,
+          "quote": "26 weeks",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": "weeks",
+          "value": 26.0,
+          "verification": "verified"
+        }
+      ],
+      "fit": {
+        "headline": "Pursue: inside our appetite; plan the transformer swap the lead-time limit needs.",
+        "reasons": [
+          {
+            "rule": "asset_pack",
+            "status": "pass",
+            "text": "AI data hall is one of our asset packs."
+          },
+          {
+            "rule": "mw_range",
+            "status": "pass",
+            "text": "6.34 MW is inside our 2–120 MW range."
+          },
+          {
+            "rule": "region",
+            "status": "pass",
+            "text": "AI campus near Hyderabad, Telangana is in Telangana, one of our regions."
+          },
+          {
+            "rule": "deadline",
+            "status": "pass",
+            "text": "Bid due 13 Nov 2026: 28 days from 16 Oct 2026 (minimum 10)."
+          },
+          {
+            "rule": "supply",
+            "status": "pass",
+            "text": "26-week limit; the 2.5 MVA unit TX-2500 is 98 weeks with none in stock; expect an in-stock swap to TX-3150 (3.15 MVA, 6 in stock)."
+          }
+        ],
+        "supply": {
+          "lead_limit_weeks": 26.0,
+          "lead_time_weeks": 98,
+          "material_id": "TX-2500",
+          "mw": 6.336,
+          "status": "swap",
+          "stock": 0,
+          "swap_stock": 6,
+          "swap_to": "TX-3150",
+          "text": "26-week limit; the 2.5 MVA unit TX-2500 is 98 weeks with none in stock; expect an in-stock swap to TX-3150 (3.15 MVA, 6 in stock).",
+          "topology": "2N"
+        },
+        "verdict": "pursue"
+      },
+      "is_bid": true,
+      "model": "gemini-3.8-flash",
+      "quotes_total": 7,
+      "quotes_verified": 7,
+      "source": "precomputed",
+      "summary": "Deccan Compute invites a bid for the electrical and liquid-cooling design-build of Data Hall B at their AI campus near Hyderabad.",
+      "tokens_in": 5762,
+      "tokens_out": 660,
+      "triaged_at": 1792132200.0
+    },
+    "em-konkan-rfi": {
+      "attachments": [
+        {
+          "attachment_id": "att-konkan-rfi",
+          "kind": "other",
+          "name": "RFI response, CDU gallery access.pdf",
+          "scanned": false
+        }
+      ],
+      "crm": {
+        "account": "Konkan Cloud",
+        "opportunity_id": "opp-pune-edge-1",
+        "opportunity_name": "Pune Edge Phase 1",
+        "proposed": false,
+        "proposed_name": null,
+        "stage": "Closed won"
+      },
+      "email_id": "em-konkan-rfi",
+      "fields": [
+        {
+          "bbox": null,
+          "display": "Konkan Cloud",
+          "key": "client",
+          "label": "Client",
+          "page": null,
+          "quote": "Konkan Cloud",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Konkan Cloud",
+          "verification": "verified"
+        }
+      ],
+      "fit": {
+        "headline": "Not a bid: no fit check.",
+        "reasons": [
+          {
+            "rule": "not_a_bid",
+            "status": "n/a",
+            "text": "Not a bid; filed to Konkan Cloud · Pune Edge Phase 1 in the CRM."
+          }
+        ],
+        "supply": null,
+        "verdict": null
+      },
+      "is_bid": false,
+      "model": "gemini-3.8-flash",
+      "quotes_total": 1,
+      "quotes_verified": 1,
+      "source": "precomputed",
+      "summary": "Email from Konkan Cloud.",
+      "tokens_in": 1373,
+      "tokens_out": 199,
+      "triaged_at": 1792132200.0
+    },
+    "em-narmada-400kv": {
+      "attachments": [
+        {
+          "attachment_id": "att-narmada-spec",
+          "kind": "tender",
+          "name": "NT-400-BH specification.pdf",
+          "scanned": false
+        }
+      ],
+      "crm": {
+        "account": "Narmada Transmission",
+        "opportunity_id": null,
+        "opportunity_name": null,
+        "proposed": true,
+        "proposed_name": "RFQ: 400 kV GIS substation at Bharuch, EPC",
+        "stage": null
+      },
+      "email_id": "em-narmada-400kv",
+      "fields": [
+        {
+          "bbox": null,
+          "display": "Narmada Transmission",
+          "key": "client",
+          "label": "Client",
+          "page": null,
+          "quote": "Narmada Transmission requests EPC quotations",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Narmada Transmission",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Bharuch, Gujarat",
+          "key": "site",
+          "label": "Site",
+          "page": null,
+          "quote": "Bharuch, Gujarat",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Bharuch, Gujarat",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Substation",
+          "key": "asset_type",
+          "label": "Asset type",
+          "page": null,
+          "quote": "400 kV GIS substation",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "substation",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "20 Nov 2026",
+          "key": "bid_due",
+          "label": "Bid due",
+          "page": null,
+          "quote": "Quotations are due by 20 November 2026.",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "20 November 2026",
+          "verification": "verified"
+        }
+      ],
+      "fit": {
+        "headline": "Decline: outside our appetite on asset type, region.",
+        "reasons": [
+          {
+            "rule": "asset_pack",
+            "status": "fail",
+            "text": "Substation is not one of our asset packs (AI data hall, Grid, Solar)."
+          },
+          {
+            "rule": "mw_range",
+            "status": "warn",
+            "text": "No load (MW) is stated."
+          },
+          {
+            "rule": "region",
+            "status": "fail",
+            "text": "Bharuch, Gujarat is outside our regions (Telangana, Andhra Pradesh, Karnataka, Maharashtra, Madhya Pradesh)."
+          },
+          {
+            "rule": "deadline",
+            "status": "pass",
+            "text": "Bid due 20 Nov 2026: 35 days from 16 Oct 2026 (minimum 10)."
+          },
+          {
+            "rule": "supply",
+            "status": "n/a",
+            "text": "The day-zero supply check covers AI data halls only."
+          }
+        ],
+        "supply": {
+          "lead_limit_weeks": null,
+          "lead_time_weeks": null,
+          "material_id": null,
+          "mw": null,
+          "status": "not_assessed",
+          "stock": null,
+          "swap_stock": null,
+          "swap_to": null,
+          "text": "The day-zero supply check covers AI data halls only.",
+          "topology": null
+        },
+        "verdict": "decline"
+      },
+      "is_bid": true,
+      "model": "gemini-3.8-flash",
+      "quotes_total": 4,
+      "quotes_verified": 4,
+      "source": "precomputed",
+      "summary": "Narmada Transmission requests an EPC quotation for a gas-insulated substation at Bharuch in Gujarat.",
+      "tokens_in": 1374,
+      "tokens_out": 394,
+      "triaged_at": 1792132200.0
+    },
+    "em-suryodaya-solar": {
+      "attachments": [],
+      "crm": {
+        "account": "Suryodaya Renewables",
+        "opportunity_id": null,
+        "opportunity_name": null,
+        "proposed": true,
+        "proposed_name": "Enquiry: solar EPC near Anantapur",
+        "stage": null
+      },
+      "email_id": "em-suryodaya-solar",
+      "fields": [
+        {
+          "bbox": null,
+          "display": "Suryodaya Renewables",
+          "key": "client",
+          "label": "Client",
+          "page": null,
+          "quote": "Suryodaya Renewables",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Suryodaya Renewables",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Anantapur, Andhra Pradesh",
+          "key": "site",
+          "label": "Site",
+          "page": null,
+          "quote": "Anantapur, Andhra Pradesh",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Anantapur, Andhra Pradesh",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Solar",
+          "key": "asset_type",
+          "label": "Asset type",
+          "page": null,
+          "quote": "ground-mount solar plant",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "solar",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "20 MWp",
+          "key": "mw",
+          "label": "Load",
+          "page": null,
+          "quote": "20 MWp ground-mount solar plant",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": "MWp",
+          "value": 20.0,
+          "verification": "verified"
+        }
+      ],
+      "fit": {
+        "headline": "Clarify before bidding: bid deadline.",
+        "reasons": [
+          {
+            "rule": "asset_pack",
+            "status": "pass",
+            "text": "Solar is one of our asset packs."
+          },
+          {
+            "rule": "mw_range",
+            "status": "pass",
+            "text": "20 MWp is inside our 2–120 MW range."
+          },
+          {
+            "rule": "region",
+            "status": "pass",
+            "text": "Anantapur, Andhra Pradesh is in Andhra Pradesh, one of our regions."
+          },
+          {
+            "rule": "deadline",
+            "status": "warn",
+            "text": "No verified bid due date yet; ask for it."
+          },
+          {
+            "rule": "supply",
+            "status": "n/a",
+            "text": "The day-zero supply check covers AI data halls only."
+          }
+        ],
+        "supply": {
+          "lead_limit_weeks": null,
+          "lead_time_weeks": null,
+          "material_id": null,
+          "mw": null,
+          "status": "not_assessed",
+          "stock": null,
+          "swap_stock": null,
+          "swap_to": null,
+          "text": "The day-zero supply check covers AI data halls only.",
+          "topology": null
+        },
+        "verdict": "clarify"
+      },
+      "is_bid": true,
+      "model": "gemini-3.8-flash",
+      "quotes_total": 4,
+      "quotes_verified": 4,
+      "source": "precomputed",
+      "summary": "Suryodaya Renewables invites Meridian to bid for the EPC of a ground-mount solar plant near Anantapur.",
+      "tokens_in": 833,
+      "tokens_out": 360,
+      "triaged_at": 1792132200.0
+    },
+    "em-tapti-brochure": {
+      "attachments": [
+        {
+          "attachment_id": "att-tapti-brochure",
+          "kind": "brochure",
+          "name": "Tapti cast-resin range.pdf",
+          "scanned": false
+        }
+      ],
+      "crm": {
+        "account": null,
+        "opportunity_id": null,
+        "opportunity_name": null,
+        "proposed": false,
+        "proposed_name": null,
+        "stage": null
+      },
+      "email_id": "em-tapti-brochure",
+      "fields": [],
+      "fit": {
+        "headline": "Not a bid: no fit check.",
+        "reasons": [
+          {
+            "rule": "not_a_bid",
+            "status": "n/a",
+            "text": "Not a bid; no CRM record to update."
+          }
+        ],
+        "supply": null,
+        "verdict": null
+      },
+      "is_bid": false,
+      "model": "gemini-3.8-flash",
+      "quotes_total": 0,
+      "quotes_verified": 0,
+      "source": "precomputed",
+      "summary": "Tapti Transformers shares a brochure regarding their cast-resin transformer range available ex-stock from their works.",
+      "tokens_in": 1343,
+      "tokens_out": 128,
+      "triaged_at": 1792132200.0
+    },
+    "em-vindhya-boq": {
+      "attachments": [
+        {
+          "attachment_id": "att-vindhya-boq",
+          "kind": "boq",
+          "name": "Switchyard BOQ (scan).pdf",
+          "scanned": true
+        }
+      ],
+      "crm": {
+        "account": "Vindhya Steel",
+        "opportunity_id": "opp-vindhya-cpp",
+        "opportunity_name": "Captive power switchyard",
+        "proposed": false,
+        "proposed_name": null,
+        "stage": "Qualification"
+      },
+      "email_id": "em-vindhya-boq",
+      "fields": [
+        {
+          "bbox": null,
+          "display": "Vindhya Steel",
+          "key": "client",
+          "label": "Client",
+          "page": null,
+          "quote": "Vindhya Steel",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Vindhya Steel",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Satna mill, Madhya Pradesh",
+          "key": "site",
+          "label": "Site",
+          "page": null,
+          "quote": "Satna mill, Madhya Pradesh",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "Satna mill, Madhya Pradesh",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Substation",
+          "key": "asset_type",
+          "label": "Asset type",
+          "page": null,
+          "quote": "captive power switchyard",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "substation",
+          "verification": "verified"
+        },
+        {
+          "bbox": null,
+          "display": "Not verified (scan)",
+          "key": "mw",
+          "label": "Load",
+          "page": 1,
+          "quote": "",
+          "source": "att-vindhya-boq",
+          "source_label": "Switchyard BOQ (scan).pdf · p.1",
+          "unit": null,
+          "value": null,
+          "verification": "unverified_scan"
+        },
+        {
+          "bbox": null,
+          "display": "30 Oct 2026",
+          "key": "bid_due",
+          "label": "Bid due",
+          "page": null,
+          "quote": "30 October 2026",
+          "source": "body",
+          "source_label": "Email body",
+          "unit": null,
+          "value": "30 October 2026",
+          "verification": "verified"
+        }
+      ],
+      "fit": {
+        "headline": "Decline: outside our appetite on asset type.",
+        "reasons": [
+          {
+            "rule": "asset_pack",
+            "status": "fail",
+            "text": "Substation is not one of our asset packs (AI data hall, Grid, Solar)."
+          },
+          {
+            "rule": "mw_range",
+            "status": "warn",
+            "text": "The load is only on a scanned page (Switchyard BOQ (scan).pdf · p.1) and is not verified; ask for a text copy."
+          },
+          {
+            "rule": "region",
+            "status": "pass",
+            "text": "Satna mill, Madhya Pradesh is in Madhya Pradesh, one of our regions."
+          },
+          {
+            "rule": "deadline",
+            "status": "pass",
+            "text": "Bid due 30 Oct 2026: 14 days from 16 Oct 2026 (minimum 10)."
+          },
+          {
+            "rule": "supply",
+            "status": "n/a",
+            "text": "The day-zero supply check covers AI data halls only."
+          }
+        ],
+        "supply": {
+          "lead_limit_weeks": null,
+          "lead_time_weeks": null,
+          "material_id": null,
+          "mw": null,
+          "status": "not_assessed",
+          "stock": null,
+          "swap_stock": null,
+          "swap_to": null,
+          "text": "The day-zero supply check covers AI data halls only.",
+          "topology": null
+        },
+        "verdict": "decline"
+      },
+      "is_bid": true,
+      "model": "gemini-3.8-flash",
+      "quotes_total": 5,
+      "quotes_verified": 4,
+      "source": "precomputed",
+      "summary": "Forwarded request from Vindhya Steel inviting a pricing bid for a captive power switchyard at Satna mill.",
+      "tokens_in": 1420,
+      "tokens_out": 466,
+      "triaged_at": 1792132200.0
+    }
+  },
+  "version": 1
+}

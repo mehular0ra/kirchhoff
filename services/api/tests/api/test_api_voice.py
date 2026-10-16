@@ -344,12 +344,14 @@ def test_voice_why_on_r2_cites_where_fa01_failed_and_its_fix(real_client, args):
     r1, r2, failed = _d1_parts(bundle, "FA-01")
     fix = failed.fix
     assert failed.id == "R05:FA-01" and "parallel cable" in fix["label"]
-    cost = f"+${fix['cost_delta']:,.0f}"
-    dv = f"{round(fix['deltas']['dv_pct'], 2)}%"
+    # The cost and the RESULTING voltage drop, picked by key: the captured record stores its deltas key-sorted,
+    # so `dv_limit_pct` comes before `dv_pct` and the limit must never stand in for the result.
+    cost = f"+${fix['deltas'].get('cost_delta', fix['cost_delta']):,.0f}"
+    dv = f"{fmt_number(fix['deltas']['dv_pct'])}%"
     expected = (f"In {r1.id}: {_filled(failed)} Fixed in {r2.id}: {fix['label']} · Cost Δ {cost} · ΔV {dv}.")
     assert body["answer"] == expected
     assert f"{fmt_number(failed.value)}% against a limit of {fmt_number(failed.limit)}%" in body["answer"]
-    assert cost in body["answer"]
+    assert cost in body["answer"] and "limit" not in body["answer"].split(" Fixed in ")[1]
     # `revision` (additive, optional): the earlier revision the answer cites, so push-to-talk can switch to it
     assert body["tool_results"] == [{"name": "explain_finding", "args": {"finding_id": failed.id},
                                      "result": {"text": expected, "revision": r1.id}}]
@@ -359,8 +361,14 @@ def test_voice_why_on_r2_for_h_z2_cites_the_crossing_fix(real_client):
     body, bundle = _real(real_client, "Why did H-Z2 fail?", "explain_finding", {"element_id": "H-Z2"})
     r1, r2, failed = _d1_parts(bundle, "H-Z2")
     fix = failed.fix
-    assert body["answer"].startswith(f"In {r1.id}: {_filled(failed)} Fixed in {r2.id}: ")
-    assert "pipe_low" not in body["answer"] and f"+${fix['cost_delta']:,.0f}" in body["answer"]
+    # Every value from the record: the tier token reads as words, the cost leads, then R11's resulting metric
+    # (crossings left) as a natural count ("0 crossings"), never "Crossings 0" or "Changed pipes 1".
+    label = fix["label"].replace("pipe_low", "the low pipe tier").replace("pipe_high", "the high pipe tier")
+    cost = f"+${fix['deltas'].get('cost_delta', fix['cost_delta']):,.0f}"
+    left = fix["deltas"]["crossings"]
+    crossings = f"{fmt_number(left)} {'crossing' if left == 1 else 'crossings'}"
+    assert body["answer"] == f"In {r1.id}: {_filled(failed)} Fixed in {r2.id}: {label} · Cost Δ {cost} · {crossings}."
+    assert not re.search(r"\b[a-z]+_[a-z_]+\b", body["answer"])  # no raw tier token or snake_case key
 
 
 def test_voice_why_on_the_failing_revision_explains_it_there(real_client):

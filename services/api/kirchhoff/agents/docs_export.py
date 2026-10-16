@@ -4,6 +4,7 @@ import io
 from typing import Protocol
 from xml.sax.saxutils import escape
 
+from kirchhoff.agents.fix_text import tidy_tokens
 from kirchhoff.agents.trust import fmt_number
 from kirchhoff.contracts import DesignBrief, Finding, PRLine, Revision, TopologyOption
 
@@ -82,11 +83,12 @@ def calc_report_pdf(*, rev: Revision, findings: list[Finding], fixes: list[Findi
     ordered = sorted(findings, key=lambda f: (f.status != "fail", f.rule_id, f.element_id))
 
     def fix_text(f: Finding) -> str:
-        s = f"{f.id}: {f.fix['label']} ({f.fix.get('agent', '')}). {f.fix.get('reason', '')}"
+        # Engine tier ids read as words ("pipe_low" -> "the low pipe tier"), as in the drawer and the co-pilot.
+        s = tidy_tokens(f"{f.id}: {f.fix['label']} ({f.fix.get('agent', '')}). {f.fix.get('reason', '')}")
         if f.formula:
             s += f" Formula: {f.formula}."
         if f.rejected_fix:
-            s += f" Rejected: {f.rejected_fix['label']}."
+            s += f" Rejected: {tidy_tokens(f.rejected_fix['label'])}."
         return s
 
     sections = {
