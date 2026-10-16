@@ -63,9 +63,9 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 ### 3 · Intro, Mehul reads (in-clip audio, about 8–12 s, 25–30 words)
 - Who you are, in one line. No title.
 - What Kirchhoff does for an AI data-centre team, in one line.
-- One honest outcome: from tender to a signed design in hours, not weeks.
+- One honest outcome, measured: from a tender to a checked design in minutes (median 149 s on the golden capture), with an engineer still signing.
 
-> Suggested: "Hi, I'm Mehul. Jayadratha and I built Kirchhoff, so AI data-centre teams can go from a tender to a signed power and cooling design in hours, not weeks."
+> Suggested: "Hi, I'm Mehul. Jayadratha and I built Kirchhoff, so AI data-centre teams can go from a tender to a checked power and cooling design in minutes, and an engineer still signs it."
 
 ### 3b · Intro, Jayadratha reads (optional, about 6 s, about 15 words)
 - Name, background in one line, what he ran on this project.
