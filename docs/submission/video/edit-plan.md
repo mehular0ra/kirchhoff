@@ -215,7 +215,7 @@ beat carries at least one item nothing else covers.
 - **Codec:** H.264 (`libx264`), `yuv420p` pixel format for broad compatibility.
 - **Frame rate:** match the capture rate (issue #25 asks for 60 fps where possible); 30 fps is also fine if that's what was captured — don't mix rates within one timeline, conform everything to one rate before concat.
 - **Loudness:** **−14 LUFS integrated** (YouTube's own target; avoids YouTube's automatic turn-down and keeps the VO consistent against judges' other submissions).
-- **Captions:** burn in per the script's rule ("burn the voiceover in as captions"); use the re-synced `captions.srt`.
+- **Captions:** burn in per the script's rule ("burn the voiceover in as captions"); use the re-synced `captions.srt`. They go in a **caption band under the picture** (the picture at 90 %, 1728 x 972, inside the 1920 x 1080 frame, so a caption never covers the app's own text): `assemble.sh` does it through `caption_band.sh` and then runs the export gate `check_export.py` (16:9, picture untouched, every caption inside the band). Issue #25.
 - **Container:** `.mp4`.
 - **Bitrate:** target ~12–16 Mbps video for 1080p30, or ~16–20 Mbps for 1080p60; use a quality-based encode (`-crf 18` to `-crf 20`) instead of a hard bitrate cap if the export tool supports it.
 
