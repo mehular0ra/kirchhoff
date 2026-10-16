@@ -10,12 +10,13 @@ export interface StatusMeta {
   hex: string // for canvas/3D materials
 }
 
-// Status is always icon + text; colour is a third, redundant cue (spec §12, WCAG AA on #0b0d10).
+// Status is always icon + text; colour is a third, redundant cue (spec §12). Text is the -700 shade, WCAG AA
+// (≥ 4.5:1) on white and on its own -50 tint; `hex` is the saturated mid shade for canvas strokes and 3D materials.
 export const STATUS_META: Record<FindingStatus, StatusMeta> = {
-  pass: { label: 'Pass', icon: CircleCheck, text: 'text-emerald-700', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', hex: '#34d399' },
-  fail: { label: 'Fail', icon: CircleX, text: 'text-rose-700', bg: 'bg-rose-500/15', border: 'border-rose-500/60', hex: '#fb7185' },
-  warn: { label: 'Warn', icon: TriangleAlert, text: 'text-amber-700', bg: 'bg-amber-500/10', border: 'border-amber-500/50', hex: '#fcd34d' },
-  'n/a': { label: 'N/A', icon: CircleMinus, text: 'text-muted-foreground', bg: 'bg-zinc-500/10', border: 'border-zinc-300', hex: '#a1a1aa' },
+  pass: { label: 'Pass', icon: CircleCheck, text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', hex: '#059669' },
+  fail: { label: 'Fail', icon: CircleX, text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-300', hex: '#e11d48' },
+  warn: { label: 'Warn', icon: TriangleAlert, text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', hex: '#f59e0b' },
+  'n/a': { label: 'N/A', icon: CircleMinus, text: 'text-muted-foreground', bg: 'bg-zinc-100', border: 'border-zinc-200', hex: '#8b919c' },
 }
 
 const RANK: Record<FindingStatus, number> = { 'n/a': 0, pass: 1, warn: 2, fail: 3 }

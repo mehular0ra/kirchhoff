@@ -44,7 +44,7 @@ test('D8: a failing feeder is a thick rose line with a large "✕ Fail" label on
   expect(fail.strokeWidth).toBeGreaterThanOrEqual(3)
   expect(fail.label).toBe('FA-01 · ✕ Fail')
   expect(fail.labelStyle.fontSize).toBeGreaterThanOrEqual(12)
-  expect(fail.labelBgStyle.stroke).toBe('#fb7185')
+  expect(fail.labelBgStyle.stroke).toBe('#e11d48')
   const pass = edgeAppearance({ status: 'pass', change: null, chain: null, label: 'FA-02' })
   expect(pass.label).toBe('FA-02')
   expect(pass.strokeWidth).toBeLessThan(fail.strokeWidth)

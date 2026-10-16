@@ -2,6 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { CHAIN_COLORS } from '@/lib/agents'
+import { STATUS_META } from '@/lib/status'
 import { fixtureBundle } from '@/test/fixtures'
 import { resetStores } from '@/test/render'
 import { useUi } from '@/store/ui'
@@ -204,7 +205,20 @@ test('D6: in what-if view the header shows only non-zero counts and says only fa
 })
 
 test('D6: impact-chain colours stay clear of the pipe blue and the status hues', () => {
-  expect(CHAIN_COLORS).toEqual({ electrical: '#fb923c', cooling: '#c084fc' })
+  // Light theme: the -600 orange and violet (Warn is the yellow-amber #f59e0b, pipes the sky blue #0ea5e9).
+  expect(CHAIN_COLORS).toEqual({ electrical: '#ea580c', cooling: '#7c3aed' })
+  const hue = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    const max = Math.max(r, g, b)
+    const d = max - Math.min(r, g, b)
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+    return (h * 60 + 360) % 360
+  }
+  const apart = (a: string, b: string) => Math.min(Math.abs(hue(a) - hue(b)), 360 - Math.abs(hue(a) - hue(b)))
+  for (const c of Object.values(CHAIN_COLORS)) {
+    for (const s of ['pass', 'fail', 'warn'] as const) expect(apart(c, STATUS_META[s].hex)).toBeGreaterThanOrEqual(15)
+    expect(apart(c, '#0ea5e9')).toBeGreaterThanOrEqual(40)
+  }
 })
 
 test('residual: a not-checked cell has an accessible name without adding an element per blank cell', () => {
