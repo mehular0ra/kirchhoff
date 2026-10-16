@@ -107,8 +107,7 @@ test('asset packs render from their static bundles', async ({ page, request }) =
 
 test('the static Hall A bundle carries a recorded run and the five chips', async ({ request }) => {
   const bundle = (await (await request.get('/demo/projects/hall-a.json')).json()) as Bundle
-  // Red by design until the golden capture (Task 14) lands: then this runs as a normal test with no edit needed.
-  test.fail(!bundle.events?.length, 'Hall A has no recorded events until the golden capture (Task 14)')
-  expect(bundle.events?.length ?? 0, 'golden capture (Task 14) adds the recorded events').toBeGreaterThan(0)
+  // The golden capture (Task 14) landed: the expected-failure marker is gone, so an empty bundle now fails loudly.
+  expect(bundle.events?.length ?? 0, 'the golden capture adds the recorded events').toBeGreaterThan(0)
   expect(bundle.what_ifs?.length ?? 0, 'precomputed chip what-ifs (spec §6.4)').toBe(5)
 })
