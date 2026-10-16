@@ -60,7 +60,7 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
             {working.map((l) => (
               <AgentDot key={l.agent} agent={l.agent} className="animate-pulse motion-reduce:animate-none" />
             ))}
-            {working.length} agents working
+            {working.length} {working.length === 1 ? 'agent' : 'agents'} working
           </>
         ) : source === 'live' ? (
           'No agents working'

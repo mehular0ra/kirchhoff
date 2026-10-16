@@ -31,8 +31,9 @@ const BASE = {
   pipe: '#0ea5e9',
   cdu: '#8bb8f2',
 } as const
+// The stage behind the transparent canvas: a soft top-lit studio wash (white to cool grey).
+const STAGE = 'radial-gradient(120% 90% at 50% 15%, #ffffff 0%, #f4f6f9 55%, #e8ecf1 100%)'
 const SCENE = {
-  background: '#f7f8fa',
   floor: '#eceff3',
   gridCell: '#d9dee5',
   gridSection: '#bcc4cf',
@@ -355,7 +356,6 @@ function HallScene3D({
 
   return (
     <>
-      <color attach="background" args={[SCENE.background]} />
       <hemisphereLight args={['#ffffff', '#d5dbe3', 0.6]} />
       <ambientLight intensity={1.5} />
       <directionalLight position={[20, 40, 15]} intensity={0.9} />
@@ -517,7 +517,7 @@ export default function HallView() {
   if (!scene) return <EmptyState title="No revision yet">The 3D hall is built from the first checked revision.</EmptyState>
   if (!webgl) return <EmptyState tone="error" title="3D needs WebGL">Your browser has WebGL disabled; the SLD and Matrix tabs show the same design.</EmptyState>
   return (
-    <div className="relative h-full w-full" role="figure" aria-label="3D hall">
+    <div className="relative h-full w-full" role="figure" aria-label="3D hall" style={{ background: STAGE }}>
       <Canvas flat camera={{ position: [scene.hall.w * 0.45, scene.hall.w * 0.5, scene.hall.d * 1.15], fov: 40, near: 0.1, far: 500 }} dpr={[1, 2]}>
         <HallScene3D scene={scene} labels={labels} labelEls={labelEls} leaders={leaders} />
       </Canvas>

@@ -51,17 +51,17 @@ export function PlanGate({ run, interactive }: { run: RunRecord; interactive: bo
           {interactive ? 'Plan gate · waiting for you' : 'Plan'}
         </h3>
       </Hint>
-      <ol className="flex flex-col gap-1.5">
+      <ol className="flex flex-col gap-2">
         {plan.map((s, i) => (
-          <li key={s.id} className="flex flex-col gap-1">
-            {/* Fixed number and agent columns, so every step title starts on the same line (polish). */}
+          <li key={s.id} className="flex flex-col gap-0.5">
+            {/* Number, title, then the agent on its own line: titles align and keep the column's full width (polish). */}
             <span className="flex items-baseline gap-2">
               <span className="w-4 shrink-0 font-mono text-xs text-muted-foreground">{i + 1}</span>
-              <span className="inline-flex w-24 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <AgentDot agent={s.agent} />
-                {AGENTS[s.agent].label}
-              </span>
               <span className="min-w-0 text-foreground">{s.title}</span>
+            </span>
+            <span className="ml-6 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <AgentDot agent={s.agent} />
+              {AGENTS[s.agent].label}
             </span>
             {interactive ? (
               <Input

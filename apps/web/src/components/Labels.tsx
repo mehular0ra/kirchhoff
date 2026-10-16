@@ -48,10 +48,10 @@ export function Num({ children, className }: { children: ReactNode; className?: 
   return <span className={cn('font-mono tabular-nums', className)}>{children}</span>
 }
 
-const EMPTY_TONE: Record<'info' | 'error' | 'loading', { icon: LucideIcon; cls: string }> = {
-  info: { icon: Info, cls: 'text-muted-foreground' },
-  error: { icon: CircleX, cls: 'text-rose-700' },
-  loading: { icon: LoaderCircle, cls: 'animate-spin text-muted-foreground motion-reduce:animate-none' },
+const EMPTY_TONE: Record<'info' | 'error' | 'loading', { icon: LucideIcon; cls: string; well: string }> = {
+  info: { icon: Info, cls: 'text-muted-foreground', well: 'bg-muted' },
+  error: { icon: CircleX, cls: 'text-rose-700', well: 'bg-rose-50' },
+  loading: { icon: LoaderCircle, cls: 'animate-spin text-muted-foreground motion-reduce:animate-none', well: 'bg-muted' },
 }
 
 /** Empty, loading and error states: always an icon with the text (status is never colour alone, M1). */
@@ -77,7 +77,9 @@ export function EmptyState({
       role={t === 'loading' ? 'status' : undefined}
       className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center"
     >
-      <Icon aria-hidden className={cn('size-5', EMPTY_TONE[t].cls)} />
+      <span aria-hidden className={cn('mb-1 grid size-10 place-items-center rounded-full', EMPTY_TONE[t].well)}>
+        <Icon aria-hidden className={cn('size-5', EMPTY_TONE[t].cls)} />
+      </span>
       <p className="text-sm font-medium text-foreground">{title}</p>
       {children && <div className="max-w-md text-sm text-muted-foreground">{children}</div>}
       {action}
