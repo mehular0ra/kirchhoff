@@ -123,6 +123,19 @@ const BEATS: Beat[] = [
     },
   },
   {
+    // The sign-off beat without touching the shared sandbox: the recorded run's approved review page, its stamp with the revision hash.
+    // The live variant, signing as "You (Demo Reviewer)" and moving the PRs and the CRM stage, is footage-live.spec.ts.
+    clip: 'v09-sign-off',
+    run: async (page) => {
+      await page.goto('/app/p/hall-a/review/r2')
+      await text(page, 'APPROVED')
+      await hold(page, HANDLE)
+      const stamp = page.getByRole('figure', { name: 'Approval stamp' })
+      await expect(stamp).toContainText('sha256')
+      await hold(page, 6_000)
+    },
+  },
+  {
     clip: 'v10-integrations',
     run: async (page) => {
       await page.goto('/app/integrations')

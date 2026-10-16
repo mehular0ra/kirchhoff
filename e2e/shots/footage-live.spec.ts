@@ -62,11 +62,38 @@ test('live run: one recording with marks', async ({ page }) => {
   await pause(9_000) // read the three cards and the R15 swap
   mark('option_hold_end')
   await select.click()
+  mark('option_selected')
+  // The Options tab stays selected after the gate, and the 3D hall is drawn from the first checked revision: go back to it, so the
+  // routing, the two findings and the fix loop are on screen in 3D (the beat-8 picture).
+  await page.getByRole('tab', { name: '3D Hall' }).click()
+  // In an Ask-mode run the hall stays empty ("No revision yet") until a revision is picked: when r1 exists, show it (the two failing findings in 3D).
+  const r1 = page.getByRole('button', { name: /-r1/ }).first()
+  await expect(r1).toBeVisible({ timeout: 5 * 60_000 })
+  await r1.click()
+  mark('r1_shown')
+  await pause(5_000)
 
   // The Checker and the fix loop, then the review gate.
   const review = page.locator('[data-tour="sign-off"]', { hasText: 'Review and sign' })
   await expect(review).toBeVisible({ timeout: 8 * 60_000 })
   mark('review_gate')
+  await page.getByRole('button', { name: /-r2/ }).first().click() // the fixed revision, all checks passing
+  mark('r2_shown')
+  await pause(4_000)
+  mark('r2_held')
+  if (process.env.E2E_FOOTAGE_SIGN === '0') {
+    // Stop here: nothing is signed, so no purchase requisitions reach the shared ERP sandbox and no CRM stage moves (a signed run
+    // stays visible to everyone on the Integrations page until the next seed). The marks and the recording are still written;
+    // footage_cut.sh (FOOTAGE_SKIP_MISSING=1) skips the clip that needs the sign-off.
+    await pause(3_000)
+    mark('end')
+    await expect(page.getByText('all companies, people and data are fictional').first()).toBeVisible()
+    writeFileSync(path.join(OUT, 'live-run-marks.json'), JSON.stringify({ run_id: runId, signed: false, marks_s: marks }, null, 2))
+    const unsigned = page.video()
+    await page.close()
+    await unsigned?.saveAs(path.join(OUT, 'live-run-full.webm'))
+    return
+  }
   await pause(2_000)
   await review.click()
   await expect(page).toHaveURL(/\/app\/p\/hall-b\/review\//)
