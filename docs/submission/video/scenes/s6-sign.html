@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S6 · Engineer signs</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #title { position: absolute; left: 0; right: 0; top: 92px; text-align: center; }
+  #title .h3 { font-size: 52px; }
+  #rev { position: absolute; left: 400px; top: 250px; width: 1120px; height: 560px; padding: 30px 40px; }
+  #rev .hd { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 640; letter-spacing: -0.02em; }
+  #rev .hd .chip { margin-left: auto; }
+  .rows { margin-top: 20px; display: flex; flex-direction: column; }
+  .rw { display: grid; grid-template-columns: 300px 1fr; align-items: center; height: 70px; border-bottom: 1px solid var(--line); font-size: 24px; }
+  .rw .k { font-family: var(--mono); font-size: 18px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .rw .v { color: var(--ink); font-weight: 520; }
+  .rw .v.q { font-style: italic; color: var(--ink-2); font-weight: 450; }
+  #btn { position: absolute; left: 40px; bottom: 32px; display: inline-flex; align-items: center; gap: 12px; padding: 16px 30px; border-radius: 14px;
+         background: var(--ink); color: #fff; font-size: 26px; font-weight: 620; }
+  #stamp { position: absolute; left: 1000px; top: 640px; width: 560px; padding: 22px 26px; border: 5px solid #15803d; border-radius: 18px;
+           background: rgba(255, 255, 255, 0.96); color: #15803d; box-shadow: var(--shadow-lg); transform-origin: 50% 50%; }
+  #stamp .big { font-size: 46px; font-weight: 760; letter-spacing: 0.08em; }
+  #stamp .who { margin-top: 6px; font-size: 24px; font-weight: 600; color: #14532d; }
+  #stamp .ln { margin-top: 4px; font-family: var(--mono); font-size: 18px; color: #166534; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="footnote" id="foot">Demo reviewer and project are fictional</div>
+  <div id="title"><div class="eyebrow">Step 4 · Review and sign-off</div><div class="h3" id="ttl">Nothing ships until an engineer signs.</div></div>
+  <div id="rev" class="card">
+    <div class="hd"><span id="mk"></span><span id="rh"></span><span class="chip" id="rstate">Awaiting review</span></div>
+    <div class="rows" id="rows"></div>
+    <div id="btn">Approve and sign</div>
+  </div>
+  <div id="stamp">
+    <div class="big">✓ APPROVED</div>
+    <div class="who" id="sw"></div>
+    <div class="ln" id="st"></div>
+    <div class="ln" id="sh"></div>
+  </div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp, esc } = K;
+  const S = K.D.signoff || {}, C = K.D.checks || {}, R = K.D.revisions || {};
+  K.$('#mk').innerHTML = K.mark(36);
+  K.$('#rh').textContent = `Review · revision ${S.revision}`;
+  const rows = [
+    ['Checks', `✓ ${C.r2.pass} pass · ${C.r2.fail} fail`],
+    ['Diff', `${R.first} → ${R.last} · ${(C.fails || []).length} fixes, each re-checked`],
+    ['Assumptions', `${S.assumptions} logged · ${S.not_checked} listed as not checked`],
+    ['Comment', `“${S.comment}”`],
+  ].map(([k, v], i) => K.el('div', 'rw', `<span class="k">${esc(k)}</span><span class="v${i === 3 ? ' q' : ''}">${esc(v)}</span>`, K.$('#rows')));
+  K.$('#sw').textContent = `${S.name} · ${S.role}`;
+  K.$('#st').textContent = S.when;
+  K.$('#sh').textContent = `rev ${S.revision} · sha256 ${S.hash}…`;
+  const tw = K.words(K.$('#ttl'));
+
+  K.scene({
+    duration: 6.0,
+    hero: 5.2,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      rise(K.$('#title .eyebrow'), p(t, 0.05, 0.5), { y: 10, blur: 4 });
+      K.stagger(tw, t, 0.1, 0.06, 0.6, { y: 24, blur: 8 });
+      rise(K.$('#foot'), p(t, 0.5, 0.6), { y: 0, blur: 0 });
+      rise(K.$('#rev'), p(t, 0.3, 0.7), { y: 40, blur: 6 });
+      rows.forEach((r, i) => rise(r, p(t, 0.7 + i * 0.2, 0.5), { y: 12, blur: 4 }));
+      // the press
+      const press = p(t, 2.5, 0.15, ease.out2) - p(t, 2.65, 0.25, ease.out2);
+      tf(K.$('#btn'), { s: 1 - 0.06 * press });
+      K.$('#btn').style.background = t > 2.65 ? '#15803d' : '#0b0b0f';
+      K.$('#btn').textContent = t > 2.65 ? '✓ Signed' : 'Approve and sign';
+      K.$('#rstate').className = t > 2.9 ? 'chip pass' : 'chip';
+      K.$('#rstate').textContent = t > 2.9 ? '✓ Signed' : 'Awaiting review';
+      // the stamp lands
+      const sp = p(t, 2.8, 0.45, ease.out4);
+      const shake = t > 3.25 && t < 3.5 ? Math.sin((t - 3.25) * 60) * 2 * (1 - (t - 3.25) / 0.25) : 0;
+      tf(K.$('#stamp'), { s: lerp(1.6, 1, sp), r: lerp(-14, -5, sp), x: shake, o: p(t, 2.8, 0.2) });
+    },
+  });
+</script>
+</body>
+</html>

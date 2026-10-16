@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S8 · Built on Google Cloud</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #title { position: absolute; left: 0; right: 0; top: 110px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  #title img { height: 56px; }
+  #title .h3 { font-size: 50px; }
+  #strip { position: absolute; left: 90px; right: 90px; top: 400px; display: flex; align-items: stretch; justify-content: space-between; }
+  .tile { width: 300px; height: 250px; padding: 26px 24px; display: flex; flex-direction: column; align-items: flex-start; }
+  .tile .lg { height: 60px; display: flex; align-items: center; gap: 12px; }
+  .tile .lg img { height: 56px; }
+  .tile .nm { margin-top: 18px; font-size: 30px; font-weight: 650; letter-spacing: -0.02em; }
+  .tile .ds { margin-top: 8px; font-size: 20px; color: var(--ink-3); line-height: 1.35; }
+  .tile.eng { border: 2.5px dashed var(--fail); box-shadow: none; background: #fffafa; }
+  .tile.eng .tag { margin-top: auto; font-family: var(--mono); font-size: 16px; color: var(--fail); }
+  .arrow { align-self: center; width: 46px; height: 4px; background: var(--line-2); position: relative; transform-origin: 0 50%; }
+  .arrow::after { content: ""; position: absolute; right: -2px; top: -7px; border-left: 12px solid var(--line-2); border-top: 9px solid transparent; border-bottom: 9px solid transparent; }
+  #sub { position: absolute; left: 0; right: 0; top: 720px; display: flex; justify-content: center; gap: 16px; }
+  #sub .chip { font-size: 21px; }
+  #sub img { height: 24px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div id="title"><img src="assets/logos/google-cloud-wordmark-commons.svg" alt=""><div class="h3" id="ttl">Gemini proposes. The engine decides.</div></div>
+  <div id="strip">
+    <div class="tile card" id="t1"><div class="lg"><img src="assets/logos/firebase-icon.svg" alt=""></div><div class="nm">Firebase</div><div class="ds">Hosting, anonymous Auth, App Check</div></div>
+    <div class="arrow"></div>
+    <div class="tile card" id="t2"><div class="lg"><img src="assets/logos/cloud-run.svg" alt=""></div><div class="nm">Cloud Run</div><div class="ds">API and ADK agent workflows</div></div>
+    <div class="arrow"></div>
+    <div class="tile card" id="t3"><div class="lg"><img src="assets/logos/gemini-icon.svg" alt=""><img src="assets/logos/vertex-ai.svg" alt=""></div><div class="nm">Gemini · Vertex AI</div><div class="ds">Reads tenders, plans, picks fixes</div></div>
+    <div class="arrow"></div>
+    <div class="tile card eng" id="t4"><div class="lg" id="emk"></div><div class="nm">Engine + checker</div><div class="ds">Plain Python physics</div><div class="tag">No LLM in the verdict path</div></div>
+    <div class="arrow"></div>
+    <div class="tile card" id="t5"><div class="lg"><img src="assets/logos/firestore.svg" alt=""></div><div class="nm">Firestore</div><div class="ds">Live run events, revisions, approvals</div></div>
+  </div>
+  <div id="sub">
+    <span class="chip"><img src="assets/logos/cloud-run.svg" alt="">Enterprise sandbox on Cloud Run</span>
+    <span class="chip"><img src="assets/logos/sap.svg" alt="">S/4HANA</span>
+    <span class="chip"><img src="assets/logos/gmail.svg" alt="">Gmail</span>
+    <span class="chip"><img src="assets/logos/google-drive.svg" alt="">Drive</span>
+    <span id="sbx"></span>
+  </div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf } = K;
+  K.$('#emk').innerHTML = K.mark(56);
+  K.$('#sbx').innerHTML = K.sandbox('connectors · sandbox');
+  const tiles = K.$$('.tile'), arrows = K.$$('.arrow'), subs = K.$$('#sub > *');
+  const tw = K.words(K.$('#ttl'));
+  K.scene({
+    duration: 8.0,
+    hero: 6.5,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      rise(K.$('#title img'), p(t, 0.05, 0.6), { y: 14, blur: 6 });
+      K.stagger(tw, t, 0.3, 0.07, 0.6, { y: 24, blur: 8 });
+      tiles.forEach((e, i) => rise(e, p(t, 1.0 + i * 0.35, 0.6), { y: 40, blur: 8 }));
+      arrows.forEach((a, i) => { a.style.transform = `scaleX(${p(t, 1.3 + i * 0.35, 0.4).toFixed(3)})`; });
+      subs.forEach((e, i) => rise(e, p(t, 4.6 + i * 0.15, 0.5), { y: 14, blur: 4 }));
+    },
+  });
+</script>
+</body>
+</html>

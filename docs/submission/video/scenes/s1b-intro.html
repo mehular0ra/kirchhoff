@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S1b · Team intro</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #photo { position: absolute; left: 190px; top: 170px; width: 620px; height: 620px; border-radius: 36px; overflow: hidden;
+           box-shadow: var(--shadow-lg); background: var(--bg-soft); }
+  #photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 38%; }
+  #ring { position: absolute; left: 172px; top: 152px; width: 656px; height: 656px; border-radius: 48px;
+          border: 3px solid #0ea5e9; opacity: 0; }
+  #right { position: absolute; left: 920px; top: 250px; width: 820px; }
+  #team { display: flex; align-items: center; gap: 14px; }
+  #team svg { width: 34px; height: 34px; }
+  #name { margin-top: 26px; font-size: 104px; }
+  #role { margin-top: 18px; font-size: 40px; font-weight: 480; color: var(--ink-2); letter-spacing: -0.02em; }
+  #role .sep { color: var(--ink-4); margin: 0 14px; }
+  #wave { position: absolute; left: 920px; top: 612px; width: 800px; height: 150px; }
+  #bars { position: absolute; left: 0; top: 0; width: 800px; height: 120px; display: flex; align-items: center; gap: 5px; }
+  #bars i { display: block; flex: 1; border-radius: 4px; background: var(--line-2); height: 4px; }
+  #meta { position: absolute; left: 0; right: 0; top: 132px; display: flex; justify-content: space-between;
+          font-family: var(--mono); font-size: 18px; color: var(--ink-3); }
+  #meta .live { display: inline-flex; align-items: center; gap: 10px; }
+  #meta .dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="grid-fade"></div>
+  <div id="ring"></div>
+  <div id="photo"><img id="img" alt=""></div>
+  <div id="right">
+    <div id="team" class="eyebrow"><span id="teammark"></span><span id="teamname"></span></div>
+    <div id="name" class="display"></div>
+    <div id="role"></div>
+  </div>
+  <div id="wave">
+    <div id="bars"></div>
+    <div id="meta"><span class="live"><span class="dot" id="dot"></span><span id="label">Voice</span></span><span id="clock" class="tnum">0:00</span></div>
+  </div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/audio-mehul.js"></script>
+<script src="lib/audio-jayadratha.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp, clamp } = K;
+  const who = new URLSearchParams(location.search).get('who') || 'mehul';
+  const member = (K.D.team && K.D.team.members && K.D.team.members[who]) || {};
+  const A = (window.KAUDIO && window.KAUDIO[who]) || { duration: 9, rate: 100, env: [], lead: 0.4, placeholder: true };
+  const LEAD = A.lead ?? 0.4;
+  const parts = String(member.lower_third || member.name || '').split(' · ');
+  K.$('#name').textContent = parts[0] || '';
+  K.$('#role').innerHTML = parts.slice(1).map(K.esc).join('<span class="sep">·</span>');
+  K.$('#teammark').innerHTML = K.mark(34);
+  K.$('#teamname').textContent = 'Kirchhoff · ' + (member.team || 'Team Ordinal');
+  K.$('#label').textContent = A.placeholder ? 'voice track pending' : 'Voice';
+  const img = K.$('#img');
+  const useVideo = !!A.video_frames;
+  img.src = useVideo ? A.video_frames + 'f_00001.jpg' : member.photo;
+
+  // Voice-memo waveform: the whole clip, played part in ink.
+  const NB = 72;
+  const bars = Array.from({ length: NB }, () => K.el('i', '', '', K.$('#bars')));
+  const env = A.env || [];
+  const peaks = bars.map((_, i) => {
+    if (!env.length) return 0;
+    const a = Math.floor((i / NB) * env.length), b = Math.max(a + 1, Math.floor(((i + 1) / NB) * env.length));
+    let m = 0; for (let k = a; k < b; k++) m = Math.max(m, env[k] || 0);
+    return m;
+  });
+  const envAt = (s) => (env.length ? env[clamp(Math.floor(s * A.rate), 0, env.length - 1)] || 0 : 0);
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const words = K.words(K.$('#name'));
+  const duration = +(LEAD + (A.duration || 9) + 0.6).toFixed(3);
+
+  K.scene({
+    duration,
+    hero: LEAD + (A.duration || 9) * 0.45,
+    async render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      const ph = p(t, 0, 0.8, ease.out4);
+      tf(K.$('#photo'), { x: lerp(-40, 0, ph), o: ph });
+      // Ken Burns: slow push and drift across the whole clip
+      const kb = clamp(t / duration);
+      if (!useVideo) tf(img, { s: lerp(1.0, 1.075, kb), x: lerp(0, -10, kb), y: lerp(0, -8, kb) });
+      else {
+        const i = clamp(Math.floor((t - LEAD) * 30) + 1, 1, A.video_count || 1);
+        const src = A.video_frames + 'f_' + String(i).padStart(5, '0') + '.jpg';
+        if (!img.src.endsWith(src.split('/').pop())) { img.src = src; await img.decode().catch(() => {}); }
+      }
+      rise(K.$('#team'), p(t, 0.25, 0.6), { y: 14, blur: 4 });
+      K.stagger(words, t, 0.35, 0.08, 0.7, { y: 40, blur: 10 });
+      rise(K.$('#role'), p(t, 0.7, 0.7), { y: 20, blur: 6 });
+      rise(K.$('#wave'), p(t, 0.9, 0.6), { y: 16, blur: 0 });
+      // waveform follows the real voice track
+      const s = t - LEAD;
+      const prog = clamp(s / (A.duration || 9));
+      const live = envAt(s);
+      bars.forEach((b, i) => {
+        const done = i / NB < prog;
+        const grow = p(t, 0.9 + i * 0.008, 0.5);
+        const h = 4 + Math.pow(peaks[i], 0.7) * 104 * grow;
+        b.style.height = h.toFixed(1) + 'px';
+        b.style.background = done ? '#0b0b0f' : '#d6d6dc';
+      });
+      K.$('#clock').textContent = `${fmt(clamp(s, 0, A.duration || 9))} / ${fmt(A.duration || 9)}`;
+      const speaking = s > 0 && s < (A.duration || 9) ? live : 0;
+      K.$('#ring').style.opacity = (speaking * 0.55).toFixed(3);
+      K.$('#dot').style.opacity = (0.35 + 0.65 * (speaking > 0.12 ? 1 : 0)).toFixed(2);
+    },
+  });
+</script>
+</body>
+</html>

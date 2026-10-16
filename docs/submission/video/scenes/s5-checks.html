@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S5 · Physics checks</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #title { position: absolute; left: 90px; top: 92px; }
+  #title .h3 { font-size: 46px; }
+  #left { position: absolute; left: 90px; top: 230px; width: 820px; }
+  #count { display: flex; align-items: baseline; gap: 22px; }
+  #n { font-size: 190px; font-variant-numeric: tabular-nums; }
+  #nl { font-size: 54px; font-weight: 560; color: var(--ink-3); letter-spacing: -0.03em; }
+  #split { margin-top: 6px; display: flex; gap: 12px; }
+  #split .chip { font-size: 24px; padding: 10px 18px; }
+  #matrix { margin-top: 34px; display: grid; grid-template-columns: repeat(25, 26px); gap: 6px; }
+  #matrix i { width: 26px; height: 26px; border-radius: 6px; background: #e9e9ee; }
+  #meta { margin-top: 22px; font-family: var(--mono); font-size: 18px; color: var(--ink-3); }
+  #right { position: absolute; left: 990px; top: 220px; width: 840px; display: flex; flex-direction: column; gap: 22px; }
+  .f { position: relative; padding: 22px 26px; border-left: 6px solid var(--fail); }
+  .f .hd { display: flex; align-items: center; gap: 12px; }
+  .f .rid { font-family: var(--mono); font-size: 22px; font-weight: 600; padding: 4px 12px; border-radius: 8px; background: var(--fail-soft); color: var(--fail); }
+  .f .el { font-family: var(--mono); font-size: 22px; color: var(--ink-2); white-space: nowrap; }
+  .f .tt { font-size: 22px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .f .stt { flex: none; }
+  .f .stt { margin-left: auto; }
+  .f .ms { margin-top: 12px; font-size: 44px; font-weight: 650; letter-spacing: -0.03em; }
+  .f .cl { margin-top: 8px; display: flex; align-items: center; gap: 12px; font-size: 19px; color: var(--ink-3); }
+  .f .cl .chip { font-size: 18px; padding: 4px 12px; }
+  .f .q { font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 560px; }
+  .f .fx { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line-2); display: flex; align-items: center; gap: 12px; font-size: 21px; color: var(--ink-2); }
+  .f .fx b { color: var(--ink); font-weight: 620; }
+  .f .fx .cost { margin-left: auto; font-family: var(--mono); font-size: 20px; color: var(--ink); }
+  #final { position: absolute; left: 90px; top: 800px; display: flex; align-items: center; gap: 18px; font-size: 30px; font-weight: 600; }
+  #final .chip { font-size: 26px; padding: 10px 20px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="footnote" id="foot">IEC-based, illustrative values · not for construction</div>
+  <div id="title"><div class="eyebrow">Step 3 · Physics checks</div><div class="h3" id="ttl">A deterministic checker. No LLM in the verdict path.</div></div>
+  <div id="left">
+    <div id="count"><span id="n" class="display">0</span><span id="nl">checks</span></div>
+    <div id="split"><span class="chip pass" id="cp"></span><span class="chip fail" id="cf"></span></div>
+    <div id="matrix"></div>
+    <div id="meta"></div>
+  </div>
+  <div id="right"></div>
+  <div id="final"><span class="chip pass" id="fchip"></span><span id="ftext"></span></div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp, esc } = K;
+  const C = K.D.checks || {};
+  const r1 = C.r1 || {}, r2 = C.r2 || {};
+  K.$('#cp').textContent = `✓ ${r1.pass} pass`;
+  K.$('#cf').textContent = `✕ ${r1.fail} fail`;
+  K.$('#meta').textContent = `${C.rules} rules · ${(C.clauses || []).length} tender clauses · revision ${r1.id}`;
+  const cells = (C.cells || []).map((s) => { const i = K.el('i', '', '', K.$('#matrix')); i._s = s; return i; });
+  const cards = (C.fails || []).map((f) => K.el('div', 'f card', `
+    <div class="hd"><span class="rid">${esc(f.rule)}</span><span class="el">${esc(f.element)}</span><span class="tt">${esc(f.title)}</span>
+      <span class="stt"><span class="chip fail">✕ fail</span></span></div>
+    <div class="ms">${esc(f.measure)}</div>
+    <div class="cl"><span class="chip mono">Tender ${esc(f.clause)} · p.${esc(f.page)}</span><span class="q">“${esc(f.quote)}”</span></div>
+    <div class="fx"><span>${esc((f.agent || '').replace(/^./, (c) => c.toUpperCase()))} chose:</span><b>${esc(f.fix_label)}</b><span class="cost">${esc(f.fix_cost)}</span></div>`,
+    K.$('#right')));
+  K.$('#fchip').textContent = `✓ ${r2.id} · ${r2.pass} pass · ${r2.fail} fail`;
+  K.$('#ftext').textContent = 'Every fix re-checked against every rule before an agent may pick it.';
+  const tw = K.words(K.$('#ttl'));
+
+  K.scene({
+    duration: 8.0,
+    hero: 4.9,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      rise(K.$('#title .eyebrow'), p(t, 0.05, 0.5), { y: 10, blur: 4 });
+      K.stagger(tw, t, 0.1, 0.05, 0.6, { y: 24, blur: 8 });
+      rise(K.$('#foot'), p(t, 0.5, 0.6), { y: 0, blur: 0 });
+      rise(K.$('#count'), p(t, 0.3, 0.6), { y: 30, blur: 10 });
+      const pc = p(t, 0.4, 1.6, ease.out3);
+      K.$('#n').textContent = K.count(String(r1.total), pc);
+      rise(K.$('#split'), p(t, 1.9, 0.5), { y: 12, blur: 4 });
+      rise(K.$('#meta'), p(t, 2.1, 0.5), { y: 8, blur: 0 });
+      const fixedAt = 5.6;
+      cells.forEach((c, i) => {
+        const on = t > 0.4 + (i / cells.length) * 1.6;
+        const fixed = t > fixedAt + 0.1 * (C.fail_index || []).indexOf(i);
+        c.style.background = !on ? '#e9e9ee' : c._s === 'fail' && !fixed ? '#dc2626' : c._s === 'warn' ? '#d97706' : '#16a34a';
+        c.style.transform = c._s === 'fail' && on && !fixed ? 'scale(1.18)' : 'none';
+      });
+      cards.forEach((card, i) => {
+        rise(card, p(t, 2.2 + i * 0.35, 0.6), { x: 60, y: 0, blur: 8 });
+        rise(K.$('.fx', card), p(t, 3.9 + i * 0.4, 0.5), { y: 10, blur: 4 });
+        const ok = t > fixedAt + i * 0.15;
+        card.style.borderLeftColor = ok ? '#15803d' : '#dc2626';
+        K.$('.stt', card).innerHTML = ok ? '<span class="chip pass">✓ re-checked · pass</span>' : '<span class="chip fail">✕ fail</span>';
+        K.$('.rid', card).style.background = ok ? '#e9f8ef' : '#fdecec';
+        K.$('.rid', card).style.color = ok ? '#15803d' : '#dc2626';
+      });
+      rise(K.$('#final'), p(t, 6.1, 0.6), { y: 16, blur: 6 });
+    },
+  });
+</script>
+</body>
+</html>

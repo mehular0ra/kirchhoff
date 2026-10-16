@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S7 · Connectors fan out</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #title { position: absolute; left: 90px; top: 92px; }
+  #title .h3 { font-size: 46px; }
+  #src { position: absolute; left: 90px; top: 410px; width: 520px; padding: 28px 30px; }
+  #src .hd { display: flex; align-items: center; gap: 14px; font-size: 32px; font-weight: 650; letter-spacing: -0.02em; }
+  #src .ln { margin-top: 10px; font-family: var(--mono); font-size: 19px; color: var(--ink-3); }
+  #src .ok { margin-top: 16px; }
+  #wires { position: absolute; inset: 0; pointer-events: none; }
+  .dst { position: absolute; left: 1000px; width: 830px; padding: 20px 26px; }
+  .dst .hd { display: flex; align-items: center; gap: 14px; font-size: 26px; font-weight: 640; letter-spacing: -0.02em; }
+  .dst .hd img { height: 34px; }
+  .dst .hd .sandbox { margin-left: auto; }
+  #sap { top: 196px; height: 330px; }
+  #drv { top: 548px; height: 150px; }
+  #crm { top: 720px; height: 150px; }
+  .pr { display: grid; grid-template-columns: 200px 1fr 140px; align-items: center; height: 40px; font-size: 20px; border-bottom: 1px solid #f0f0f3; }
+  .pr .id { font-family: var(--mono); font-size: 18px; color: var(--ink-2); }
+  .pr .val { text-align: right; font-family: var(--mono); font-size: 18px; }
+  .pr .st { font-family: var(--mono); font-size: 15px; color: var(--pass); margin-left: 8px; }
+  #prtot { margin-top: 12px; display: flex; gap: 10px; }
+  #docs { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
+  #docs .chip { font-size: 19px; }
+  #stages { margin-top: 18px; display: flex; align-items: center; gap: 14px; font-size: 22px; }
+  #stages .opp { font-weight: 600; margin-right: 10px; }
+  .stg { padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--line-2); color: var(--ink-3); background: #fff; }
+  .stg.on { background: var(--pass); border-color: var(--pass); color: #fff; font-weight: 620; }
+  .stg.was { text-decoration: line-through; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="footnote" id="foot">Sandbox connectors · simulated systems · no live customer integration</div>
+  <div id="title"><div class="eyebrow">Step 5 · Hand-off</div><div class="h3" id="ttl">Signed once. Every system updated.</div></div>
+  <svg id="wires" viewBox="0 0 1920 1080"></svg>
+  <div id="src" class="card">
+    <div class="hd"><span id="mk"></span><span>Kirchhoff</span></div>
+    <div class="ln" id="sl1"></div>
+    <div class="ln" id="sl2"></div>
+    <div class="ok"><span class="chip pass" id="sok"></span></div>
+  </div>
+  <div id="sap" class="dst card">
+    <div class="hd"><img src="assets/logos/sap.svg" alt=""><span>S/4HANA · purchase requisitions</span><span id="t1"></span></div>
+    <div id="prs" style="margin-top:12px"></div>
+    <div id="prtot"></div>
+  </div>
+  <div id="drv" class="dst card">
+    <div class="hd"><img src="assets/logos/google-drive.svg" alt=""><span>Google Drive · project folder</span><span id="t2"></span></div>
+    <div id="docs"></div>
+  </div>
+  <div id="crm" class="dst card">
+    <div class="hd"><span style="font-family:var(--mono);font-size:20px;padding:4px 10px;border-radius:8px;background:var(--bg-sunk)">CRM</span><span>Opportunity stage</span><span id="t3"></span></div>
+    <div id="stages"><span class="opp" id="opp"></span><span class="stg" id="sb"></span><span style="color:var(--ink-4)">→</span><span class="stg" id="sa"></span></div>
+  </div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp, esc } = K;
+  const H = K.D.handoff || {}, S = K.D.signoff || {};
+  K.$('#mk').innerHTML = K.mark(40);
+  K.$('#sl1').textContent = `Signed ${S.revision} · sha256 ${S.hash}…`;
+  K.$('#sl2').textContent = `${S.name} · ${S.when}`;
+  K.$('#sok').textContent = '✓ Approved for procurement';
+  ['#t1', '#t2', '#t3'].forEach((id) => (K.$(id).innerHTML = K.sandbox('connector · sandbox')));
+  const prRows = (H.prs || []).slice(0, 5).map((r) => K.el('div', 'pr',
+    `<span class="id">${esc(r.id)}</span><span>${esc(r.item)}<span class="st">submitted</span></span><span class="val">${esc(r.value)}</span>`, K.$('#prs')));
+  const more = (H.prs || []).length - prRows.length;
+  K.$('#prtot').innerHTML = `${more > 0 ? `<span class="chip">+${more} more</span>` : ''}
+    <span class="chip mono">${esc(H.pr_count)} PRs · ${esc(H.pr_lines)} lines</span><span class="chip mono">${esc(H.pr_total)}</span>`;
+  const docs = (H.docs || []).map((d) => K.el('span', 'chip', `<span class="${/\.pdf$/.test(d) ? 'pdf' : ''}" style="${/\.pdf$/.test(d) ? '' : 'font-family:var(--mono);font-size:13px;color:#15803d'}">${/\.pdf$/.test(d) ? 'PDF' : 'CSV'}</span>${esc(d)}`, K.$('#docs')));
+  const cr = H.crm || {};
+  K.$('#opp').textContent = cr.name;
+  K.$('#sb').textContent = cr.before;
+  K.$('#sa').textContent = cr.after;
+  const tw = K.words(K.$('#ttl'));
+  const wires = [];
+
+  K.scene({
+    duration: 12.0,
+    hero: 10.5,
+    setup() {
+      const a = K.$('#src').getBoundingClientRect();
+      const ax = a.right, ay = a.top + a.height / 2;
+      ['#sap', '#drv', '#crm'].forEach((id, i) => {
+        const b = K.$(id).getBoundingClientRect();
+        const bx = b.left, by = b.top + b.height / 2;
+        const d = `M ${ax} ${ay} C ${ax + 200} ${ay}, ${bx - 200} ${by}, ${bx} ${by}`;
+        const NS = 'http://www.w3.org/2000/svg';
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', d); path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#c9c9d1');
+        path.setAttribute('stroke-width', '3'); path.setAttribute('stroke-linecap', 'round');
+        K.$('#wires').appendChild(path);
+        const len = path.getTotalLength();
+        path.style.strokeDasharray = `${len} ${len}`;
+        const dots = [0, 1, 2].map(() => {
+          const c = document.createElementNS(NS, 'circle');
+          c.setAttribute('r', '7'); c.setAttribute('fill', '#0ea5e9');
+          K.$('#wires').appendChild(c);
+          return c;
+        });
+        wires.push({ path, len, dots });
+      });
+    },
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      rise(K.$('#title .eyebrow'), p(t, 0.05, 0.5), { y: 10, blur: 4 });
+      K.stagger(tw, t, 0.1, 0.06, 0.6, { y: 24, blur: 8 });
+      rise(K.$('#foot'), p(t, 0.5, 0.6), { y: 0, blur: 0 });
+      rise(K.$('#src'), p(t, 0.3, 0.7), { x: -40, y: 0, blur: 6 });
+      const starts = [1.2, 3.6, 6.0];
+      wires.forEach((w, i) => {
+        const s0 = starts[i];
+        w.path.style.strokeDashoffset = (w.len * (1 - p(t, s0, 0.8, ease.inOut3))).toFixed(1);
+        w.path.setAttribute('stroke', t > s0 + 0.8 ? '#0ea5e9' : '#c9c9d1');
+        w.path.style.opacity = t > s0 + 0.8 ? 0.45 : 1;
+        w.dots.forEach((dot, j) => {
+          const q = K.clamp((t - s0 - 0.5 - j * 0.35) / 0.9);
+          const pt = w.path.getPointAtLength(w.len * ease.inOut2(q));
+          dot.setAttribute('cx', pt.x.toFixed(1)); dot.setAttribute('cy', pt.y.toFixed(1));
+          dot.style.opacity = q > 0 && q < 1 ? 1 : 0;
+        });
+      });
+      rise(K.$('#sap'), p(t, 1.6, 0.6), { x: 40, y: 0, blur: 6 });
+      prRows.forEach((r, i) => rise(r, p(t, 2.1 + i * 0.25, 0.4), { y: 10, blur: 0 }));
+      rise(K.$('#prtot'), p(t, 3.4, 0.5), { y: 8, blur: 0 });
+      rise(K.$('#drv'), p(t, 4.0, 0.6), { x: 40, y: 0, blur: 6 });
+      docs.forEach((d, i) => rise(d, p(t, 4.5 + i * 0.25, 0.4), { y: 10, blur: 0 }));
+      rise(K.$('#crm'), p(t, 6.4, 0.6), { x: 40, y: 0, blur: 6 });
+      const moved = t > 7.6;
+      K.$('#sb').className = moved ? 'stg was' : 'stg on';
+      K.$('#sa').className = moved ? 'stg on' : 'stg';
+      tf(K.$('#sa'), { s: moved ? lerp(1.15, 1, p(t, 7.6, 0.4)) : 1 });
+    },
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "_note": "Names and lower thirds for the intro scenes. Edit freely; render.py reads this file. No company titles.",
+  "members": {
+    "mehul": {
+      "name": "Mehul Arora",
+      "lower_third": "Mehul Arora · AI engineer · Team Ordinal",
+      "role": "AI engineer",
+      "team": "Team Ordinal",
+      "photo": "../../deck/photos/mehul.jpg",
+      "audio": "audio/intro_mehul.wav",
+      "video": null
+    },
+    "jayadratha": {
+      "name": "Jayadratha Gayen",
+      "lower_third": "Jayadratha Gayen · AI research engineer · Team Ordinal",
+      "role": "AI research engineer",
+      "team": "Team Ordinal",
+      "photo": "../../deck/photos/jayadratha.jpg",
+      "audio": "audio/intro_jayadratha.wav",
+      "video": null
+    }
+  },
+  "end_card": {
+    "url": "https://kirchhoff.web.app",
+    "repo": "github.com/<REPO — fill when public>"
+  }
+}

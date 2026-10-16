@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S9 · End card</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #lock { position: absolute; left: 0; right: 0; top: 200px; display: flex; flex-direction: column; align-items: center; }
+  #row { display: flex; align-items: center; gap: 30px; }
+  #row svg { width: 110px; height: 110px; }
+  #name { font-size: 140px; }
+  #tag { margin-top: 22px; font-size: 46px; font-weight: 580; letter-spacing: -0.03em; }
+  #url { margin-top: 56px; display: inline-flex; align-items: center; gap: 16px; padding: 18px 34px; border-radius: 999px; background: var(--ink);
+         color: #fff; font-size: 44px; font-weight: 620; letter-spacing: -0.02em; }
+  #url .dot { width: 14px; height: 14px; border-radius: 50%; background: #22c55e; }
+  #repo { margin-top: 22px; font-family: var(--mono); font-size: 24px; color: var(--ink-2); }
+  #team { margin-top: 26px; font-size: 26px; color: var(--ink-3); }
+  #small { position: absolute; left: 0; right: 0; top: 860px; text-align: center; font-family: var(--mono); font-size: 18px; color: var(--ink-3); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="grid-fade"></div>
+  <div id="lock">
+    <div id="row"><span id="mk"></span><span id="name" class="display">Kirchhoff</span></div>
+    <div id="tag">AI designs. Physics checks. An engineer signs.</div>
+    <div id="url"><span class="dot"></span><span id="u"></span></div>
+    <div id="repo"></div>
+    <div id="team">Team Ordinal · Google Cloud AI Builder Cup 2026</div>
+  </div>
+  <div id="small">Demo companies, people and data are fictional · IEC-based, illustrative values, not for construction<br>SAP, Gmail and Google Drive connectors shown are sandboxes or simulations, not live customer integrations</div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise } = K;
+  const EC = (K.D.team && K.D.team.end_card) || {};
+  K.$('#mk').innerHTML = K.mark(110);
+  K.$('#u').textContent = String(EC.url || '').replace(/^https?:\/\//, '');
+  K.$('#repo').textContent = 'Code: ' + (EC.repo || '');
+  K.scene({
+    duration: 7.0,
+    hero: 5.0,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      rise(K.$('#row'), p(t, 0.1, 0.8), { y: 40, blur: 12, s: 0.96 });
+      rise(K.$('#tag'), p(t, 0.6, 0.7), { y: 20, blur: 8 });
+      rise(K.$('#url'), p(t, 1.2, 0.7), { y: 24, blur: 6, s: 0.94 });
+      rise(K.$('#repo'), p(t, 1.6, 0.6), { y: 12, blur: 4 });
+      rise(K.$('#team'), p(t, 1.9, 0.6), { y: 12, blur: 4 });
+      rise(K.$('#small'), p(t, 2.3, 0.6), { y: 0, blur: 0 });
+    },
+  });
+</script>
+</body>
+</html>

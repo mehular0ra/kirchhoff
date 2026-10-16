@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S1 · Title</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #lockup { position: absolute; left: 0; right: 0; top: 330px; display: flex; flex-direction: column; align-items: center; }
+  #row { display: flex; align-items: center; gap: 40px; }
+  #mark svg { width: 150px; height: 150px; display: block; }
+  #name { font-size: 196px; }
+  #name .word { display: inline-block; }
+  #by { margin-top: 26px; font-size: 44px; font-weight: 480; color: var(--ink-3); letter-spacing: -0.01em; }
+  #by b { color: var(--ink); font-weight: 600; }
+  #tag { position: absolute; left: 0; right: 0; top: 668px; text-align: center; font-size: 72px; font-weight: 600;
+         letter-spacing: -0.035em; }
+  #tag .ph { display: inline-block; margin: 0 18px; position: relative; }
+  #tag .ph.sign { color: var(--ink); }
+  #ul { position: absolute; left: -2px; right: 14px; bottom: -18px; height: 22px; overflow: visible; }
+  #sub { position: absolute; left: 0; right: 0; top: 806px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="grid-fade"></div>
+  <div id="lockup">
+    <div id="row"><div id="mark"></div><div id="name" class="display">Kirchhoff</div></div>
+    <div id="by">by <b>Ordinal</b></div>
+  </div>
+  <div id="tag">
+    <span class="ph" id="p1">AI designs.</span><span class="ph" id="p2">Physics checks.</span><span class="ph sign" id="p3">An engineer signs.<svg id="ul" viewBox="0 0 600 22" preserveAspectRatio="none"><path id="ulp" d="M4 14 C 120 6, 300 4, 596 10" fill="none" stroke="#0ea5e9" stroke-width="7" stroke-linecap="round"/></svg></span>
+  </div>
+  <div id="sub" class="eyebrow">AI MEP design for AI data-centre halls</div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp } = K;
+  K.$('#mark').innerHTML = K.mark(150);
+  const letters = (() => {
+    const el = K.$('#name'); const txt = el.textContent; el.textContent = '';
+    return [...txt].map((c) => K.el('span', 'word', c, el));
+  })();
+  const ulp = K.$('#ulp'); const ulLen = ulp.getTotalLength();
+  ulp.style.strokeDasharray = ulLen;
+
+  K.scene({
+    duration: 5.0,
+    hero: 4.6,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 1.2, ease.out2));
+      // mark pops, letters rise
+      const pm = p(t, 0.05, 0.7, ease.outBack);
+      tf(K.$('#mark'), { s: lerp(0.6, 1, pm), o: p(t, 0.05, 0.35), r: lerp(-12, 0, p(t, 0.05, 0.8)) });
+      letters.forEach((l, i) => rise(l, p(t, 0.28 + i * 0.045, 0.7, ease.out5), { y: 70, blur: 14 }));
+      rise(K.$('#by'), p(t, 0.95, 0.7), { y: 18, blur: 6 });
+      // lockup lifts to make room for the tagline
+      const lift = p(t, 1.85, 0.9, ease.inOut3);
+      tf(K.$('#lockup'), { y: lerp(40, -60, lift), s: lerp(1, 0.86, lift) });
+      rise(K.$('#p1'), p(t, 2.25, 0.6), { y: 36, blur: 10 });
+      rise(K.$('#p2'), p(t, 2.65, 0.6), { y: 36, blur: 10 });
+      rise(K.$('#p3'), p(t, 3.05, 0.6), { y: 36, blur: 10 });
+      ulp.style.strokeDashoffset = (ulLen * (1 - p(t, 3.55, 0.6, ease.inOut3))).toFixed(2);
+      rise(K.$('#sub'), p(t, 3.9, 0.6), { y: 12, blur: 4 });
+    },
+  });
+</script>
+</body>
+</html>

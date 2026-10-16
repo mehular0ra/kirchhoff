@@ -1,0 +1,4 @@
+out/
+lib/audio-*.js
+audio/*.wav
+audio/*.mp4

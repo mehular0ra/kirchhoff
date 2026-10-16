@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S2 · Problem</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #a { position: absolute; left: 0; right: 0; top: 250px; text-align: center; }
+  #big { display: inline-flex; align-items: baseline; gap: 28px; }
+  #kw { font-size: 300px; font-variant-numeric: tabular-nums; }
+  #kwu { font-size: 300px; color: var(--ink); }
+  #per { font-size: 64px; font-weight: 560; color: var(--ink-3); letter-spacing: -0.03em; }
+  #facts { margin-top: 34px; display: inline-flex; gap: 14px; }
+  #facts .chip { font-size: 24px; padding: 10px 18px; }
+  #b { position: absolute; left: 0; right: 0; top: 340px; text-align: center; }
+  #b .h1 { font-size: 104px; }
+  .pw { color: var(--power); }
+  .cl { color: var(--cool); }
+  #paths { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+  #c { position: absolute; left: 0; right: 0; top: 330px; text-align: center; }
+  #c .h1 { font-size: 132px; }
+  #months { position: relative; display: inline-block; color: var(--ink-4); }
+  #strike { position: absolute; left: -8px; right: -8px; top: 54%; height: 10px; background: var(--fail);
+            border-radius: 6px; transform-origin: 0 50%; }
+  #cfoot { margin-top: 36px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="grid-fade"></div>
+  <svg id="paths" viewBox="0 0 1920 1080">
+    <path id="pe" d="M -20 680 H 944" fill="none" stroke="#c2410c" stroke-width="6" stroke-linecap="round"/>
+    <g id="brk" fill="#fff" stroke="#c2410c" stroke-width="5">
+      <rect x="282" y="662" width="36" height="36" rx="4"/><rect x="602" y="662" width="36" height="36" rx="4"/>
+      <path d="M 291 671 L 309 689 M 611 671 L 629 689" stroke-linecap="round"/>
+    </g>
+    <path id="pc" d="M 1940 680 C 1760 600, 1640 760, 1460 680 S 1160 600, 976 680" fill="none" stroke="#1d4ed8" stroke-width="6" stroke-linecap="round"/>
+    <text id="le" x="40" y="650" font-family="Mono K" font-size="22" fill="#c2410c" letter-spacing="1">ELECTRICAL</text>
+    <text id="lc" x="1880" y="650" font-family="Mono K" font-size="22" fill="#1d4ed8" text-anchor="end" letter-spacing="1">COOLANT LOOP</text>
+    <circle id="node" cx="960" cy="680" r="18" fill="#0b0b0f"/>
+    <circle id="node2" cx="960" cy="680" r="7" fill="#0ea5e9"/>
+  </svg>
+  <div id="a">
+    <div class="eyebrow" id="ae">The problem · AI data halls</div>
+    <div id="big"><span id="kw" class="display tnum">0</span><span id="kwu" class="display">kW</span></div>
+    <div id="per">per rack</div>
+    <div id="facts"></div>
+  </div>
+  <div id="b">
+    <div class="h1"><span class="pw">Power</span> and <span class="cl">liquid cooling</span>,</div>
+    <div class="h1">designed together.</div>
+  </div>
+  <div id="c">
+    <div class="h1">In weeks, not <span id="months">months.<span id="strike"></span></span></div>
+    <div id="cfoot" class="lead">Senior MEP engineers are scarce. Tenders don't wait.</div>
+  </div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp } = K;
+  const D = K.D.design || {};
+  const facts = [
+    `${D.racks} racks`, `${D.it_mw} MW IT`, `${D.topology} power`, `${D.liquid_pct}% of heat to liquid`,
+  ];
+  K.$('#le').textContent = 'ELECTRICAL · ' + (D.topology || '');
+  const fx = facts.map((f) => K.el('span', 'chip mono', K.esc(f), K.$('#facts')));
+  const pe = K.$('#pe'), pc = K.$('#pc');
+  const le = pe.getTotalLength(), lc = pc.getTotalLength();
+  pe.style.strokeDasharray = le; pc.style.strokeDasharray = lc;
+  const bw = K.$$('#b .h1'), cw = K.words(K.$('#c .h1'));
+
+  K.scene({
+    duration: 9.0,
+    hero: 2.6,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      // A: the number, from the run
+      const outA = 1 - p(t, 3.0, 0.5, ease.in2);
+      rise(K.$('#ae'), p(t, 0.1, 0.6) * outA, { y: 12, blur: 4 });
+      const pk = p(t, 0.25, 1.4, ease.out3);
+      K.$('#kw').textContent = K.count(D.rack_kw, pk);
+      rise(K.$('#big'), p(t, 0.2, 0.7) * outA, { y: 50, blur: 14 });
+      rise(K.$('#per'), p(t, 0.9, 0.6) * outA, { y: 20, blur: 6 });
+      fx.forEach((f, i) => rise(f, p(t, 1.4 + i * 0.12, 0.5) * outA, { y: 16, blur: 4 }));
+      tf(K.$('#a'), { y: lerp(0, -60, p(t, 3.0, 0.5, ease.in2)), o: outA });
+      // B: two disciplines, one node
+      const outB = 1 - p(t, 6.0, 0.45, ease.in2);
+      bw.forEach((w, i) => rise(w, p(t, 3.35 + i * 0.22, 0.7) * outB, { y: 40, blur: 12 }));
+      pe.style.strokeDashoffset = (le * (1 - p(t, 3.5, 1.5, ease.inOut3))).toFixed(1);
+      pc.style.strokeDashoffset = (lc * (1 - p(t, 3.5, 1.5, ease.inOut3))).toFixed(1);
+      const pn = p(t, 4.8, 0.5, ease.outBack);
+      ['#node', '#node2'].forEach((id) => { const n = K.$(id); n.style.transformOrigin = '960px 680px'; n.style.transform = `scale(${pn})`; });
+      K.$('#paths').style.opacity = outB;
+      K.$('#brk').style.opacity = p(t, 3.9, 0.4);
+      K.$('#le').style.opacity = p(t, 3.7, 0.5); K.$('#lc').style.opacity = p(t, 3.7, 0.5);
+      tf(K.$('#b'), { y: lerp(0, -40, p(t, 6.0, 0.45, ease.in2)) });
+      // C: the time pressure
+      K.stagger(cw, t, 6.25, 0.1, 0.6, { y: 40, blur: 12 });
+      const ps = p(t, 7.3, 0.45, ease.inOut3);
+      K.$('#strike').style.transform = `scaleX(${ps})`;
+      rise(K.$('#cfoot'), p(t, 7.6, 0.6), { y: 16, blur: 4 });
+    },
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>S4 · Agents at work</title>
+<link rel="stylesheet" href="lib/stage.css">
+<style>
+  #title { position: absolute; left: 90px; top: 92px; }
+  #title .h3 { font-size: 46px; }
+  #gem { position: absolute; right: 90px; top: 112px; display: flex; align-items: center; gap: 14px; font-size: 22px; color: var(--ink-2); }
+  #gem img.ic { height: 34px; }
+  #gem img.vx { height: 34px; }
+  #lanes { position: absolute; left: 90px; top: 210px; width: 800px; display: flex; flex-direction: column; gap: 18px; }
+  .lane { position: relative; height: 146px; padding: 20px 24px; overflow: hidden; }
+  .lane .hd { display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 640; letter-spacing: -0.02em; }
+  .lane .dot { width: 14px; height: 14px; border-radius: 50%; }
+  .lane .st { margin-left: auto; font-family: var(--mono); font-size: 17px; color: var(--ink-3); }
+  .lane .bar { position: absolute; left: 0; bottom: 0; height: 4px; transform-origin: 0 50%; }
+  .lane .out { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .lane .out .chip { font-size: 21px; }
+  #planwrap { position: absolute; left: 950px; top: 210px; width: 880px; height: 638px; padding: 18px 20px; }
+  #planwrap .eyebrow { font-size: 16px; display: flex; justify-content: space-between; }
+  #plan { width: 840px; height: 560px; margin-top: 8px; }
+  .legend { display: flex; gap: 18px; font-family: var(--mono); font-size: 15px; color: var(--ink-3); }
+  .legend i { display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="footnote" id="foot">Illustration · every value read from the recorded run</div>
+  <div id="title"><div class="eyebrow">Step 2 · Agents design the hall</div><div class="h3" id="ttl">Four agents, one engineering model.</div></div>
+  <div id="gem"><img class="ic" src="assets/logos/gemini-icon.svg" alt=""><span>Gemini on</span><img class="vx" src="assets/logos/vertex-ai.svg" alt=""><span>Vertex AI</span></div>
+  <div id="lanes"></div>
+  <div id="planwrap" class="card">
+    <div class="eyebrow"><span id="ptitle"></span><span class="legend"><span><i style="background:#0b0b0f"></i>racks</span><span><i style="background:#c2410c"></i>busways</span><span><i style="background:#1d4ed8"></i>pipes</span></span></div>
+    <svg id="plan"></svg>
+  </div>
+</div>
+<script src="lib/data.js"></script>
+<script src="lib/stage.js"></script>
+<script src="lib/plan.js"></script>
+<script>
+  const { p, rise, ease, tf, lerp, esc } = K;
+  const D = K.D.design || {}, I = K.D.intake || {}, SW = D.swap || {};
+  K.$('#ptitle').textContent = `Plan · ${D.hall_w} × ${D.hall_d} m hall · ${D.racks} racks`;
+  const lanes = [
+    { name: 'Intake', color: '#475569', t0: 0.6, t1: 2.6, out: [I.label] },
+    { name: 'Power', color: '#c2410c', t0: 1.4, t1: 4.6,
+      out: [`${D.topology}`, `${D.tx_count} × ${D.tx_mva} MVA transformers`, `${D.ups_count} UPS`, `${D.busways} busways`] },
+    { name: 'Cooling', color: '#1d4ed8', t0: 1.6, t1: 4.9,
+      out: [`${D.cdu_count} × CDU · ${D.cdu_mw} MW`, `${D.pipes} pipe runs`, `${D.liquid_pct}% to liquid`] },
+    { name: 'Procurement', color: '#15803d', t0: 2.6, t1: 5.6,
+      out: SW.from_id ? [`${SW.from_id}: ${SW.from_lead} wk > ${SW.limit} wk`, `→ ${SW.to_id} · stock ${SW.to_stock}`] : [] },
+  ];
+  const laneEls = lanes.map((l) => {
+    const el = K.el('div', 'lane card flat', `<div class="hd"><span class="dot" style="background:${l.color}"></span>${l.name}
+      <span class="st"></span></div><div class="out">${l.out.map((o) => `<span class="chip mono">${esc(o)}</span>`).join('')}</div>
+      <div class="bar" style="background:${l.color}"></div>`, K.$('#lanes'));
+    return { el, st: K.$('.st', el), chips: K.$$('.chip', el), bar: K.$('.bar', el), ...l };
+  });
+  const P = K.plan(K.$('#plan'), D.plan, { width: 840, height: 560 });
+  const tw = K.words(K.$('#ttl'));
+
+  K.scene({
+    duration: 7.0,
+    hero: 6.2,
+    render(t) {
+      K.fade(K.$('#grid'), p(t, 0, 0.8));
+      rise(K.$('#title .eyebrow'), p(t, 0.05, 0.5), { y: 10, blur: 4 });
+      K.stagger(tw, t, 0.1, 0.05, 0.6, { y: 24, blur: 8 });
+      rise(K.$('#gem'), p(t, 0.4, 0.6), { y: 10, blur: 4 });
+      rise(K.$('#foot'), p(t, 0.6, 0.6), { y: 0, blur: 0 });
+      laneEls.forEach((l, i) => {
+        rise(l.el, p(t, 0.2 + i * 0.1, 0.6), { y: 30, blur: 6 });
+        const prog = K.clamp((t - l.t0) / (l.t1 - l.t0));
+        l.bar.style.transform = `scaleX(${prog.toFixed(4)})`;
+        l.st.textContent = t < l.t0 ? 'queued' : prog < 1 ? 'working…' : '✓ done';
+        l.st.style.color = prog >= 1 ? '#15803d' : '';
+        l.chips.forEach((c, j) => rise(c, p(t, l.t0 + 0.5 + j * ((l.t1 - l.t0 - 0.5) / Math.max(1, l.chips.length)), 0.45), { y: 10, blur: 4 }));
+      });
+      rise(K.$('#planwrap'), p(t, 0.3, 0.7), { y: 30, blur: 6 });
+      // layout drops racks row by row, then power and cooling route in parallel
+      P.racks.forEach((r, i) => { r.style.opacity = p(t, 1.0 + (i / P.racks.length) * 1.2, 0.25).toFixed(3); });
+      P.feeders.forEach((e, i) => K.drawTo(e, p(t, 2.2 + i * 0.12, 1.2, ease.inOut3)));
+      P.busways.forEach((e, i) => K.drawTo(e, p(t, 2.0 + i * 0.08, 0.6)));
+      P.pipes.forEach((e, i) => K.drawTo(e, p(t, 2.4 + i * 0.15, 1.0, ease.inOut3)));
+      P.cdus.forEach((c, i) => { c.style.opacity = p(t, 2.0 + i * 0.08, 0.3).toFixed(3); });
+    },
+  });
+</script>
+</body>
+</html>
