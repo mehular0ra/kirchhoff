@@ -27,6 +27,8 @@ type Shot = {
   file: string
   /** Opens the state and asserts what it must show. Returns the element to crop to, or nothing for a full-screen capture. */
   open: (page: Page) => Promise<Locator | void>
+  /** An explicit crop (CSS pixels) for a tile whose element is the whole page, where the element's own box would catch the fixed side panels. */
+  clipOf?: (page: Page) => Promise<{ x: number; y: number; width: number; height: number }>
   live?: boolean
 }
 
@@ -54,7 +56,11 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page, '?replay=1')
       await text(page, /quote verified/i) // needs the recorded run (golden capture)
-      return page.getByRole('navigation', { name: 'Agent lanes' })
+      const lanes = page.getByRole('navigation', { name: 'Agent lanes' })
+      await lanes.getByRole('button', { name: /Intake/ }).click() // expand: the verified quotes, the DXF read and the contradiction it found
+      await text(page, 'Contradiction found')
+      await settle(page, 800)
+      return lanes.getByRole('listitem').first() // the Intake lane itself, not the whole column
     },
   },
   {
@@ -76,7 +82,7 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page, '?tab=options')
       await text(page, /R15, line transformer/) // the R15 swap line on the 2N card: needs the options from the golden capture
-      return page.getByRole('tabpanel').first()
+      return page.getByRole('article', { name: 'Option 2N' }) // the 2N card with its R15 swap line, not the whole (mostly empty) tab panel
     },
   },
   {
@@ -106,8 +112,16 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await page.goto('/app/integrations')
       await expect(page.getByRole('region', { name: 'Latest handoff' })).toBeVisible(LONG)
+      await text(page, /Connected · last sync now/) // the cards first show the cached snapshot; the shot waits for the live sandbox
       await settle(page, 1000)
-      return page.getByRole('main')
+    },
+    // the content column from the heading to the last card, widened to 3:2 about its centre: the "Getting started" checklist stays out of the frame
+    clipOf: async (page) => {
+      const top = (await page.getByRole('heading', { name: 'Integrations', exact: true }).first().boundingBox())!.y - 14
+      const last = (await page.getByRole('button', { name: 'View data' }).last().boundingBox())!
+      const height = last.y + last.height + 22 - top
+      const width = height * 1.5
+      return { x: 960 - width / 2, y: top, width, height }
     },
   },
   {
@@ -203,7 +217,40 @@ const SHOTS: Shot[] = [
   },
 ]
 
-for (const shot of SHOTS) {
+/** Slide 5's nine tiles are 3:2: the crop is the named element widened or heightened to 3:2 around its centre (so a narrow lane or a small chain keeps its
+ *  surroundings instead of being stretched), and a tall element (the matrix) keeps its top part. Never leaves the 1920 x 1080 page. */
+const TILES = new Set(['s05-1-intake-quotes.png', 's05-2-hall-3d-tiers.png', 's05-3-compliance-matrix.png', 's05-4-option-r15-swap.png', 's05-5-impact-chain.png',
+  's05-7-review-stamp.png', 's05-8-integrations.png', 's05-9-solar-field.png'])
+/** Crops are taken at 2x pixel density, so a small element is still sharp on a slide; full-screen shots stay at 1x (1920 x 1080). */
+const SHARP = new Set([...TILES, 's07-finding-drawer-r05.png'])
+
+async function tileClip(page: Page, target: Locator, ratio = 3 / 2, pad = 16) {
+  await target.scrollIntoViewIfNeeded()
+  const b = await target.boundingBox()
+  if (!b) return null
+  const vp = page.viewportSize() ?? { width: 1920, height: 1080 }
+  let x = Math.max(0, b.x - pad), y = Math.max(0, b.y - pad)
+  let w = Math.min(b.width + 2 * pad, vp.width), h = Math.min(b.height + 2 * pad, vp.height)
+  if (b.height > vp.height) h = Math.min(w / ratio, vp.height) // taller than the screen: keep the top part
+  if (w / h > ratio) h = w / ratio
+  else w = h * ratio
+  w = Math.min(w, vp.width)
+  h = Math.min(h, vp.height)
+  if (w / h > ratio) w = h * ratio
+  else h = w / ratio
+  if (b.height <= vp.height) {
+    x = b.x + b.width / 2 - w / 2
+    y = b.y + b.height / 2 - h / 2
+  }
+  x = Math.max(0, Math.min(x, vp.width - w))
+  y = Math.max(0, Math.min(y, vp.height - h))
+  return { x, y, width: w, height: h }
+}
+
+for (const [scale, group] of [[2, SHOTS.filter((s) => SHARP.has(s.file))], [1, SHOTS.filter((s) => !SHARP.has(s.file))]] as const) {
+  test.describe(`shots at ${scale}x pixel density`, () => {
+    test.use({ deviceScaleFactor: scale })
+    for (const shot of group) {
   test(shot.file, async ({ page }) => {
     test.skip(shot.live === true && process.env.E2E_LIVE !== '1', 'needs the deployed agents: set E2E_LIVE=1')
     test.setTimeout(150_000)
@@ -213,7 +260,11 @@ for (const shot of SHOTS) {
     // (By text, not by role: an open finding drawer is a modal and hides the banner from the accessibility tree.)
     await expect(page.getByText('all companies, people and data are fictional').first()).toBeVisible()
     const file = path.join(OUT, shot.file)
-    if (target) await target.screenshot({ path: file })
+    const clip = shot.clipOf ? await shot.clipOf(page) : target && TILES.has(shot.file) ? await tileClip(page, target) : null
+    if (clip) await page.screenshot({ path: file, clip })
+    else if (target) await target.screenshot({ path: file })
     else await page.screenshot({ path: file })
+  })
+    }
   })
 }
