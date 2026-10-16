@@ -22,6 +22,8 @@ Options worth knowing:
   --previews          also write scenes/previews/<scene>.png at each scene's hero time
   --stills 1.5,4      write PNG frames at these times instead of video (for review)
   --no-jayadratha     leave out Jayadratha's optional intro
+  --check             only run the layout check: at each scene's final frame, no element may
+                      extend beyond its card (it also runs, as a warning, before every render)
   --intro-mehul-video clip.mp4   use a short video instead of the photo (its audio is used
                       unless --intro-mehul gives a separate WAV)
 
@@ -183,6 +185,47 @@ def shot(page, t: float) -> bytes:
     return page.screenshot(type="png", caret="hide", animations="disabled")
 
 
+# Every element inside a box must stay inside it (1 px tolerance). Boxes are .card elements and
+# anything marked data-box. SVG internals are skipped; the <svg> element itself is checked.
+OVERFLOW_JS = """
+() => {
+  const tol = 1, out = [];
+  const label = (e) => e.id ? '#' + e.id : (e.className && e.className.baseVal === undefined && e.className
+    ? e.tagName.toLowerCase() + '.' + String(e.className).trim().split(/\\s+/).join('.') : e.tagName.toLowerCase());
+  document.querySelectorAll('.card, [data-box]').forEach((box) => {
+    const b = box.getBoundingClientRect();
+    if (!b.width || !b.height) return;
+    box.querySelectorAll('*').forEach((el) => {
+      if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') return;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const over = [b.left - r.left, r.right - b.right, b.top - r.top, r.bottom - b.bottom].map((v) => Math.round(v));
+      if (Math.max(...over) > tol) {
+        const text = (el.textContent || '').trim().slice(0, 50);
+        out.push(`${label(box)} ⊃ ${label(el)} overflows by ${Math.max(...over)} px` + (text ? ` ("${text}")` : ''));
+      }
+    });
+  });
+  return out;
+}
+"""
+
+
+def check_overflow(browser, scenes) -> list[str]:
+    """Open each scene at its final frame and report any element that pokes out of its card."""
+    problems = []
+    for name, html, q, _ in scenes:
+        page, meta = open_scene(browser, html, q)
+        page.evaluate("t => window.__scene.setTime(t)", float(meta["duration"]))
+        found = page.evaluate(OVERFLOW_JS)
+        page.close()
+        print(f"  {name}: " + ("ok" if not found else f"{len(found)} overflow(s)"))
+        problems += [f"{name}: {f}" for f in found]
+    return problems
+
+
 def render_scene(browser, name: str, html: str, query: str, out: Path, audio: Path | None, crf: int) -> dict:
     page, meta = open_scene(browser, html, query)
     dur = float(meta["duration"])
@@ -225,6 +268,7 @@ def main() -> int:
     ap.add_argument("--intro-jayadratha", type=Path, help="Jayadratha's intro voice (WAV)")
     ap.add_argument("--intro-jayadratha-video", type=Path)
     ap.add_argument("--no-jayadratha", action="store_true", help="skip the optional Jayadratha intro")
+    ap.add_argument("--check", action="store_true", help="only run the overflow check (final frame of each scene)")
     ap.add_argument("--crf", type=int, default=16)
     ap.add_argument("--project", default="hall-a")
     ap.add_argument("--email", default="em-hall-b")
@@ -270,6 +314,13 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--force-color-profile=srgb", "--font-render-hinting=none",
                                           "--disable-lcd-text", "--allow-file-access-from-files"])
+        print("layout check: nothing may overflow its card (final frame)")
+        problems = check_overflow(browser, scenes)
+        for pr in problems:
+            print(f"  OVERFLOW {pr}")
+        if args.check:
+            browser.close()
+            return 1 if problems else 0
         if args.stills:
             print("3/4 stills")
             sd = out / "stills"
