@@ -178,7 +178,8 @@ The intro scene lasts as long as the recording, plus 1 s. If Mehul's intro runs 
 | 149 checks, 147 pass, 2 fail; r2 149 pass, 0 fail | `projects/hall-a.json`, `revisions[].check_summary` |
 | FA-01 2.16% > 2.0% (§4.6); H-Z2 over FB-03 (§6.3.4); fix costs | `projects/hall-a.json`, `findings.r1` |
 | TX-2500 98 wk, stock 0 → TX-3150 stock 6; 26-week clause | ledger entry plus `integrations.json` ERP materials; R15 limit |
-| Pursue, 6.336 MW, Telangana, 27 days to bid due | `inbox.json` (`em-hall-b`); derived from the email and appetite rules until a frozen triage exists |
+| Pursue, 6.34 MW, Telangana, 28 days to bid due, supply-swap sentence | `inbox.json` (`em-hall-b`) captured triage: `fit.reasons`, `fit.supply.text`, `fields` |
 | 7 PRs, 13 lines, $5.83M; 4 documents; CRM "Design in progress → Design approved" | `projects/hall-a.json` `prs` and `crm`, `integrations.json` |
 | Approver, time, hash cc379d7570ef | `projects/hall-a.json` `approvals`, `revisions[-1].hash` |
-| 8 ms, 18 impact chains, N/M quotes verified | product footage only (beats 6 and 12); read them off the recorded clip |
+| 25/26 quotes verified (S4 intake lane) | `projects/hall-a.json` `brief.requirements[].verified` |
+| 8 ms, 18 impact chains | product footage only (beat 12); read them off the recorded clip |

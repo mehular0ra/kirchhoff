@@ -38,9 +38,7 @@ uv run --with google-genai python docs/submission/video/transcribe.py \
 
 `render.py` re-runs `build_data.py` first, which prints every number it will draw and a WARNING for anything it had to derive. The MP4s go to `scenes/out/`, which is git-ignored, together with `render-manifest.json`, which lists durations and frame hashes. Frames are a pure function of time. Repeat renders match frame for frame; a few blurred frames during motion can differ by sub-visible rounding (65 dB PSNR).
 
-**Re-render after the golden capture.** It rewrites `hall-a.json`, `inbox.json` and `integrations.json`. Two values are derived until the capture fills them in:
-- the fit card (`inbox.json` triage is still null for `em-hall-b`, so the verdict comes from the email and the appetite rules);
-- the intake line, which shows "11 tender clauses cited" until `hall-a.json` has a `brief` with verified requirements; it then reads "N/M quotes verified".
+**Re-render after every capture.** The golden capture (`d9b6f46`) rewrote `hall-a.json`, `inbox.json` and `integrations.json`. The scenes were re-rendered from it: S3 now shows the captured triage (fields, the four main fit reasons and the supply sentence), and S4 shows "25/26 quotes verified". `render.py --check` runs before every render. It fails a scene if any visible element pokes out of its card at 8 sample times, including the final frame, so longer data shows up as an error rather than a clipped frame.
 
 ## 2. Beat table
 
@@ -114,7 +112,7 @@ The script was tested only in `--dry-run` mode, on one clip made with macOS `say
 ## 6. Open items
 
 1. Mehul's intro recording, and Jayadratha's if it is used, then a re-render of the intro clips. The current intro clips carry a silent placeholder track and read "voice track pending".
-2. The golden capture, then a re-render of all scenes. Check the WARNING lines from `build_data.py`.
+2. Done for `d9b6f46`. Re-render again after any later capture; `build_data.py` prints WARNING lines for anything it has to derive.
 3. The repo URL in `scenes/team.json`.
 4. Fold the v2 clip order into `assemble.sh` after #25.
 5. Music, as before: optional and royalty-free only, never under the intro voice.

@@ -8,7 +8,7 @@
   #title { position: absolute; left: 90px; top: 92px; }
   #title .h3 { font-size: 46px; }
   /* Gmail (sandbox) */
-  #gmail { position: absolute; left: 90px; top: 196px; width: 930px; height: 500px; overflow: hidden; }
+  #gmail { position: absolute; left: 90px; top: 186px; width: 930px; height: 500px; overflow: hidden; }
   .gm-head { display: flex; align-items: center; gap: 16px; height: 78px; padding: 0 26px; border-bottom: 1px solid var(--line); }
   .gm-head img { height: 34px; }
   .gm-head .nm { font-size: 28px; font-weight: 560; color: var(--ink-2); letter-spacing: -0.01em; }
@@ -27,11 +27,12 @@
   .att { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border: 1px solid var(--line-2);
          border-radius: 10px; background: #fff; font-size: 17px; color: var(--ink-2); max-width: 380px; white-space: nowrap;
          overflow: hidden; text-overflow: ellipsis; }
+  .att .an { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pdf { flex: none; display: inline-grid; place-items: center; width: 30px; height: 22px; border-radius: 4px; background: #d93025;
          color: #fff; font: 700 11px var(--sans); letter-spacing: 0.02em; }
   #gtag { position: absolute; right: 24px; top: 22px; }
   /* other client systems */
-  .src { position: absolute; top: 722px; width: 455px; height: 122px; padding: 18px 22px; }
+  .src { position: absolute; top: 712px; width: 455px; height: 122px; padding: 18px 22px; }
   .src .hd { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 600; }
   .src .hd img { height: 30px; }
   .src .ln { margin-top: 14px; display: flex; align-items: center; gap: 10px; font-size: 19px; color: var(--ink-2); }
@@ -39,31 +40,34 @@
   #ariba { left: 90px; }
   #drive { left: 565px; }
   /* Kirchhoff bids inbox */
-  #kb { position: absolute; left: 1100px; top: 196px; width: 730px; height: 674px; padding: 0; overflow: hidden; }
+  #kb { position: absolute; left: 1100px; top: 186px; width: 730px; height: 700px; padding: 0 0 20px; overflow: hidden; }
   .kb-head { display: flex; align-items: center; gap: 14px; height: 78px; padding: 0 26px; border-bottom: 1px solid var(--line); }
   .kb-head .nm { font-size: 28px; font-weight: 640; letter-spacing: -0.02em; }
   .kb-head .st { margin-left: auto; }
-  .sec { padding: 16px 26px 0; }
+  .sec { padding: 14px 26px 0; }
+  #docsec { overflow: hidden; }
   .sec .eyebrow { font-size: 16px; }
   .doc { display: flex; align-items: center; gap: 12px; height: 46px; font-size: 20px; color: var(--ink-2); }
   .doc .kind { margin-left: auto; font-family: var(--mono); font-size: 16px; color: var(--ink-3); padding: 3px 10px;
                border-radius: 6px; background: var(--bg-sunk); }
   .doc .via { font-family: var(--mono); font-size: 15px; color: var(--ink-4); }
-  #fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 12px; margin-top: 10px; }
-  .fld { display: flex; flex-direction: column; padding: 10px 14px; border-radius: 12px; background: var(--bg-soft); }
-  .fld .l { font-family: var(--mono); font-size: 15px; color: var(--ink-3); display: flex; justify-content: space-between; }
+  #fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; margin-top: 10px; }
+  .fld { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 12px; background: var(--bg-soft); min-width: 0; }
+  .fld .l { font-family: var(--mono); font-size: 14px; color: var(--ink-3); display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+  .fld .l > span:first-child { min-width: 0; }
   .fld .l .ok { color: var(--pass); }
-  .fld .v { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #fit { position: absolute; left: 26px; right: 26px; bottom: 22px; height: 178px; border-radius: 16px; border: 1.5px solid #bfe8cf;
-         background: linear-gradient(180deg, #f3fbf6, #ffffff); padding: 18px 22px; }
+  .fld .v { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; line-height: 1.25; overflow-wrap: break-word; }
+  #fit { margin: 14px 26px 0; border-radius: 16px; border: 1.5px solid #bfe8cf;
+         background: linear-gradient(180deg, #f3fbf6, #ffffff); padding: 16px 22px 16px; }
   #fit .top { display: flex; align-items: center; gap: 16px; }
   #verdict { display: inline-flex; align-items: center; gap: 12px; padding: 8px 20px 8px 10px; border-radius: 999px; background: var(--pass);
              color: #fff; font-size: 30px; font-weight: 680; letter-spacing: -0.01em; }
   #verdict .icon-ok { background: #fff; color: var(--pass); }
   #fit .rule { font-family: var(--mono); font-size: 16px; color: var(--ink-3); }
-  #reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-top: 12px; font-size: 19px; color: var(--ink-2); white-space: nowrap; }
-  #reasons div::before { content: "✓ "; color: var(--pass); font-weight: 700; }
-  #supply { margin-top: 10px; font-size: 18px; font-weight: 520; color: #9a3412; line-height: 1.3; overflow-wrap: anywhere; }
+  #reasons { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 19px; line-height: 1.3; color: var(--ink-2); }
+  #reasons div { position: relative; padding-left: 28px; max-height: 2.6em; }
+  #reasons div::before { content: "✓"; position: absolute; left: 2px; top: 0; color: var(--pass); font-weight: 800; }
+  #supply { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #fff7ed; font-size: 17px; font-weight: 520; color: #9a3412; line-height: 1.3; }
   .fly { position: absolute; z-index: 20; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 10px; border-radius: 12px;
          background: #fff; border: 1px solid var(--line-2); box-shadow: var(--shadow-lg); font-size: 18px; color: var(--ink-2); white-space: nowrap; }
   #arc { position: absolute; inset: 0; z-index: 15; pointer-events: none; }
@@ -92,7 +96,7 @@
 
   <div id="kb" class="card">
     <div class="kb-head"><span id="kmark"></span><span class="nm">Kirchhoff · Bids inbox</span><span class="st" id="status"></span></div>
-    <div class="sec"><div class="eyebrow">Documents</div><div id="docs"></div></div>
+    <div class="sec" id="docsec"><div class="eyebrow">Documents</div><div id="docs"></div></div>
     <div class="sec"><div class="eyebrow">Extracted · each quote found in the source</div><div id="fields"></div></div>
     <div id="fit" data-box>
       <div class="top"><span id="verdict"><span class="icon-ok">✓</span><span id="vtext"></span></span><span class="rule">Fit check · deterministic, no LLM</span></div>
@@ -121,7 +125,7 @@
   const newRow = K.el('div', 'row new', `
       <span class="from">${esc(E.from_name)}<br><span style="font-weight:500;color:var(--ink-3);font-size:19px">${esc(E.from_org)}</span></span>
       <span class="subj"><b>${esc(E.subject)}</b>
-        <div class="atts">${att.slice(0, 1).map((a) => `<span class="att"><span class="pdf">PDF</span>${esc(a)}</span>`).join('')}
+        <div class="atts">${att.slice(0, 1).map((a) => `<span class="att"><span class="pdf">PDF</span><span class="an">${esc(a)}</span></span>`).join('')}
         ${att.length > 1 ? `<span class="att" style="color:var(--ink-3)">+${att.length - 1} more</span>` : ''}</div></span>
       <span class="day">${esc(E.received)}</span>`, rows);
   const oldRows = (E.others || []).slice(0, 3).map((o) =>
@@ -134,23 +138,26 @@
   // Kirchhoff side
   const docRows = att.map((a, i) => K.el('div', 'doc', `<span class="pdf">PDF</span><span>${esc(a)}</span>
       <span class="via">${['Gmail', 'Drive', 'Ariba'][i] || ''}</span><span class="kind">${kindOf(a)}</span>`, K.$('#docs')));
-  const flds = (E.fields || []).slice(0, 6).map((f) => K.el('div', 'fld', `<span class="l"><span>${esc(f.label)}</span>
+  const flds = (E.fields || []).slice(0, 9).map((f) => K.el('div', 'fld', `<span class="l"><span>${esc(f.label)}</span>
       <span class="${f.verified ? 'ok' : ''}">${f.verified ? '✓ found' : 'unverified'}</span></span><span class="v">${esc(f.display)}</span>`, K.$('#fields')));
   const fit = E.fit || {};
   K.$('#vtext').textContent = fit.verdict ? fit.verdict[0].toUpperCase() + fit.verdict.slice(1) : '–';
   const reasons = (fit.reasons || []).slice(0, 4).map((r) => K.el('div', '', esc(r), K.$('#reasons')));
   const S = E.supply;
-  K.$('#supply').textContent = S ? `Supply check: ${S.unit} · ${S.lead_weeks} wk lead > ${S.limit_weeks} wk clause → in-stock swap` : '';
+  K.$('#supply').textContent = fit.supply_text ? `Supply: ${fit.supply_text}`
+    : S ? `Supply check: ${S.unit} · ${S.lead_weeks} wk lead > ${S.limit_weeks} wk clause → in-stock swap` : '';
   const status = K.$('#status');
   const titleWords = K.words(K.$('#ttl'));
 
   // Flying documents: from each source to its row in the bids inbox.
   const flies = [];
+  let docH = 0;
   const arcs = [];
   K.scene({
     duration: 14.0,
     hero: 12.4,
     setup() {
+      docH = K.$('#docsec').getBoundingClientRect().height;
       const src = [K.$('.row.new .att'), K.$('#dln'), K.$('#aln')];
       docRows.forEach((d, i) => {
         const a = src[i] && src[i].getBoundingClientRect();
@@ -202,6 +209,12 @@
       });
       // fields, each with its quote found
       flds.forEach((f, i) => rise(f, p(t, 5.2 + i * 0.32, 0.5), { y: 14, blur: 4 }));
+      // the documents list folds away to make room for the verdict
+      const fold = p(t, 8.2, 0.6, ease.inOut3);
+      K.$('#docsec').style.height = docH ? (docH * (1 - fold)).toFixed(1) + 'px' : '';
+      K.$('#docsec').style.opacity = (1 - fold).toFixed(3);
+      K.$('#docsec').style.paddingTop = (14 * (1 - fold)).toFixed(1) + 'px';
+      K.$('#fit').style.display = t < 8.5 ? 'none' : '';
       // fit verdict
       rise(K.$('#fit'), p(t, 8.6, 0.6), { y: 24, blur: 4 });
       const pv = p(t, 8.9, 0.6, ease.outBack);

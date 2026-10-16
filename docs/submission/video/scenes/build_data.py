@@ -91,6 +91,8 @@ def build_email(inbox: dict, email_id: str, materials: dict, lead_limit: float |
     verdict = None
     reasons: list[str] = []
     fit_source = "triage"
+    supply_text = None
+    headline = None
     if triage:
         verdict = (triage.get("fit") or {}).get("verdict") or triage.get("verdict")
         for fld in triage.get("fields", []):
@@ -101,8 +103,15 @@ def build_email(inbox: dict, email_id: str, materials: dict, lead_limit: float |
                 "verified": fld.get("verification") == "verified",
             })
         fit = triage.get("fit") or {}
-        for r in fit.get("reasons", []) or []:
-            reasons.append(r.get("text") if isinstance(r, dict) else str(r))
+        # The four reasons a viewer needs, in this order; the supply reason gets its own line.
+        order = ["asset_pack", "mw_range", "region", "deadline"]
+        raw = [r if isinstance(r, dict) else {"rule": "", "text": str(r)} for r in fit.get("reasons", []) or []]
+        ranked = sorted((r for r in raw if r.get("rule") != "supply"),
+                        key=lambda r: order.index(r["rule"]) if r.get("rule") in order else len(order))
+        reasons = [r["text"] for r in ranked[:4]]
+        supply_text = (fit.get("supply") or {}).get("text") or next(
+            (r["text"] for r in raw if r.get("rule") == "supply"), None)
+        headline = fit.get("headline")
     else:
         # The static inbox has no frozen triage for the live email. Derive the same
         # deterministic fit inputs from the email itself (no LLM): every value below is
@@ -170,7 +179,8 @@ def build_email(inbox: dict, email_id: str, materials: dict, lead_limit: float |
                     "day": when(o.get("received_at"), "%d %b"), "has_att": bool(o.get("attachments"))}
                    for o in others],
         "fields": fields,
-        "fit": {"verdict": verdict, "reasons": reasons, "source": fit_source},
+        "fit": {"verdict": verdict, "reasons": reasons, "source": fit_source, "headline": headline,
+                "supply_text": supply_text},
         "supply": supply,
     }
 

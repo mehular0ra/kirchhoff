@@ -4,15 +4,15 @@ window.KDATA = {
  "sources": {
   "project": {
    "path": "apps/web/public/demo/projects/hall-a.json",
-   "sha256_12": "9aaf0b0f0c46"
+   "sha256_12": "fa0ea9c5bf53"
   },
   "inbox": {
    "path": "apps/web/public/demo/inbox.json",
-   "sha256_12": "a0446419bafc"
+   "sha256_12": "e7d76fc8b60a"
   },
   "integrations": {
    "path": "apps/web/public/demo/integrations.json",
-   "sha256_12": "3a49855fd095"
+   "sha256_12": "00fbf6fc9d54"
   },
   "team": {
    "path": "docs/submission/video/scenes/team.json",
@@ -107,30 +107,36 @@ window.KDATA = {
    },
    {
     "label": "Site",
-    "display": "Telangana",
+    "display": "AI campus near Hyderabad, Telangana",
+    "source": "Email body",
+    "verified": true
+   },
+   {
+    "label": "Asset type",
+    "display": "AI data hall",
     "source": "Email body",
     "verified": true
    },
    {
     "label": "Load",
-    "display": "6.336 MW",
+    "display": "6.34 MW",
     "source": "Email body",
     "verified": true
    },
    {
-    "label": "Racks",
-    "display": "48",
-    "source": "Email body",
+    "label": "Redundancy",
+    "display": "2N",
+    "source": "DC-HA-TS-001 Rev 0 technical requirements.pdf · p.4",
     "verified": true
    },
    {
     "label": "Bid due",
-    "display": "13 November 2026",
+    "display": "13 Nov 2026",
     "source": "Email body",
     "verified": true
    },
    {
-    "label": "Lead-time clause",
+    "label": "Lead-time limit",
     "display": "26 weeks",
     "source": "Email body",
     "verified": true
@@ -139,12 +145,14 @@ window.KDATA = {
   "fit": {
    "verdict": "pursue",
    "reasons": [
-    "AI data hall · in appetite",
-    "6.336 MW · within 2–120 MW",
-    "Telangana · in region",
-    "27 days to bid due · ≥ 10"
+    "AI data hall is one of our asset packs.",
+    "6.34 MW is inside our 2–120 MW range.",
+    "AI campus near Hyderabad, Telangana is in Telangana, one of our regions.",
+    "Bid due 13 Nov 2026: 28 days from 16 Oct 2026 (minimum 10)."
    ],
-   "source": "derived from inbox.json (triage not frozen yet)"
+   "source": "triage",
+   "headline": "Pursue: inside our appetite; plan the transformer swap the lead-time limit needs.",
+   "supply_text": "26-week limit; the 2.5 MVA unit TX-2500 is 98 weeks with none in stock; expect an in-stock swap to TX-3150 (3.15 MVA, 6 in stock)."
   },
   "supply": {
    "unit": "2.5 MVA",
@@ -154,11 +162,11 @@ window.KDATA = {
   }
  },
  "intake": {
-  "source": "findings.tender_refs",
-  "verified": 11,
-  "total": 11,
-  "open_questions": null,
-  "label": "11 tender clauses cited · quote found on page"
+  "source": "brief",
+  "verified": 25,
+  "total": 26,
+  "open_questions": 1,
+  "label": "25/26 quotes verified"
  },
  "design": {
   "racks": 48,
@@ -304,12 +312,6 @@ window.KDATA = {
      36.0,
      46.0
     ],
-    "gallery": [
-     0.0,
-     28.0,
-     60.0,
-     33.0
-    ],
     "bay-Z1": [
      7.0,
      28.0,
@@ -326,6 +328,12 @@ window.KDATA = {
      40.6,
      28.0,
      45.4,
+     33.0
+    ],
+    "gallery": [
+     0.0,
+     28.0,
+     60.0,
      33.0
     ]
    },
@@ -1276,7 +1284,7 @@ window.KDATA = {
     "agent": "power",
     "fix_label": "Replace FA-01 with a parallel cable feeder",
     "fix_cost": "+$15,580",
-    "criterion": "largest voltage-drop margin per dollar",
+    "criterion": "largest voltage-drop margin per dollar, that is the limit minus the resulting drop, divided by the cost delta",
     "at": null,
     "alt_label": "Upsize FA-01 to 2,000 A busway",
     "alt_cost": "+$11,480"
@@ -1292,7 +1300,7 @@ window.KDATA = {
     "agent": "cooling",
     "fix_label": "Drop H-Z2 to the low pipe tier where it crosses FB-03",
     "fix_cost": "+$420",
-    "criterion": "fewest changed pipe segments, then cost",
+    "criterion": "fewest changed pipe segments (least disruption to coordinated routes), then lowest cost",
     "at": [
      28.0,
      24.0
@@ -1477,8 +1485,8 @@ window.KDATA = {
   "revision": "r2",
   "hash": "cc379d7570ef",
   "comment": "Checked the fixes and the assumptions ledger. Approved for procurement.",
-  "not_checked": 9,
-  "assumptions": 1
+  "not_checked": 10,
+  "assumptions": 2
  },
  "handoff": {
   "pr_count": 7,
@@ -1539,8 +1547,5 @@ window.KDATA = {
   "opportunities": 9
  },
  "notice": "Demo workspace — all companies, people and data are fictional",
- "warnings": [
-  "inbox triage for em-hall-b is null: fit card derived from the email body and appetite rules",
-  "project bundle has no brief yet: intake shows the tender clauses the checker cites instead"
- ]
+ "warnings": []
 };

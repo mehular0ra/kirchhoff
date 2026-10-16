@@ -22,8 +22,9 @@ Options worth knowing:
   --previews          also write scenes/previews/<scene>.png at each scene's hero time
   --stills 1.5,4      write PNG frames at these times instead of video (for review)
   --no-jayadratha     leave out Jayadratha's optional intro
-  --check             only run the layout check: at each scene's final frame, no element may
-                      extend beyond its card (it also runs, as a warning, before every render)
+  --check             only run the layout check: at 8 times per scene (incl. the final frame), no
+                      visible element may extend beyond its card; exits 1 on any overflow (it also
+                      runs, as a warning, before every render)
   --intro-mehul-video clip.mp4   use a short video instead of the photo (its audio is used
                       unless --intro-mehul gives a separate WAV)
 
@@ -199,6 +200,9 @@ OVERFLOW_JS = """
       if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') return;
       const cs = getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      let a = 1;  // skip elements that are still (nearly) invisible mid-animation
+      for (let n = el; n && n !== box.parentElement; n = n.parentElement) a *= parseFloat(getComputedStyle(n).opacity);
+      if (a < 0.05) return;
       const r = el.getBoundingClientRect();
       if (!r.width || !r.height) return;
       const over = [b.left - r.left, r.right - b.right, b.top - r.top, r.bottom - b.bottom].map((v) => Math.round(v));
@@ -213,13 +217,18 @@ OVERFLOW_JS = """
 """
 
 
-def check_overflow(browser, scenes) -> list[str]:
-    """Open each scene at its final frame and report any element that pokes out of its card."""
+def check_overflow(browser, scenes, samples: int = 8) -> list[str]:
+    """Report any visible element that pokes out of its card: at the final frame, and at `samples`
+    evenly spaced times before it (layouts change mid-scene, e.g. S3 folds its document list)."""
     problems = []
     for name, html, q, _ in scenes:
         page, meta = open_scene(browser, html, q)
-        page.evaluate("t => window.__scene.setTime(t)", float(meta["duration"]))
-        found = page.evaluate(OVERFLOW_JS)
+        dur = float(meta["duration"])
+        found: list[str] = []
+        for k in range(1, samples + 1):
+            t = dur * k / samples
+            page.evaluate("t => window.__scene.setTime(t)", t)
+            found += [f"@{t:.1f}s {f}" for f in page.evaluate(OVERFLOW_JS) if f"{f}" not in " ".join(found)]
         page.close()
         print(f"  {name}: " + ("ok" if not found else f"{len(found)} overflow(s)"))
         problems += [f"{name}: {f}" for f in found]
@@ -314,7 +323,7 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--force-color-profile=srgb", "--font-render-hinting=none",
                                           "--disable-lcd-text", "--allow-file-access-from-files"])
-        print("layout check: nothing may overflow its card (final frame)")
+        print("layout check: nothing visible may overflow its card (8 times per scene, incl. the final frame)")
         problems = check_overflow(browser, scenes)
         for pr in problems:
             print(f"  OVERFLOW {pr}")
