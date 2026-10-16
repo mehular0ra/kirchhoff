@@ -221,7 +221,7 @@ export function AssetPackPage({ pack, pid }: { pack: 'grid' | 'solar'; pid: stri
         <Link to="/app" className="text-sm text-muted-foreground hover:text-foreground">
           Projects
         </Link>
-        <span className="text-zinc-400">/</span>
+        <span aria-hidden className="text-muted-foreground">/</span>
         <Icon aria-hidden className="size-4 text-teal-700" />
         {/* The project name when known, else the pack label — never the raw slug (D11). */}
         <h1 className="text-xl font-semibold tracking-tight">{name ?? packLabel}</h1>
