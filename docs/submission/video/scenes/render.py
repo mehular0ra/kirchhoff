@@ -106,7 +106,8 @@ LEAD_S = 0.4  # the picture settles for 0.4 s before the voice starts
 
 
 def trim_silence(src: Path, dst: Path, pad: float = 0.25) -> Path:
-    """Cut leading and trailing room tone (the record command runs a fixed 15 s), keep `pad` s either side."""
+    """Cut leading and trailing room tone (the record command runs a fixed length), keep `pad` s either side;
+    then high-pass, denoise, fade the edges and normalise to -16 LUFS."""
     env = envelope(src, dst.parent)
     e, rate = env["env"], env["rate"]
     speech = [i for i, v in enumerate(e) if v > 0.12]
@@ -114,9 +115,13 @@ def trim_silence(src: Path, dst: Path, pad: float = 0.25) -> Path:
         return src
     a = max(0.0, speech[0] / rate - pad)
     b = min(env["duration"], speech[-1] / rate + pad + 0.1)
-    run([FFMPEG, "-y", "-loglevel", "error", "-i", str(src), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-ac", "1",
-         "-ar", "48000", str(dst)])
-    print(f"  trimmed {src.name}: {a:.2f}–{b:.2f} s of {env['duration']:.2f} s")
+    # Trim first, then clean: loudness normalisation lifts the room tone, so trimming after it finds no edges
+    # (16 Oct, Mehul's laptop mic: room tone at about -50 dB, speech at about -28 dB).
+    clean = (f"highpass=f=80,afftdn=nr=12:nf=-48,afade=t=in:d=0.08,afade=t=out:st={max(0.0, b - a - 0.25):.3f}:d=0.25,"
+             "loudnorm=I=-16:TP=-1.5:LRA=11")
+    run([FFMPEG, "-y", "-loglevel", "error", "-i", str(src), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-af", clean,
+         "-ac", "1", "-ar", "48000", str(dst)])
+    print(f"  trimmed and cleaned {src.name}: {a:.2f}–{b:.2f} s of {env['duration']:.2f} s, -16 LUFS")
     return dst
 
 
