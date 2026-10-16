@@ -34,21 +34,24 @@ function GeometryView({ geometry }: { geometry: Record<string, unknown> }) {
   // y is north-up in engine coordinates; flip for SVG.
   const pt = ([x, y]: [number, number]) => `${x},${y0 + h - (y - y0)}`
   const stroke = Math.max(w, h) / 300
+  // On white: a teal site boundary on a faint teal wash, pale-blue module tables with blue edges, the
+  // cable route in amber-600, graphite points with muted labels (site drawing colours, no data change).
+  const ink = { site: '#0d9488', siteFill: 'rgba(13,148,136,0.06)', table: '#dbeafe', tableEdge: '#2563eb', route: '#d97706', point: '#334155', label: '#5b6270' }
   return (
     <svg role="img" aria-label="Site geometry" viewBox={`${x0} ${y0} ${w} ${h}`} className="h-64 w-full rounded border bg-surface">
       {s.polygons.map((p) => (
-        <polygon key={p.id} points={p.points.map(pt).join(' ')} fill="rgba(45,212,191,0.08)" stroke="#2dd4bf" strokeWidth={stroke} />
+        <polygon key={p.id} points={p.points.map(pt).join(' ')} fill={ink.siteFill} stroke={ink.site} strokeWidth={stroke} />
       ))}
       {s.rects.map(({ id, r }) => (
-        <rect key={id} x={r[0]} y={y0 + h - (r[3] - y0)} width={r[2] - r[0]} height={r[3] - r[1]} fill="#1e3a5f" stroke="#60a5fa" strokeWidth={stroke / 2} />
+        <rect key={id} x={r[0]} y={y0 + h - (r[3] - y0)} width={r[2] - r[0]} height={r[3] - r[1]} fill={ink.table} stroke={ink.tableEdge} strokeWidth={stroke / 2} />
       ))}
       {s.lines.map((l) => (
-        <polyline key={l.id} points={l.points.map(pt).join(' ')} fill="none" stroke="#fbbf24" strokeWidth={stroke * 1.5} />
+        <polyline key={l.id} points={l.points.map(pt).join(' ')} fill="none" stroke={ink.route} strokeWidth={stroke * 1.5} />
       ))}
       {s.points.map((p) => (
         <g key={p.id}>
-          <circle cx={p.p[0]} cy={y0 + h - (p.p[1] - y0)} r={stroke * 4} fill="#e4e4e7" />
-          <text x={p.p[0]} y={y0 + h - (p.p[1] - y0) - stroke * 6} fontSize={stroke * 10} fill="#a1a1aa" textAnchor="middle">
+          <circle cx={p.p[0]} cy={y0 + h - (p.p[1] - y0)} r={stroke * 4} fill={ink.point} />
+          <text x={p.p[0]} y={y0 + h - (p.p[1] - y0) - stroke * 6} fontSize={stroke * 10} fill={ink.label} textAnchor="middle">
             {p.id}
           </text>
         </g>

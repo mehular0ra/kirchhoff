@@ -27,7 +27,7 @@ export interface SldNodeData extends Record<string, unknown> {
 }
 export type SldFlowNode = Node<SldNodeData, 'sld'>
 
-const stroke = '#a1a1aa'
+const stroke = '#4b5563' // IEC symbol line work: graphite on the white node
 
 function Symbol({ kind }: { kind: SldKind }) {
   switch (kind) {
@@ -116,15 +116,15 @@ function SldNodeImpl({ data }: NodeProps<SldFlowNode>) {
         data.activate()
       }}
       className={cn(
-        'flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md border bg-background px-2 text-center transition-[opacity,border-color,box-shadow] duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600',
+        'flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-md border bg-background px-2 text-center shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-[opacity,border-color,box-shadow] duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600',
         st ? st.border : 'border-zinc-300',
-        data.status === 'fail' && 'shadow-[0_0_14px_rgba(251,113,133,0.45)]',
+        data.status === 'fail' && 'border-rose-500 shadow-[0_0_0_3px_rgba(225,29,72,0.14)]',
         data.change === 'changed' && 'border-dashed border-amber-500',
-        data.resolved && 'border-emerald-500 shadow-[0_0_14px_rgba(52,211,153,0.4)]',
+        data.resolved && 'border-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.16)]',
         data.dim && 'opacity-35',
         data.focused && 'ring-2 ring-blue-600',
       )}
-      style={ring ? { boxShadow: `0 0 0 2px ${ring}, 0 0 16px ${ring}` } : undefined}
+      style={ring ? { boxShadow: `0 0 0 2px ${ring}, 0 0 12px ${ring}66` } : undefined}
     >
       <Handle type="target" position={Position.Top} className="!size-1.5 !border-0 !bg-zinc-400" />
       <Symbol kind={data.kind} />
