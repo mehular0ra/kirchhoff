@@ -119,7 +119,7 @@ export function CoPilotPanel() {
     <div className="flex flex-col">
       <section aria-label="Ask the co-pilot" className="flex flex-col gap-2 border-b p-3">
         <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <span aria-hidden className="size-2 rounded-full bg-[linear-gradient(135deg,#e879f9,#38bdf8)]" /> Co-pilot
+          <span aria-hidden className="size-2 rounded-full bg-[linear-gradient(135deg,#d946ef,#0ea5e9)]" /> Co-pilot
         </h3>
         <form
           className="flex gap-1.5"

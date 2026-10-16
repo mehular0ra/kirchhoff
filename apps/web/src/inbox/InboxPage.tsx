@@ -69,7 +69,7 @@ export function InboxPage() {
         <header className="flex flex-col gap-1 border-b p-4">
           <div className="flex items-center gap-2">
             <Inbox aria-hidden className="size-4 text-blue-700" />
-            <h1 id="inbox-h" className="text-lg font-semibold">
+            <h1 id="inbox-h" className="text-xl font-semibold tracking-tight">
               Bids inbox
             </h1>
             <SandboxLabel className="ml-auto" />

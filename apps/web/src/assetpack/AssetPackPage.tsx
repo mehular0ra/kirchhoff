@@ -224,7 +224,7 @@ export function AssetPackPage({ pack, pid }: { pack: 'grid' | 'solar'; pid: stri
         <span className="text-zinc-400">/</span>
         <Icon aria-hidden className="size-4 text-teal-700" />
         {/* The project name when known, else the pack label — never the raw slug (D11). */}
-        <h1 className="text-lg font-semibold">{name ?? packLabel}</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{name ?? packLabel}</h1>
         {name && <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700">{packLabel}</span>}
       </header>
       {error && (

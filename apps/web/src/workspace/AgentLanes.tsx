@@ -112,7 +112,7 @@ function LaneView({ lane, recordedOnly }: { lane: Lane; recordedOnly: boolean })
     </>
   )
   return (
-    <li className="border-b border-border px-3 py-2" style={{ boxShadow: `inset 2px 0 0 0 ${lane.status === 'idle' ? 'transparent' : meta.color.startsWith('#') ? meta.color : '#a78bfa'}` }}>
+    <li className="border-b border-border px-3 py-2" style={{ boxShadow: `inset 2px 0 0 0 ${lane.status === 'idle' ? 'transparent' : meta.color.startsWith('#') ? meta.color : '#8b5cf6'}` }}>
       {/* A lane with no events has nothing to expand (D10): a plain header, no chevron. */}
       {lane.events.length > 0 ? (
         <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left text-sm">

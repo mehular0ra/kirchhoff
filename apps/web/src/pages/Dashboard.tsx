@@ -30,7 +30,7 @@ function ProjectCard({ p, nowMs, recordedRun }: { p: Project; nowMs: number; rec
   return (
     <article
       data-tour={p.id === 'hall-b' ? 'hall-b' : undefined}
-      className="group relative flex flex-col gap-2 rounded-lg border bg-card p-4 transition-colors hover:border-zinc-400"
+      className="group relative flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs transition-[border-color,box-shadow] hover:border-zinc-300 hover:shadow-sm"
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-medium text-foreground">
@@ -80,7 +80,7 @@ function InboxEntry() {
     <Link
       to="/app/inbox"
       data-tour="inbox"
-      className="flex items-center gap-2 self-start rounded-lg border bg-card px-3 py-2 text-sm text-foreground hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-blue-600"
+      className="flex items-center gap-2 self-start rounded-lg border bg-card px-3 py-2 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-blue-600"
     >
       <Inbox aria-hidden className="size-4 text-blue-700" />
       {data ? `Bids inbox · ${unreadCount(data, read)} new` : 'Bids inbox'}
@@ -101,7 +101,7 @@ export function Dashboard() {
       <Welcome onStartTour={startTour} />
       <section aria-labelledby="projects-h" className="flex flex-col gap-6">
         <div>
-          <h1 id="projects-h" className="text-lg font-semibold">
+          <h1 id="projects-h" className="text-xl font-semibold tracking-tight">
             Projects
           </h1>
           <p className="text-sm text-muted-foreground">

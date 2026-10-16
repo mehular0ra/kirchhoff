@@ -38,7 +38,7 @@ export function Checklist({ docked = false }: { docked?: boolean }) {
       className={cn(
         'text-sm',
         docked
-          ? 'rounded-lg border bg-card'
+          ? 'rounded-lg border bg-card shadow-xs'
           : 'shrink-0 border-t bg-card md:fixed md:bottom-14 md:left-3 md:z-40 md:w-64 md:rounded-lg md:border md:bg-popover md:shadow-xl',
       )}
     >

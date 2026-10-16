@@ -108,7 +108,7 @@ export function ReviewView({ bundle, source, revId, runQuery }: { bundle: Bundle
             <ArrowLeft aria-hidden /> Workspace
           </Link>
         </Button>
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-xl font-semibold tracking-tight">
           Review · {bundle.project.name} · <span className="font-mono">{rev.id}</span>
         </h1>
         <span className="font-mono text-xs text-muted-foreground" title={rev.hash}>

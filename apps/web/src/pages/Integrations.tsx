@@ -81,7 +81,7 @@ function Card({
 }) {
   const StatusIcon = STATUS_TONE[statusTone].icon
   return (
-    <article aria-label={title} data-tour={tour} className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+    <article aria-label={title} data-tour={tour} className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs">
       {/* The badge wraps under a long title instead of being squashed (D18). */}
       <header className="flex flex-wrap items-center gap-2">
         <Icon aria-hidden className="size-4 text-muted-foreground" />
@@ -144,7 +144,7 @@ export function IntegrationsPage() {
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col gap-5 overflow-auto p-6">
       <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-lg font-semibold">Integrations</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Integrations</h1>
         {!live && (
           <span role="status" className="inline-flex items-center gap-1.5 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700">
             {connecting ? (
@@ -160,7 +160,7 @@ export function IntegrationsPage() {
           </span>
         )}
       </div>
-      <section aria-label="Latest handoff" data-tour="integrations-prs" className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+      <section aria-label="Latest handoff" data-tour="integrations-prs" className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs">
         {/* One sandbox label for the section, not one per row (D5). */}
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Latest handoff from signed designs</h2>

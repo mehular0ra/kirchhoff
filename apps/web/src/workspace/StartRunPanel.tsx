@@ -57,7 +57,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col justify-center gap-5 p-6">
       <div>
-        <h1 className="text-lg font-semibold">{project?.name ?? 'Deccan AI Campus · Hall B'}</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{project?.name ?? 'Deccan AI Campus · Hall B'}</h1>
         <p className="text-sm text-muted-foreground">
           Hall B uses the same tender, drawing and catalogue as Hall A. Kirchhoff's agents design it in your own
           workspace; you decide at each gate and sign at the end.

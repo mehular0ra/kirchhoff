@@ -124,7 +124,7 @@ function FieldsTable({ triage }: { triage: TriageResult }) {
 
 function FitCard({ triage }: { triage: TriageResult }) {
   return (
-    <section aria-label="Fit verdict" className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+    <section aria-label="Fit verdict" className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs">
       <div className="flex flex-wrap items-center gap-2">
         <VerdictBadge triage={triage} />
         <p className="text-sm font-medium text-foreground">{triage.fit.headline}</p>

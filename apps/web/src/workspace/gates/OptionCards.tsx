@@ -71,7 +71,7 @@ export function OptionCards() {
             <article
               key={o.id}
               aria-label={`Option ${NAMES[o.id]}`}
-              className={cn('flex flex-col gap-2 rounded-lg border bg-card p-3', chosen && 'border-emerald-500/70')}
+              className={cn('flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs', chosen && 'border-emerald-500/60 ring-1 ring-emerald-500/20')}
             >
               <header className="flex items-center justify-between">
                 <h3 className="font-medium text-foreground">{NAMES[o.id]}</h3>
