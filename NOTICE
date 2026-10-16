@@ -1,6 +1,9 @@
 Kirchhoff by Ordinal: third-party notices
 ============================================
 
+Copyright 2026 Mehul Arora and Jayadratha Gayen (Team Ordinal).
+Kirchhoff's own code is licensed under the Apache License, Version 2.0 (see LICENSE).
+
 Kirchhoff is original work written during the Google Cloud x Hack2skill AI Builder Cup 2026. It uses the open-source
 software below, unmodified, under the licences shown. Versions are the ones installed for the build of 16 Oct 2026
 (apps/web/package-lock.json and services/api/uv.lock list every transitive dependency and its exact version).
