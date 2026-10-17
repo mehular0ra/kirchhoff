@@ -4,7 +4,7 @@ import { Edges, Grid, Instance, Instances, Line, OrbitControls } from '@react-th
 import { boundaryLoop, boundaryWalls } from './hallBoundary'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { EmptyState } from '@/components/Labels'
 import { CHAIN_COLORS } from '@/lib/agents'
@@ -15,6 +15,7 @@ import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
 import { legendKeys } from '../legendKeys'
 import { useWorkspace, type WorkspaceView } from '../WorkspaceContext'
+import { openingCamera } from './hallCamera'
 import { buildLabels, layoutLabels, type LayoutItem, type SceneLabel } from './hallLabels'
 import { buildHallScene, midpoint, resample, type HallScene, type SceneBox, type SceneTube, type V3 } from './hallScene'
 import { useTubeGeometry } from './useTubeGeometry'
@@ -265,6 +266,18 @@ function HallLabelOverlay({ labels, els, leaders }: { labels: SceneLabel[]; els:
   )
 }
 
+/** Steps the opening camera back on a narrow stage so the hall boundary is not cropped. Once, on mount: it never fights the person's orbit. */
+function FitHall({ scene }: { scene: HallScene }) {
+  const { camera, size } = useThree()
+  useLayoutEffect(() => {
+    camera.position.set(...openingCamera(scene.hall.w, scene.hall.d, size.width / Math.max(1, size.height)))
+    camera.lookAt(0, 0, 0)
+    camera.updateProjectionMatrix()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
+
 function CameraRig({ scene, focusAt, coldOpenAt }: { scene: HallScene; focusAt: V3 | null; coldOpenAt: V3 | null }) {
   const { camera, controls } = useThree()
   const reduce = useReducedMotion()
@@ -447,6 +460,7 @@ function HallScene3D({
       ))}
       <LabelLayout labels={labels} els={labelEls} leaders={leaders} pos={pos} />
       <OrbitControls makeDefault target={[0, 1.5, 0]} maxPolarAngle={Math.PI / 2.1} />
+      <FitHall scene={scene} />
       <CameraRig scene={scene} focusAt={focusAt} coldOpenAt={coldOpenAt} />
     </>
   )
