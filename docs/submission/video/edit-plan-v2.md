@@ -29,9 +29,11 @@ uv run --with playwright==1.64.0 python docs/submission/video/scenes/render.py d
 # 4 · captions from the real recording (this is the only step that calls Vertex AI)
 GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=ordinal-mep GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep \
 uv run --with google-genai python docs/submission/video/transcribe.py \
-    ~/vo/b01-cold-open.wav@0.0 ~/vo/b02-title.wav@7.0 ~/vo/intro_mehul.wav@12.4 ~/vo/b04-problem.wav@22.0 \
+    ~/vo/b01-cold-open.wav@0.0 ~/vo/b02-title.wav@7.0 <work_dir>/.assemble_tmp/own_3.wav@10.0 ~/vo/b04-problem.wav@22.0 \
     ~/vo/b05-requirements.wav@31.0 ... --out docs/submission/video/captions-v2.srt
 #   each WAV@START is where that beat's voice starts in the final cut (seconds)
+#   the intro voices live INSIDE the scene clips (render.py trims and delays them): caption them from the own_3.wav (own_3b.wav) that assemble.sh
+#   extracts, not from the raw recording; beat-starts.txt prints the exact arguments. After re-rendering an intro, run assemble.sh again first.
 #   word timings are cached next to each WAV (<wav>.words.json); --refresh calls Gemini again
 #   test without the network: add --dry-run --text "what was said"
 ```

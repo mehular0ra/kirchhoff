@@ -51,6 +51,8 @@
 # This script does NOT install ffmpeg. It only checks whether it's on PATH.
 
 set -euo pipefail
+unset LC_ALL   # LC_ALL would override the next line (a decimal-comma LC_ALL makes bash printf reject the "7.000000" of ffprobe)
+export LC_NUMERIC=C   # bash printf and awk must read the numbers of ffprobe the same way in every locale
 
 # ---------------------------------------------------------------------------
 # 0. Preflight: ffmpeg must already be installed. We never install anything.
@@ -401,16 +403,17 @@ if [ "$PLAN" = "v2" ]; then
         else
           ffmpeg -y -loglevel error -ss "${INS[$i]}" -t "$(awk -v a="${INS[$i]}" -v b="${OUTS[$i]}" 'BEGIN { printf "%.3f", b - a }')" -i "${SRCS[$i]}" -vn -ac 1 -ar 48000 -c:a pcm_s16le "$own_wav"
         fi
+        rm -f "$own_wav.words.json"   # transcribe.py caches word timings next to each WAV: a regenerated WAV must not be captioned from the old take
         TRANSCRIBE_ARGS+=("$own_wav@$(awk -v s="$start" 'BEGIN { printf "%.3f", s }')")
         own_silent=0
         own_max="$(ffmpeg -nostdin -hide_banner -i "$own_wav" -af volumedetect -vn -f null - 2>&1 | sed -n 's/.*max_volume: *\([^ ]*\) dB.*/\1/p' | head -1)"
         case "$own_max" in
-          "") ;;
+          "") own_silent=1 ;;   # volumedetect printed no level: the extracted track has no samples at all
           *inf*) own_silent=1 ;;
           *) if awk -v m="$own_max" 'BEGIN { exit !(m < -60) }'; then own_silent=1; fi ;;
         esac
         if [ "$own_silent" = "1" ]; then
-          echo "WARNING: beat $id (${NAMES[$i]}) has an audio track, but it is silent (its loudest sample is below -60 dB)." >&2
+          echo "WARNING: beat $id (${NAMES[$i]}) has an audio track, but it is silent or empty (no sample above -60 dB)." >&2
           if [ "$id" = "3" ] || [ "$id" = "3b" ]; then
             echo "         This intro still carries render.py's silent placeholder: re-render it with the real recording (render.py --intro-mehul/--intro-jayadratha, edit-plan-v2.md §1 step 3)." >&2
           fi

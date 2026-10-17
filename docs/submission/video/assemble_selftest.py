@@ -19,6 +19,7 @@ import array
 import math
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -231,7 +232,7 @@ def verify_v2(tag, work, run, with_jd, label_n, music=False, own_audio=True):
     starts = parse_starts(txt)
     bad = [i for i, (s, _) in exp.items() if i not in starts or abs(starts[i][0] - s) > 0.1]
     check(f"{tag}: beat-starts.txt lists every beat at its measured start", not bad and len(starts) == len(exp), f"{len(starts)} beats, off: {bad}")
-    got = [(a.rsplit("@", 1)[0].split("/")[-1], float(a.rsplit("@", 1)[1])) for a in txt.strip().splitlines()[-1].split()]
+    got = [(a.rsplit("@", 1)[0].split("/")[-1], float(a.rsplit("@", 1)[1])) for a in shlex.split(txt.strip().splitlines()[-1])]
     own = {"3": "own_3.wav"}  # the clips' own audio, extracted by the script: it is captioned too, in beat order after the beat's voice file
     if with_jd:
         own["3b"] = "own_3b.wav"
@@ -306,6 +307,7 @@ def v2_tests(root, cases="ABCD"):
         g = gate_verdicts(r.stdout)
         check("A: the gate ran with the captions: format, picture, gutters, captions, gaps all PASS", [v for v, _ in g] == ["PASS"] * 5, str(g))
         check("A: a beat with no voice file (14) is reported, not an error", "No voice file for beat(s): 14" in r.stdout)
+        check("A: voiced own audio (the intro, the in-clip question) is NOT flagged silent", "but it is silent" not in r.stderr, r.stderr[-300:])
         check("A: a cut under 3:00 is warned about (the form asks for 3 to 4 minutes), without failing", "under 3:00" in r.stderr and r.returncode == 0, r.stderr[-200:])
         check("A: with no MAX_SECONDS the v2 gate ceiling is 239 s (3:59: the form asks for 3 to 4 minutes)", "Runtime ceiling for the export gate: 239 s" in r.stdout, r.stdout[:300])
 
