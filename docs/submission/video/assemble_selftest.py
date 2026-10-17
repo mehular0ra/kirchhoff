@@ -290,6 +290,7 @@ def v2_tests(root, cases="ABCD"):
         g = gate_verdicts(r.stdout)
         check("A: the gate ran with the captions: format, picture, gutters, captions, gaps all PASS", [v for v, _ in g] == ["PASS"] * 5, str(g))
         check("A: a beat with no voice file (14) is reported, not an error", "No voice file for beat(s): 14" in r.stdout)
+        check("A: with no MAX_SECONDS the v2 gate ceiling is 239 s (3:59: the form asks for 3 to 4 minutes)", "Runtime ceiling for the export gate: 239 s" in r.stdout, r.stdout[:300])
 
     # B: with Jayadratha's intro, music, an explicit speed factor, no captions, a clip with no sound in beat 12
     if "B" in cases:
@@ -305,6 +306,7 @@ def v2_tests(root, cases="ABCD"):
     if "C" in cases:
         work, scenes = make_v2_workspace(root / "c")
         r = run_assemble(script, work, {"PLAN": "v2", "SCENES_DIR": posix(scenes), "CAPTIONS": posix(root / "none.srt"), "MAX_SECONDS": "60"}, args=("1",), expect_exit=2)
+        check("C: an explicit MAX_SECONDS wins over the default", "Runtime ceiling for the export gate: 60 s" in r.stdout)
         check("C: a cut over the ceiling fails the gate and the script exits 2", r.returncode == 2 and re.search(r"^FAIL\s+format.*not under 60s", r.stdout, re.M) is not None,
               f"exit {r.returncode}")
         clean = work / ".assemble_tmp" / "assembled_video.mp4"
@@ -371,6 +373,7 @@ def v1_tests(root, ref):
         runs[tag] = (w, run_assemble(script, w, args=("1",), expect_exit=0))
     (wo, ro), (wn, rn) = runs["old"], runs["new"]
     check("v1: both scripts exit 0", ro.returncode == 0 and rn.returncode == 0, f"old {ro.returncode}, new {rn.returncode}")
+    check("v1: the gate ceiling stays 180 s", "Runtime ceiling for the export gate: 180 s" in rn.stdout)
     fo, fn = framemd5(wo / ".assemble_tmp/assembled_video.mp4"), framemd5(wn / ".assemble_tmp/assembled_video.mp4")
     check("v1: the assembled picture is identical frame by frame", fo == fn and len(fo) > 4000, f"{len(fo)} frames")
     check("v1: the mixed sound is identical", audio_md5(wo / ".assemble_tmp/mixed_audio.m4a") == audio_md5(wn / ".assemble_tmp/mixed_audio.m4a"))

@@ -2,7 +2,7 @@
 
 This plan goes with `../video-script-v2.md`. The v1 kit (`edit-plan.md`, `captions.srt`, `assemble.sh`) stays as it is. The teammate building the caption band in `assemble.sh` (#25) owns that file. This plan only lists the clip order v2 needs, so the order can be folded in once #25 lands.
 
-**Targets:** 2:39 without Jayadratha's intro and 2:46 with it. The ceiling is 2:55 and the rule is strictly under 3:00. Picture is 1920×1080 at 30 fps, H.264, yuv420p.
+**Targets:** 2:39 without Jayadratha's intro and 2:46 with it, as planned here; the real cut adds about a minute of product footage to reach 3:30 to 3:50 (HANDOFF §4.3). The ceiling is 3:59: the form asks for 3 to 4 minutes (Mehul's decision, 17 Oct). Picture is 1920×1080 at 30 fps, H.264, yuv420p.
 
 ## 1. The flow
 
@@ -11,7 +11,7 @@ This plan goes with `../video-script-v2.md`. The v1 kit (`edit-plan.md`, `captio
 3. **Re-render the intro scenes with the real voice.** Their waveform and length come from the recording.
 4. **Transcribe the voice** with `transcribe.py`, which uses Gemini on Vertex AI. The glossary pass and the cue rules give `captions-v2.srt`.
 5. **Assemble** in beat order (§2), with the caption band from #25, and burn in `captions-v2.srt`.
-6. **Check:** the runtime is under 2:55, every number marked *from capture* matches, and every connector tag is visible.
+6. **Check:** the runtime is under 3:59 (the gate ceiling, 239 s) and inside the 3:30 to 3:50 target, every number marked *from capture* matches, and every connector tag is visible.
 
 ### Commands
 
@@ -63,7 +63,7 @@ uv run --with google-genai python docs/submission/video/transcribe.py \
 | 16 | 2:24 | 2:32 | 8 | `scenes/out/s8-google-cloud.mp4` | |
 | 17 | 2:32 | 2:39 | 7 | `scenes/out/s9-end.mp4` | Fade to white or black at the very end. Both disclaimers are on the card. |
 
-**Runtime budget:** product footage 73 s, flow scenes 47 s, other scenes 39 s, for **159 s (2:39)**. Jayadratha's intro adds 7 s, for **166 s (2:46)**. That leaves 9–16 s under the 2:55 ceiling. If the cut runs long, trim beat 14 first, then beat 8 to 8 s, then beat 2 to 4 s.
+**Runtime budget:** product footage 73 s, flow scenes 47 s, other scenes 39 s, for **159 s (2:39)**. Jayadratha's intro adds 7 s, for **166 s (2:46)**. As planned this is shorter than the 3:30 to 3:50 target: the real cut adds about a minute of product footage (HANDOFF §4.3). If the cut runs past 3:50, trim beat 14 first, then beat 8 to 8 s, then beat 2 to 4 s.
 
 For `assemble.sh`, after #25 lands, the v2 order is: `v01-cold-open`, `s1-title`, `s1b-intro-mehul`, optionally `s1c-intro-jayadratha`, `s2-problem`, `s3-requirements-in`, `v04-tender-in`, `s4-agents`, `v05-agents-at-work`, `s5-checks`, `v06-checker`, `v07-erp-swap`, `v08-what-if-voice`, `s6-sign`, `v09-sign-off`, `s7-connectors`, `s8-google-cloud`, `s9-end`. The scene clips need no trim (`in=0`, `out=duration`, speed 1). The two intro clips carry audio, so mix their audio in rather than stripping it, in the same way as beat 8's in-clip question.
 

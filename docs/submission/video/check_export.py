@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """check_export.py: the gate for the final video export (issue #25). Standard library plus ffmpeg/ffprobe only.
 
-    check_export.py <final.mp4> --clean <assembled_video.mp4> [--srt captions.srt] [--max-seconds 175]
+    check_export.py <final.mp4> --clean <assembled_video.mp4> [--srt captions.srt] [--max-seconds 239]
     check_export.py --self-test
 
 <final.mp4>   what caption_band.sh produced (assemble.sh runs this gate on it automatically)
 --clean       the caption-free assembled picture the final was made from (.assemble_tmp/assembled_video.mp4)
 --srt         the captions. WITHOUT it the format and 16:9 checks still run and the band checks are reported as SKIPPED (they need the
               cue times), so an export without captions is never waved through unchecked
---max-seconds the runtime ceiling (default 180; the v2 plan uses 175)
+--max-seconds the runtime ceiling (default 180, the v1 plan; the v2 cut uses 239: assemble.sh passes it, and run alone you must too)
 
 Exit code 0 = every check passed, 1 = a check failed, 2 = it could not run (missing tool or file).
 

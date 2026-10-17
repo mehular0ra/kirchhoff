@@ -37,7 +37,7 @@
 #   PLAN             v1 (default) or v2.
 #   CAPTIONS         the captions file. v1 default: captions.srt next to this script. v2 default: captions-v2.srt next to
 #                    this script. Without a file the picture stays full-frame and the gate skips only the band checks.
-#   MAX_SECONDS      the runtime ceiling the gate enforces. v1 default 180 (strictly under 3:00), v2 default 175 (2:55).
+#   MAX_SECONDS      the runtime ceiling the gate enforces. v1 default 180 (strictly under 3:00), v2 default 239 (3:59: the form asks for 3 to 4 minutes, Mehul's decision of 17 Oct).
 #   SCENES_DIR       v2: the rendered scene clips (default: scenes/out next to this script).
 #   VO_DIR           v2: the voice WAVs (default: <work_dir>/vo).
 #   INCLUDE_JD_INTRO v2: 1 adds Jayadratha's intro (beat 3b, s1c-intro-jayadratha.mp4). Default 0.
@@ -97,12 +97,13 @@ mkdir -p "$TMP_DIR"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && native_pwd)"
 if [ "$PLAN" = "v2" ]; then
   DEFAULT_SRT="$SCRIPT_DIR/captions-v2.srt"
-  MAX_SECONDS="${MAX_SECONDS:-175}"
+  MAX_SECONDS="${MAX_SECONDS:-239}"
 else
   DEFAULT_SRT="$SCRIPT_DIR/captions.srt"
   MAX_SECONDS="${MAX_SECONDS:-180}"
 fi
 SRT_PATH="${CAPTIONS:-$DEFAULT_SRT}"
+echo "Runtime ceiling for the export gate: ${MAX_SECONDS} s"
 if [ ! -f "$SRT_PATH" ]; then
   echo "WARNING: captions not found ($SRT_PATH)." >&2
   if [ "$PLAN" = "v2" ]; then
@@ -474,7 +475,7 @@ bash "$SCRIPT_DIR/caption_band.sh" "$ASSEMBLED_VIDEO" "$MIXED_AUDIO" "${SRT_PATH
 
 echo ""
 echo "Done. Final export: $FINAL_OUT"
-echo "Check runtime is strictly under 3:00:"
+echo "Final runtime in seconds (the export gate ceiling is ${MAX_SECONDS} s):"
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FINAL_OUT" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
