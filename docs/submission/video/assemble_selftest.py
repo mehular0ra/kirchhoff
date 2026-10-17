@@ -355,6 +355,9 @@ def v2_tests(root, cases="ABCD"):
         r = run_assemble(script, work, {"PLAN": "v2", "SCENES_DIR": posix(scenes), "CAPTIONS": posix(root / "none.srt")}, expect_exit=0)
         check("E: an intro with a silent audio track is warned about as the placeholder it is", "beat 3 " in r.stderr and "silent" in r.stderr and "render.py" in r.stderr, r.stderr[-300:])
         check("E: and the run still exits 0", r.returncode == 0)
+        last = (work / "beat-starts.txt").read_text(encoding="utf-8").strip().splitlines()[-1]
+        check("E: the silent intro is NOT in the printed transcribe.py line (it would stop transcribe.py), the voiced own audio still is",
+              "own_3.wav" not in last and "own_12.wav" in last, last[:200])
 
     # F: a voice folder that does not exist is warned about (every voice beat would otherwise play silent with only a list of beat numbers as the signal)
     if "F" in cases:
@@ -366,6 +369,8 @@ def v2_tests(root, cases="ABCD"):
     text = script.read_text(encoding="utf-8")
     m = re.search(r'if \[ -z "\$PY" \]; then\n(.*?)\nelse', text, re.S)
     check("the export gate fails closed when python is missing (GATE_FAILED=1 in that branch)", m is not None and "GATE_FAILED=1" in m.group(1))
+    i_unset, i_pin = text.find("unset LC_ALL"), text.find("export LC_NUMERIC=C")
+    check("the number locale is pinned after LC_ALL is cleared (LC_ALL would override it)", 0 <= i_unset < i_pin)
 
 
 # ================================================================================================================ v1

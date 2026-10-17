@@ -51,6 +51,7 @@
 # This script does NOT install ffmpeg. It only checks whether it's on PATH.
 
 set -euo pipefail
+if [ -n "${LC_ALL:-}" ]; then export LANG="$LC_ALL"; fi   # keep its character set (UTF-8 paths) once LC_ALL is cleared
 unset LC_ALL   # LC_ALL would override the next line (a decimal-comma LC_ALL makes bash printf reject the "7.000000" of ffprobe)
 export LC_NUMERIC=C   # bash printf and awk must read the numbers of ffprobe the same way in every locale
 
@@ -404,9 +405,8 @@ if [ "$PLAN" = "v2" ]; then
           ffmpeg -y -loglevel error -ss "${INS[$i]}" -t "$(awk -v a="${INS[$i]}" -v b="${OUTS[$i]}" 'BEGIN { printf "%.3f", b - a }')" -i "${SRCS[$i]}" -vn -ac 1 -ar 48000 -c:a pcm_s16le "$own_wav"
         fi
         rm -f "$own_wav.words.json"   # transcribe.py caches word timings next to each WAV: a regenerated WAV must not be captioned from the old take
-        TRANSCRIBE_ARGS+=("$own_wav@$(awk -v s="$start" 'BEGIN { printf "%.3f", s }')")
         own_silent=0
-        own_max="$(ffmpeg -nostdin -hide_banner -i "$own_wav" -af volumedetect -vn -f null - 2>&1 | sed -n 's/.*max_volume: *\([^ ]*\) dB.*/\1/p' | head -1)"
+        own_max="$(ffmpeg -nostdin -hide_banner -i "$own_wav" -af volumedetect -vn -f null - 2>&1 | sed -n 's/.*max_volume: *\([^ ]*\) dB.*/\1/p' | head -1 || true)"
         case "$own_max" in
           "") own_silent=1 ;;   # volumedetect printed no level: the extracted track has no samples at all
           *inf*) own_silent=1 ;;
@@ -418,6 +418,9 @@ if [ "$PLAN" = "v2" ]; then
             echo "         This intro still carries render.py's silent placeholder: re-render it with the real recording (render.py --intro-mehul/--intro-jayadratha, edit-plan-v2.md §1 step 3)." >&2
           fi
           voice_note="$voice_note (silent)"
+        else
+          # only a track with something to caption goes into the transcribe.py line: a silent one would make it stop with "heard no words"
+          TRANSCRIBE_ARGS+=("$own_wav@$(awk -v s="$start" 'BEGIN { printf "%.3f", s }')")
         fi
       else
         echo "WARNING: beat $id (${NAMES[$i]}) has no audio track, so there is no voice or question from the clip itself." >&2
@@ -522,7 +525,7 @@ GATE_ARGS=("$FINAL_OUT" --clean "$ASSEMBLED_VIDEO" --max-seconds "$MAX_SECONDS")
 if [ -n "$SRT_PATH" ]; then GATE_ARGS+=(--srt "$SRT_PATH"); fi
 if [ -z "$PY" ]; then
   echo "WARNING: python3 not found, the export gate did NOT run, so this export is NOT approved. Run it by hand:" >&2
-  echo "  python3 $SCRIPT_DIR/check_export.py ${GATE_ARGS[*]}" >&2
+  { printf '  python3 %q' "$SCRIPT_DIR/check_export.py"; printf ' %q' "${GATE_ARGS[@]}"; echo; } >&2
   GATE_FAILED=1
 else
   echo ""
@@ -543,6 +546,6 @@ echo "  - Upload as Public on YouTube, not Unlisted."
 
 if [ "$GATE_FAILED" != "0" ]; then
   echo "" >&2
-  echo "EXPORT GATE FAILED: do not upload $FINAL_OUT. See the FAIL lines above." >&2
+  echo "EXPORT GATE FAILED (or could not run): do not upload $FINAL_OUT. See the FAIL lines above, or the warning that python was not found." >&2
   exit 2
 fi
