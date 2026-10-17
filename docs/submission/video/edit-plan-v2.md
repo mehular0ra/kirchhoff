@@ -2,16 +2,16 @@
 
 This plan goes with `../video-script-v2.md`. The v1 kit (`edit-plan.md`, `captions.srt`, `assemble.sh`) stays as it is. The teammate building the caption band in `assemble.sh` (#25) owns that file. This plan only lists the clip order v2 needs, so the order can be folded in once #25 lands.
 
-**Targets:** 2:39 without Jayadratha's intro and 2:46 with it. The ceiling is 2:55 and the rule is strictly under 3:00. Picture is 1920×1080 at 30 fps, H.264, yuv420p.
+**Targets:** 2:39 without Jayadratha's intro and 2:46 with it, as planned here; the real cut adds about a minute of product footage to reach 3:30 to 3:50 (HANDOFF §4.3). The ceiling is 3:59: the form asks for 3 to 4 minutes (Mehul's decision, 17 Oct). Picture is 1920×1080 at 30 fps, H.264, yuv420p.
 
 ## 1. The flow
 
 1. **Render the scenes.** Do this after the golden capture, because the scenes read their numbers from the demo bundle.
 2. **Record the voice, one WAV per beat** (§4). Record Mehul's intro first.
 3. **Re-render the intro scenes with the real voice.** Their waveform and length come from the recording.
-4. **Transcribe the voice** with `transcribe.py`, which uses Gemini on Vertex AI. The glossary pass and the cue rules give `captions-v2.srt`.
+4. **Transcribe the voice** with `transcribe.py`, which uses Cloud Speech-to-Text (Chirp 2). The glossary pass and the cue rules give `captions-v2.srt`.
 5. **Assemble** in beat order (§2), with the caption band from #25, and burn in `captions-v2.srt`.
-6. **Check:** the runtime is under 2:55, every number marked *from capture* matches, and every connector tag is visible.
+6. **Check:** the runtime is under 3:59 (the gate ceiling, 239 s) and inside the 3:30 to 3:50 target, every number marked *from capture* matches, and every connector tag is visible.
 
 ### Commands
 
@@ -26,13 +26,15 @@ uv run --with playwright==1.64.0 python docs/submission/video/scenes/render.py d
 #   video instead of the photo:  --intro-mehul-video ~/vo/intro_mehul.mp4
 #   drop Jayadratha everywhere:  --no-jayadratha
 
-# 4 · captions from the real recording (this is the only step that calls Vertex AI)
-GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=ordinal-mep GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep \
-uv run --with google-genai python docs/submission/video/transcribe.py \
-    ~/vo/b01-cold-open.wav@0.0 ~/vo/b02-title.wav@7.0 ~/vo/intro_mehul.wav@12.4 ~/vo/b04-problem.wav@22.0 \
+# 4 · captions from the real recording (this is the only step that calls Google Cloud: Speech-to-Text Chirp 2, the default engine)
+GOOGLE_CLOUD_QUOTA_PROJECT=ordinal-mep \
+uv run --python 3.12 --with google-cloud-speech python docs/submission/video/transcribe.py \
+    ~/vo/b01-cold-open.wav@0.0 ~/vo/b02-title.wav@7.0 <work_dir>/.assemble_tmp/own_3.wav@12.0 ~/vo/b04-problem.wav@22.0 \
     ~/vo/b05-requirements.wav@31.0 ... --out docs/submission/video/captions-v2.srt
 #   each WAV@START is where that beat's voice starts in the final cut (seconds)
-#   word timings are cached next to each WAV (<wav>.words.json); --refresh calls Gemini again
+#   the intro voices live INSIDE the scene clips (render.py trims and delays them): caption them from the own_3.wav (own_3b.wav) that assemble.sh
+#   extracts, not from the raw recording; beat-starts.txt prints the exact arguments. After re-rendering an intro, run assemble.sh again first.
+#   word timings are cached next to each WAV (<wav>.words.json); --refresh calls Speech-to-Text again
 #   test without the network: add --dry-run --text "what was said"
 ```
 
@@ -63,7 +65,7 @@ uv run --with google-genai python docs/submission/video/transcribe.py \
 | 16 | 2:24 | 2:32 | 8 | `scenes/out/s8-google-cloud.mp4` | |
 | 17 | 2:32 | 2:39 | 7 | `scenes/out/s9-end.mp4` | Fade to white or black at the very end. Both disclaimers are on the card. |
 
-**Runtime budget:** product footage 73 s, flow scenes 47 s, other scenes 39 s, for **159 s (2:39)**. Jayadratha's intro adds 7 s, for **166 s (2:46)**. That leaves 9–16 s under the 2:55 ceiling. If the cut runs long, trim beat 14 first, then beat 8 to 8 s, then beat 2 to 4 s.
+**Runtime budget:** product footage 73 s, flow scenes 47 s, other scenes 39 s, for **159 s (2:39)**. Jayadratha's intro adds 7 s, for **166 s (2:46)**. As planned this is shorter than the 3:30 to 3:50 target: the real cut adds about a minute of product footage (HANDOFF §4.3). If the cut runs past 3:50, trim beat 14 first, then beat 8 to 8 s, then beat 2 to 4 s.
 
 For `assemble.sh`, after #25 lands, the v2 order is: `v01-cold-open`, `s1-title`, `s1b-intro-mehul`, optionally `s1c-intro-jayadratha`, `s2-problem`, `s3-requirements-in`, `v04-tender-in`, `s4-agents`, `v05-agents-at-work`, `s5-checks`, `v06-checker`, `v07-erp-swap`, `v08-what-if-voice`, `s6-sign`, `v09-sign-off`, `s7-connectors`, `s8-google-cloud`, `s9-end`. The scene clips need no trim (`in=0`, `out=duration`, speed 1). The two intro clips carry audio, so mix their audio in rather than stripping it, in the same way as beat 8's in-clip question.
 
@@ -102,17 +104,17 @@ ffmpeg -f avfoundation -i ":0" -ac 1 -ar 48000 -t 15 intro_mehul.wav
 ## 5. Captions
 
 Captions are built from what was actually said, not from the script:
-- `transcribe.py` sends each WAV to `gemini-3.8-flash` on Vertex AI (project `ordinal-mep`, location `global`) as audio input, with a JSON schema that asks for word-level start and end times.
+- `transcribe.py` sends each WAV to Cloud Speech-to-Text (Chirp 2, `us-central1`, `en-IN`, with phrase hints for our names) and asks for word-level start and end times. It does not use Gemini by default: on 16 Oct Vertex blocked most Gemini calls with a safety filter and a lite model invented timings, so Chirp is the default engine (`--engine gemini` keeps the old path, which needs `google-genai` and `GOOGLE_GENAI_USE_VERTEXAI=true`).
 - It then runs a glossary pass. That pass fixes product names (Kirchhoff, Ordinal, Gemini, Vertex AI, Cloud Run, Firestore, Firebase, SAP S/4HANA, Ariba, Gmail, Google Drive), units (kW, MW, MVA, kV, %), ids (R05, R11, R15, FA-01, FB-03, H-Z2, 2N) and acronyms (MEP, CDU, UPS, LLM, ADK). It also applies British and Indian spelling: organise, colour, programme, centre, metre, licence.
 - Finally it applies the cue rules: at most 42 characters per line, at most 2 lines per cue, and 1.5–6 s per cue. A pause of 0.6 s or a sentence end starts a new cue.
 - It prints `CHECK:` for any cue that still breaks a rule, so you can fix those few by hand in the SRT.
 
-The script was tested only in `--dry-run` mode, on one clip made with macOS `say`; it has not called Vertex yet. The first real call happens when Mehul runs it on his recordings.
+The cue rules and the glossary were tested in `--dry-run` mode (no network) on one clip made with macOS `say`; the real Chirp call was run on 16 Oct on Mehul's intro and heard every product word. The first run on the full narration happens when Jayadratha records it (docs/HANDOFF.md §4.2).
 
 ## 6. Open items
 
 1. Mehul's intro recording, and Jayadratha's if it is used, then a re-render of the intro clips. The current intro clips carry a silent placeholder track and read "voice track pending".
 2. Done for `d9b6f46`. Re-render again after any later capture; `build_data.py` prints WARNING lines for anything it has to derive.
 3. The repo URL in `scenes/team.json`.
-4. Fold the v2 clip order into `assemble.sh` after #25.
+4. Done (#25): `PLAN=v2 ./assemble.sh <work_dir>` builds this order (the header of `assemble.sh` lists the inputs and options; `python3 assemble_selftest.py` tests it). It writes `beat-starts.txt` with the measured `wav@start` arguments for `transcribe.py`.
 5. Music, as before: optional and royalty-free only, never under the intro voice.
