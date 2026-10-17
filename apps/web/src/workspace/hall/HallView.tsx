@@ -15,7 +15,7 @@ import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
 import { legendKeys } from '../legendKeys'
 import { useWorkspace, type WorkspaceView } from '../WorkspaceContext'
-import { openingCamera } from './hallCamera'
+import { centreHall, openingCamera } from './hallCamera'
 import { buildLabels, layoutLabels, type LayoutItem, type SceneLabel } from './hallLabels'
 import { buildHallScene, midpoint, resample, type HallScene, type SceneBox, type SceneTube, type V3 } from './hallScene'
 import { useTubeGeometry } from './useTubeGeometry'
@@ -266,15 +266,26 @@ function HallLabelOverlay({ labels, els, leaders }: { labels: SceneLabel[]; els:
   )
 }
 
-/** Steps the opening camera back on a narrow stage so the hall boundary is not cropped. Once, on mount: it never fights the person's orbit. */
+/**
+ * The opening view: steps the camera back on a narrow stage so the hall boundary is not cropped, then pans it so the hall is centred in the frame (equal margins
+ * above and below, left and right). Once: the pan needs the orbit controls' target, which register a frame after mount, so it runs when they appear and never
+ * again, and it never fights the person's orbit.
+ */
 function FitHall({ scene }: { scene: HallScene }) {
-  const { camera, size } = useThree()
+  const { camera, size, controls } = useThree()
+  const fitted = useRef(false)
+  const { w, d } = scene.hall
   useLayoutEffect(() => {
-    camera.position.set(...openingCamera(scene.hall.w, scene.hall.d, size.width / Math.max(1, size.height)))
-    camera.lookAt(0, 0, 0)
+    if (fitted.current || !(camera instanceof THREE.PerspectiveCamera)) return
+    const aspect = size.width / Math.max(1, size.height)
+    camera.position.set(...openingCamera(w, d, aspect))
     camera.updateProjectionMatrix()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    const ctrl = controls as unknown as { target: THREE.Vector3; update(): void } | null
+    if (!ctrl) return
+    centreHall(camera, ctrl.target, w, d)
+    ctrl.update()
+    fitted.current = true
+  }, [camera, controls, size.width, size.height, w, d])
   return null
 }
 

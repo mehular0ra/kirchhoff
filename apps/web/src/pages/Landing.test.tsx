@@ -60,6 +60,15 @@ test('the product window has a legend that says what the three areas of the scre
   for (const li of items) expect(li.className).toMatch(/(^|\s)glass(\s|$)/)
   expect(items.map((li) => li.querySelector('svg[aria-hidden="true"]')?.getAttribute('data-at'))).toEqual(['left', 'centre', 'right'])
   expect(items.map((li) => li.querySelector('p')?.textContent)).toEqual(['Agent lanes', '3D hall', 'Co-pilot'])
+  // the map's three columns have the proportions of the real columns at the screenshot's width (224 : 496 : 280 px), and only the card's own column is filled
+  items.forEach((li, i) => {
+    const cols = Array.from(li.querySelectorAll('svg rect[data-col]'))
+    expect(cols.map((r) => r.getAttribute('data-col'))).toEqual(['left', 'centre', 'right'])
+    const [l, c, r] = cols.map((rect) => Number(rect.getAttribute('width')))
+    expect(c / l).toBeCloseTo(496 / 224, 2)
+    expect(r / l).toBeCloseTo(280 / 224, 2)
+    expect(cols.map((rect) => rect.getAttribute('fill-opacity') === '0.9')).toEqual([i === 0, i === 1, i === 2])
+  })
   expect(screen.getByRole('img', { name: /Hall A \(sample\)/ })).toBeInTheDocument()
 })
 

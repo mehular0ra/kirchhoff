@@ -7,6 +7,7 @@ import { KirchhoffMark } from '@/components/KirchhoffMark'
 import { FICTIONAL_TEXT, ILLUSTRATIVE_TEXT } from '@/components/Labels'
 import { useRecordedRun } from '@/data/useRecordedRun'
 import { CheckGrid, StepCard } from './landingMotion'
+import { AREAS, SHOT } from './shotAreas'
 import { useReveal } from './useReveal'
 
 // Effects live only here (spec §12). The background traces are decorative and static under reduced motion.
@@ -35,26 +36,30 @@ const SCREENSHOT_LEGEND = [
   ['Co-pilot', 'Ask why a check failed, or what if a rack load or a limit changes.', 'right', MessageCircleQuestion],
 ] as const
 
-/** A small map of the workspace's three columns (agents, hall, co-pilot) with one filled, so a card says where in the picture its area is. */
+/**
+ * A small map of the workspace's three columns (agents, hall, co-pilot) with one filled, so a card says where in the picture its area is. The columns have the
+ * proportions measured on the real layout at the screenshot's width (shotAreas.ts), drawn in the 44-unit inner width of the frame; a white stroke makes the
+ * gaps between them without changing their widths.
+ */
 function WhereInShot({ at }: { at: 'left' | 'centre' | 'right' }) {
-  const columns = [
-    ['left', 4, 10],
-    ['centre', 16, 20],
-    ['right', 38, 10],
-  ] as const
+  const names = ['left', 'centre', 'right'] as const
+  const unit = 44 / SHOT.w
   return (
     <svg aria-hidden data-at={at} viewBox="0 0 52 34" className="h-9 w-14 shrink-0">
       <rect x="1" y="1" width="50" height="32" rx="5" fill="white" fillOpacity="0.8" stroke="var(--glass-edge)" strokeWidth="1.25" />
-      {columns.map(([name, x, w]) => (
+      {names.map((name, i) => (
         <rect
           key={name}
-          x={x}
+          data-col={name}
+          x={4 + SHOT.cols[i] * unit}
           y="6"
-          width={w}
+          width={(SHOT.cols[i + 1] - SHOT.cols[i]) * unit}
           height="22"
           rx="2.5"
           fill={name === at ? 'var(--brand-text)' : 'var(--glass-edge)'}
           fillOpacity={name === at ? 0.9 : 0.5}
+          stroke="white"
+          strokeWidth="1.5"
         />
       ))}
     </svg>
@@ -83,13 +88,6 @@ const PRINCIPLES = [
   ['Every requirement is quoted', 'A requirement counts only if its quote is found on the tender page and verified against the PDF.'],
   ['An engineer signs', 'Sign-off always waits for a person. The stamp records who signed, when, and the exact revision.'],
 ] as const
-
-/** Where the three legend areas sit on the screenshot, as a share of the picture (left, top, width, height in %), measured on the 1160 px capture. */
-const AREAS = {
-  left: { left: '0%', top: '13.6%', width: '19.3%', height: '81.2%' },
-  centre: { left: '19.3%', top: '13.6%', width: '56.4%', height: '81.2%' },
-  right: { left: '75.7%', top: '13.6%', width: '24.3%', height: '81.2%' },
-} as const
 
 /** A small glass card lifts a hair on hover; not at all under "reduce motion" (the lift is a CSS transform, so the media query is the whole switch). */
 const LIFT =

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { renderWithProviders } from '@/test/render'
 import { Landing } from './Landing'
+import { AREAS } from './shotAreas'
 
 // The landing's motion (all of it in landingMotion.tsx, so it can be taken out as one piece): one entrance sequence for the hero, the check grid sweeping in, the
 // step cards and their connector traces drawing in order, a highlight on the screenshot when a legend card is hovered, and a hover lift on small glass cards.
@@ -101,6 +102,11 @@ describe('hover', () => {
     expect(active()).toEqual(['left:false', 'centre:false', 'right:true'])
     await user.unhover(legend[2])
     expect(active()).toEqual(['left:false', 'centre:false', 'right:false'])
+    // each highlight is the measured area of the screenshot (see shotAreas.ts), not a hand-typed copy
+    for (const at of ['left', 'centre', 'right'] as const) {
+      const box = document.querySelector<HTMLElement>(`[data-highlight="${at}"]`)!
+      expect([box.style.left, box.style.top, box.style.width, box.style.height]).toEqual([AREAS[at].left, AREAS[at].top, AREAS[at].width, AREAS[at].height])
+    }
     // decorative: the highlight layer is hidden from assistive technology and never takes the pointer
     const layer = document.querySelector('[data-highlight]')!.parentElement!
     expect(layer).toHaveAttribute('aria-hidden', 'true')
