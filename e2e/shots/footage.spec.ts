@@ -15,8 +15,9 @@ import type { Page } from '@playwright/test'
  *   then        shots/footage_to_mp4.sh converts the clips to .mp4 and prints each clip's real length for the issue checklist.
  *
  * Beats that need the recorded run (events, options) from the golden capture fail with a clear message until it is deployed.
- * Beat 3 (problem card), 12 (proof) and 13 (end card) have no product footage; beat 5 and 9 come from the live run
- * (footage-live.spec.ts).
+ * Beat 3 (problem card), 12 (proof) and 13 (end card) have no product footage; beat 5 comes from the live run
+ * (footage-live.spec.ts). Beat 9 (sign-off) is the static `v09-sign-off` clip below, the approved Hall A review page, which touches no
+ * shared state; a SIGNED live run's sign-off is the alternative `v09-sign-off-live` (footage_cut.sh), named apart so neither overwrites the other.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OUT = process.env.FOOTAGE_OUT ?? path.join(HERE, '..', 'out', 'footage')
