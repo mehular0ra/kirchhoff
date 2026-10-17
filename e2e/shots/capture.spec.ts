@@ -14,9 +14,11 @@ import type { Locator, Page } from '@playwright/test'
  *
  *   dry run (default)  writes to e2e/out/shots, so the deck's placeholders are not touched:
  *                      E2E_LOCAL=1 E2E_SHOTS=1 npx playwright test --project=shots
+ *                      (s05-8 waits for the live sandbox, which a local run cannot reach: it times out there; run it against the deployed site)
  *   final capture      after the UI freeze and the golden-capture deploy, against the deployed site:
  *                      E2E_BASE_URL=https://kirchhoff.web.app E2E_SHOTS=1 SHOTS_WRITE=1 npx playwright test --project=shots
- *   live-only shots    (Hall B live run, voice) also need E2E_LIVE=1: they call the deployed agents.
+ *   manual shots       s05-6 (a real Gemini Live exchange) and s11-2 (a frame of a live Hall B run) are captured by hand on the deployed site, because
+ *                      they need the deployed agents and a run; this spec SKIPS them always, so it can never overwrite them with a wrong screen.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..', '..')
@@ -27,7 +29,13 @@ type Shot = {
   file: string
   /** Opens the state and asserts what it must show. Returns the element to crop to, or nothing for a full-screen capture. */
   open: (page: Page) => Promise<Locator | void>
+  /** An explicit crop (CSS pixels) for a tile whose element is the whole page, where the element's own box would catch the fixed side panels. */
+  clipOf?: (page: Page) => Promise<{ x: number; y: number; width: number; height: number }>
   live?: boolean
+  /** Captured by hand (see the header); the spec never touches the file. */
+  manual?: boolean
+  /** Crop INSIDE the element (see tileClip): for a canvas that is already wider than the tile, where growing the crop would catch the tab strip around it. */
+  inside?: boolean
 }
 
 const LONG = { timeout: 60_000 }
@@ -47,6 +55,7 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page)
       await text(page, /signed by Priya Raman/)
+      await text(page, 'CDU gallery') // the lazy-loaded hall has drawn, not just its empty canvas
     },
   },
   {
@@ -54,13 +63,22 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page, '?replay=1')
       await text(page, /quote verified/i) // needs the recorded run (golden capture)
-      return page.getByRole('navigation', { name: 'Agent lanes' })
+      const lanes = page.getByRole('navigation', { name: 'Agent lanes' })
+      await lanes.getByRole('button', { name: /Intake/ }).click() // expand: the verified quotes, the DXF read and the contradiction it found
+      await text(page, 'Contradiction found')
+      await text(page, 'CDU gallery') // the replay has reached the drawn hall: until then the frame is mid-play, with a blank canvas and a running clock
+      await expect(lanes.getByRole('listitem').first()).toContainText('Done')
+      await settle(page, 800)
+      return lanes.getByRole('listitem').first() // the Intake lane itself, not the whole column
     },
   },
   {
     file: 's05-2-hall-3d-tiers.png',
+    inside: true,
     open: async (page) => {
       await workspace(page, '?tab=hall')
+      await text(page, 'CDU gallery') // a label of the drawn scene: the lazy-loaded hall has rendered, not just the empty canvas
+      await settle(page, 1000)
       return page.locator('canvas').first()
     },
   },
@@ -68,6 +86,8 @@ const SHOTS: Shot[] = [
     file: 's05-3-compliance-matrix.png',
     open: async (page) => {
       await workspace(page, '?tab=matrix')
+      // a wait only the matrix can satisfy (the text '150 checks' is also on the story strip and the Checker lane, outside the matrix)
+      await expect(page.getByRole('table', { name: 'Compliance matrix' }).getByRole('button', { name: /: Pass$/ }).first()).toBeVisible(LONG)
       return page.getByRole('table', { name: 'Compliance matrix' })
     },
   },
@@ -76,7 +96,7 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page, '?tab=options')
       await text(page, /R15, line transformer/) // the R15 swap line on the 2N card: needs the options from the golden capture
-      return page.getByRole('tabpanel').first()
+      return page.getByRole('article', { name: 'Option 2N' }) // the 2N card with its R15 swap line, not the whole (mostly empty) tab panel
     },
   },
   {
@@ -91,14 +111,16 @@ const SHOTS: Shot[] = [
       return chain
     },
   },
-  { file: 's05-6-copilot-voice.png', live: true, open: async (page) => { await workspace(page) } },
+  { file: 's05-6-copilot-voice.png', manual: true, open: async () => {} },
   {
     file: 's05-7-review-stamp.png',
     open: async (page) => {
       await page.goto('/app/p/hall-a/review/r2')
       await text(page, 'APPROVED')
       await settle(page)
-      return page.getByRole('figure', { name: 'Approval stamp' }) // the stamp's own accessible name, not a class guess
+      const stamp = page.getByRole('figure', { name: 'Approval stamp' }) // the stamp's own accessible name, not a class guess
+      await expect(stamp).toContainText('sha256')
+      return stamp
     },
   },
   {
@@ -106,8 +128,16 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await page.goto('/app/integrations')
       await expect(page.getByRole('region', { name: 'Latest handoff' })).toBeVisible(LONG)
+      await text(page, /Connected · last sync now/) // the cards first show the cached snapshot; the shot waits for the live sandbox
       await settle(page, 1000)
-      return page.getByRole('main')
+    },
+    // the content column from the heading to the last card, widened to 3:2 about its centre: the "Getting started" checklist stays out of the frame
+    clipOf: async (page) => {
+      const top = (await page.getByRole('heading', { name: 'Integrations', exact: true }).first().boundingBox())!.y - 14
+      const last = (await page.getByRole('button', { name: 'View data' }).last().boundingBox())!
+      const height = last.y + last.height + 22 - top
+      const width = height * 1.5
+      return { x: 960 - width / 2, y: top, width, height }
     },
   },
   {
@@ -127,7 +157,21 @@ const SHOTS: Shot[] = [
       const drawer = page.getByRole('dialog').first()
       await expect(drawer).toContainText('2.16%')
       await expect(drawer).toContainText('§4.6')
-      return drawer
+    },
+    // The drawer is a full-height side sheet and its content ends about two thirds down: clip to the lowest text plus a margin, so the PNG is not a third blank
+    // (a blank third made the slide's 3.9 in slot render the drawer text at about 3 pt).
+    clipOf: async (page) => {
+      const drawer = page.getByRole('dialog').first()
+      const b = (await drawer.boundingBox())!
+      const bottom = await drawer.evaluate((el) => {
+        let max = 0
+        el.querySelectorAll('*').forEach((n) => {
+          const r = n.getBoundingClientRect()
+          if (n.children.length === 0 && (n.textContent ?? '').trim() && r.width > 0 && r.height > 0) max = Math.max(max, r.bottom)
+        })
+        return max
+      })
+      return { x: b.x, y: b.y, width: b.width, height: Math.min(b.height, bottom - b.y + 24) }
     },
   },
   {
@@ -139,7 +183,7 @@ const SHOTS: Shot[] = [
       await settle(page, 1000)
     },
   },
-  { file: 's11-2-hall-b-live-run.png', live: true, open: async (page) => { await page.goto('/app/p/hall-b') } },
+  { file: 's11-2-hall-b-live-run.png', manual: true, open: async () => {} },
   {
     file: 's11-3-finding-drawer-r11.png',
     open: async (page) => {
@@ -147,6 +191,7 @@ const SHOTS: Shot[] = [
       const drawer = page.getByRole('dialog').first()
       await expect(drawer).toContainText('H-Z2')
       await expect(drawer).toContainText('§6.3.4')
+      await text(page, 'CDU gallery') // the hall behind the drawer has drawn
     },
   },
   {
@@ -154,6 +199,9 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page, '?tab=options')
       await text(page, /R15, line transformer/) // needs the options from the golden capture
+      const card = page.getByRole('article', { name: 'Option 2N' }) // the card the README row names, not any of the three
+      await expect(card).toContainText('Selected')
+      await expect(card).toContainText('38.07%')
     },
   },
   {
@@ -189,6 +237,7 @@ const SHOTS: Shot[] = [
       await page.goto('/app/p/grid-132kv')
       await expect(page.getByRole('table', { name: 'Asset options' })).toBeVisible(LONG)
       await expect(page.getByRole('region', { name: 'Mini SLD' })).toBeVisible()
+      await expect(page.getByRole('img', { name: 'Site geometry' })).toBeVisible() // the 132 kV route drawn as a line, which the README row names
       await settle(page, 1000)
     },
   },
@@ -203,8 +252,47 @@ const SHOTS: Shot[] = [
   },
 ]
 
-for (const shot of SHOTS) {
+/** Slide 5's nine tiles are 3:2: the crop is the named element widened or heightened to 3:2 around its centre (so a narrow lane or a small chain keeps its
+ *  surroundings instead of being stretched), and a tall element (the matrix) keeps its top part. Never leaves the 1920 x 1080 page. */
+const TILES = new Set(['s05-1-intake-quotes.png', 's05-2-hall-3d-tiers.png', 's05-3-compliance-matrix.png', 's05-4-option-r15-swap.png', 's05-5-impact-chain.png',
+  's05-7-review-stamp.png', 's05-8-integrations.png', 's05-9-solar-field.png'])
+/** Crops are taken at 2x pixel density, so a small element is still sharp on a slide; full-screen shots stay at 1x (1920 x 1080). */
+const SHARP = new Set([...TILES, 's07-finding-drawer-r05.png'])
+
+async function tileClip(page: Page, target: Locator, ratio = 3 / 2, pad = 16, inside = false) {
+  await target.scrollIntoViewIfNeeded()
+  const b = await target.boundingBox()
+  if (!b) return null
+  const vp = page.viewportSize() ?? { width: 1920, height: 1080 }
+  // Opt-in (`inside`, only the 3D canvas): an element already at least as wide as the ratio is cropped INSIDE itself, trimming the width from the right (the
+  // canvas's legend sits at its left edge), so the crop never reaches the tab strip or the footer around it. Not for cards or figures: it would cut their content.
+  if (inside && b.width / b.height >= ratio && b.height <= vp.height) {
+    return { x: b.x, y: b.y, width: b.height * ratio, height: b.height }
+  }
+  let x = Math.max(0, b.x - pad), y = Math.max(0, b.y - pad)
+  let w = Math.min(b.width + 2 * pad, vp.width), h = Math.min(b.height + 2 * pad, vp.height)
+  if (b.height > vp.height) h = Math.min(w / ratio, vp.height) // taller than the screen: keep the top part
+  if (w / h > ratio) h = w / ratio
+  else w = h * ratio
+  w = Math.min(w, vp.width)
+  h = Math.min(h, vp.height)
+  if (w / h > ratio) w = h * ratio
+  else h = w / ratio
+  if (b.height <= vp.height) {
+    x = b.x + b.width / 2 - w / 2
+    y = b.y + b.height / 2 - h / 2
+  }
+  x = Math.max(0, Math.min(x, vp.width - w))
+  y = Math.max(0, Math.min(y, vp.height - h))
+  return { x, y, width: w, height: h }
+}
+
+for (const [scale, group] of [[2, SHOTS.filter((s) => SHARP.has(s.file))], [1, SHOTS.filter((s) => !SHARP.has(s.file))]] as const) {
+  test.describe(`shots at ${scale}x pixel density`, () => {
+    test.use({ deviceScaleFactor: scale })
+    for (const shot of group) {
   test(shot.file, async ({ page }) => {
+    test.skip(shot.manual === true, 'captured by hand on the deployed site (see the header and the README); never rewritten here')
     test.skip(shot.live === true && process.env.E2E_LIVE !== '1', 'needs the deployed agents: set E2E_LIVE=1')
     test.setTimeout(150_000)
     await page.setViewportSize({ width: 1920, height: 1080 })
@@ -212,8 +300,13 @@ for (const shot of SHOTS) {
     // The banner must be visible in every capture: full-screen shots show it; for a crop, check it is on the page.
     // (By text, not by role: an open finding drawer is a modal and hides the banner from the accessibility tree.)
     await expect(page.getByText('all companies, people and data are fictional').first()).toBeVisible()
+    if (await page.getByRole('dialog').count()) await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.()) // the open drawer focuses its first button: no focus ring in the picture
     const file = path.join(OUT, shot.file)
-    if (target) await target.screenshot({ path: file })
+    const clip = shot.clipOf ? await shot.clipOf(page) : target && TILES.has(shot.file) ? await tileClip(page, target, 3 / 2, 16, shot.inside) : null
+    if (clip) await page.screenshot({ path: file, clip })
+    else if (target) await target.screenshot({ path: file })
     else await page.screenshot({ path: file })
+  })
+    }
   })
 }

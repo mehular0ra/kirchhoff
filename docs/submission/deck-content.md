@@ -355,11 +355,11 @@ These come from the live product at kirchhoff.web.app. Every company and person 
 
 A 3 × 2 grid, one caption under each:
 1. [SHOT: Projects dashboard. Hall A "Signed", Hall B "Not started", Grid and Solar cards; fictional-data banner visible.]
-2. [SHOT: Workspace during the Hall B live run. Power and Cooling lanes both active; elapsed-time clock; SLD staging in.]
+2. [SHOT: Workspace during the Hall B live run (Auto mode, t=150 s). Power and Cooling lanes both Working; elapsed-time clock; the 3D hall drawn from the first revision with its two findings.]
 3. [SHOT: 3D hall, R11 finding drawer open. H-Z2 red where it crosses FB-03; §6.3.4 clause chip; both fix options with cost deltas.]
-4. [SHOT: Options tab, 2N card. "2.5 MVA · stock 0 · 98 wk > 26 wk (§2.3)" struck through; "3.15 MVA · stock 6 · 38.07% / 76.15%"; fault level 65.42 kA.]
+4. [SHOT: Options tab, 2N card Selected, with its swap line "TX-2500 → TX-3150 (R15, line transformer)", loading 38.07% / 76.15% and max lead time 14 weeks. The card does not show the stock count or the 98 wk against 26 wk comparison.]
 5. [SHOT: What-if at 200 kW per rack. Impact chain lit rack → busway → board → transformer (power colour) and rack → zone → CDU (cooling colour); counters "60 findings · 18 impact chains".]
-6. [SHOT: Review page after approval. Diff, ledger with its "not checked" list, stamp "You (Demo Reviewer) · time · revision hash".]
+6. [SHOT: Review page after approval, of the recorded Hall A run. Diff, ledger with its "not checked" list, stamp "Priya Raman · Lead Electrical Engineer (Reviewer) · time · revision hash" (a live approval would read "You (Demo Reviewer)").]
 
 Footer (small print): "All companies, people and data shown are fictional. IEC-based, illustrative values, not for construction."
 
@@ -417,7 +417,7 @@ Footer (small print): "IEC-based, illustrative values, not for construction."
 **Visual**
 
 A three-column roadmap (Now · Next · Smart engineering) on a light background.
-[SHOT: Grid pack. 132 kV line on the static map, conductor comparison cards, mini SLD.]
+[SHOT: Grid pack. The 132 kV route drawn as a line (drawn geometry, not a basemap), the conductor comparison table, mini SLD.]
 [SHOT: Solar pack. Field layout with tables; card "STR-28 recommended · 327 tables · ~5,036 kWp · DC/AC 1.26 · clear-sky yield ~2,639 kWh/kWp (clear-sky only)".]
 
 Footer (small print): "IEC-based, illustrative values, not for construction. Demo data is fictional."
