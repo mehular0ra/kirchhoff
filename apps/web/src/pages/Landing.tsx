@@ -209,13 +209,16 @@ export function Landing() {
             </ul>
           </figure>
 
-          {/* One frosted panel, label on top, five equal tiles divided by hairlines (rows on a phone, columns from sm up). Not separate pills, and
-              not a line of mixed sizes: every tile has the same icon, size and weight. */}
-          <div className="glass-strong mt-2 w-full rounded-2xl px-4 pb-1 pt-4 sm:px-5">
-            <p className="border-b border-[var(--glass-edge)] pb-3 text-center text-base font-semibold tracking-tight text-foreground">Built on Google Cloud</p>
-            <ul aria-label="Built on" className="grid divide-y divide-[var(--glass-edge)] sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+          {/* A strong label over five equal glass tiles (two columns on a phone, five from sm up; the odd one out spans the phone's width). Every
+              tile has the same icon, size and weight and sits in its own frosted glass, so there are no lines between them. */}
+          <div className="mt-2 flex w-full flex-col items-center gap-4">
+            <p className="text-center text-base font-semibold tracking-tight text-foreground">Built on Google Cloud</p>
+            <ul aria-label="Built on" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-5">
               {GOOGLE_STACK.map(([name, Icon]) => (
-                <li key={name} className="flex items-center gap-3 px-3 py-3 text-sm font-semibold leading-tight text-slate-800 sm:flex-col sm:justify-start sm:gap-2 sm:py-4 sm:text-center">
+                <li
+                  key={name}
+                  className="glass flex flex-col items-center justify-start gap-2 rounded-xl px-3 py-4 text-center text-sm font-semibold leading-tight text-slate-800 max-sm:last:col-span-2"
+                >
                   <Icon aria-hidden className="size-5 shrink-0 text-[var(--brand-text)]" />
                   {name}
                 </li>

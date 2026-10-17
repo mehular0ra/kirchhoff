@@ -82,24 +82,24 @@ test('the product screenshot is lossless (a WebP first, the same pixels as a PNG
   expect(img.className).toContain(`max-sm:aspect-[${phone.w / 12}/${phone.h / 12}]`)
 })
 
-test('the Google Cloud stack is one glass panel: the label above, then five equal tiles that each pair an icon with a name', () => {
+test('the Google Cloud stack is five equal glass tiles, each an icon over a name, under a strong label, with no hairline separators', () => {
   renderWithProviders(<Landing />)
   const stack = screen.getByRole('list', { name: 'Built on' })
   const tiles = within(stack).getAllByRole('listitem')
   expect(tiles.map((li) => li.textContent)).toEqual(['Gemini on Vertex AI', 'Agent Development Kit', 'Cloud Run', 'Firestore', 'Firebase'])
-  // an icon beside every name (decorative), and one type size and weight for all five, so no tile looks different from its neighbours
+  // an icon over every name (decorative), and one class string for all five, so no tile looks different from its neighbours
   for (const li of tiles) expect(li.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   expect(new Set(tiles.map((li) => li.className)).size).toBe(1)
-  // the label and the tiles share one frosted panel (not five separate pills)
-  const panel = stack.closest('.glass-strong')
-  expect(panel).not.toBeNull()
-  const label = within(panel as HTMLElement).getByText('Built on Google Cloud')
-  expect(label).toBeInTheDocument()
-  // the label is the panel's heading line, so it is as strong as the names below it: full foreground colour, semibold, a rule under it
+  // each tile is its own frosted glass (not one panel cut by lines), so there are no dividers between them
+  for (const li of tiles) expect(li.className).toMatch(/\bglass\b/)
+  expect(stack.className).not.toMatch(/divide-/)
+  expect(stack.closest('.glass-strong')).toBeNull()
+  // the label is the heading line of the group: full foreground colour and semibold, not a plain grey caption, and no rule under it
+  const label = screen.getByText('Built on Google Cloud')
+  expect(label.parentElement).toContainElement(stack)
   expect(label.className).toMatch(/\btext-foreground\b/)
   expect(label.className).toMatch(/\bfont-semibold\b/)
-  expect(label.className).toMatch(/\bborder-b\b/)
-  for (const li of tiles) expect(li.className).not.toMatch(/glass|rounded-full/)
+  expect(label.className).not.toMatch(/\bborder-/)
 })
 
 test('"What Kirchhoff does" lists the features: a lead feature and five more', () => {
