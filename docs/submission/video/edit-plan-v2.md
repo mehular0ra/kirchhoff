@@ -52,7 +52,7 @@ uv run --python 3.12 --with google-cloud-speech python docs/submission/video/tra
 | 3b | — | — | ~7 | `scenes/out/s1c-intro-jayadratha.mp4` | **Optional.** Insert after 3 and shift everything by its length. |
 | 4 | 0:22 | 0:31 | 9 | `scenes/out/s2-problem.mp4` | |
 | 5 | 0:31 | 0:45 | 14 | `scenes/out/s3-requirements-in.mp4` | Gmail (connector · sandbox), Ariba and Drive (simulated). |
-| 5b | 0:45 | 0:59 | 14 | `v12-inbox-triage.mp4` (footage) | The bids inbox, six emails: Pursue on the Hall B tender with its reasons; the scanned BOQ is "Not verified (scan)" and gets a Decline. Nothing is clicked that writes to the sandbox. Voice `b18-inbox`. |
+| 5b | 0:45 | 0:59 | 14 | `v12-inbox-triage.mp4` (footage) | The bids inbox, six emails: Pursue on the Hall B tender with its reasons; the Vindhya BOQ gets a Decline (a substation is not one of our asset packs) and its load, only on a scanned page, is marked "Not verified (scan)". Nothing is clicked that writes to the sandbox. Voice `b18-inbox`. |
 | 6 | 0:59 | 1:12 | 13 | `v04-tender-in.mp4` (footage) | Hall B intake: the quotes-verified counter, the §2.3 chip, the contradiction, plan approval. |
 | 7 | 1:12 | 1:19 | 7 | `scenes/out/s4-agents.mp4` | |
 | 8 | 1:19 | 1:29 | 10 | `v05-agents-at-work.mp4` (footage) | Time-compressed. Burn in "time-compressed ×N" with the real N and an elapsed clock. |
@@ -69,7 +69,7 @@ uv run --python 3.12 --with google-cloud-speech python docs/submission/video/tra
 | 16b | 3:09 | 3:21 | 12 | `scenes/out/s10-numbers.mp4` | Four measured numbers, each with its source: planted faults caught, quotes verified, median seconds, cost per design. Voice `b21-numbers`. |
 | 17 | 3:21 | 3:28 | 7 | `scenes/out/s9-end.mp4` | Fade to white or black at the very end. Both disclaimers are on the card. |
 
-**Runtime budget:** product footage 110 s, flow scenes 47 s, other scenes 51 s, for **208 s (3:28)**. Jayadratha's intro adds 7 s, for **215 s (3:35)**. This is inside the form's 3:00 to 4:00 and the 3:30 to 3:50 target (HANDOFF §4.3); a voice take that runs over its beat, or an intro longer than 10 s, adds to it. If the cut runs past 3:50, trim beat 14 first, then beat 8 to 8 s, then beat 5b to 12 s, then beat 2 to 4 s.
+**Runtime budget:** product footage 110 s, flow scenes 47 s, other scenes 51 s, for **208 s (3:28)**. Jayadratha's intro adds 7 s, for **215 s (3:35)**. This is inside the form's 3:00 to 4:00 and a few seconds under the 3:30 to 3:50 target (HANDOFF §4.3); a voice take that runs over its beat, or an intro longer than 10 s, closes that gap. If the cut runs past 3:50, trim beat 14 first, then beat 8 to 8 s, then beat 5b to 12 s, then beat 2 to 4 s.
 
 For `assemble.sh` the v2 order is: `v01-cold-open`, `s1-title`, `s1b-intro-mehul`, optionally `s1c-intro-jayadratha`, `s2-problem`, `s3-requirements-in`, `v12-inbox-triage`, `v04-tender-in`, `s4-agents`, `v05-agents-at-work`, `s5-checks`, `v06-checker`, `v13-trust-quote`, `v07-erp-swap`, `v08-what-if-voice`, `s6-sign`, `v09-sign-off`, `s7-connectors`, `v11-grid-solar`, `s8-google-cloud`, `s10-numbers`, `s9-end`. The scene clips need no trim (`in=0`, `out=duration`, speed 1). The two intro clips carry audio, so mix their audio in rather than stripping it, in the same way as beat 8's in-clip question.
 

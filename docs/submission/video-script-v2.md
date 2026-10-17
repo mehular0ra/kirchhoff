@@ -30,7 +30,7 @@
 | 3b | (optional, +7) | ~7 | [SCENE s1c-intro-jayadratha] Photo, lower third "Jayadratha Gayen · AI research engineer · Team Ordinal". | **Intro, Jayadratha reads** (in-clip audio) |
 | 4 | 0:22–0:31 | 9 | [SCENE s2-problem] "132 kW per rack" counts up; power and liquid cooling meet at one node; "In weeks, not ~~months~~." | Mehul, line 4 |
 | 5 | 0:31–0:45 | 14 | [SCENE s3-requirements-in] The tender lands in Gmail (sandbox); the drawing and addendum come from a Drive spec folder and an Ariba RFQ (simulated); all three fly into the Kirchhoff bids inbox; the fields show "✓ found"; the fit card shows **Pursue**. | Mehul, line 5 |
-| 5b | 0:45–0:59 | 14 | [SHOT: the bids inbox, six emails, newest first; the Hall B tender opens with its fit verdict **Pursue** and its reasons, including the day-zero supply warning; the scanned BOQ is marked "Not verified (scan)" and its verdict is a decline. Nothing is clicked that writes.] | Mehul, line 18 |
+| 5b | 0:45–0:59 | 14 | [SHOT: the bids inbox, six emails, newest first; the Hall B tender opens with its fit verdict **Pursue** and its reasons, including the day-zero supply check that already expects the in-stock swap; the Vindhya BOQ email is a decline (a substation is not one of our asset packs) and its load, only on a scanned page, is marked "Not verified (scan)". Nothing is clicked that writes.] | Mehul, line 18 |
 | 6 | 0:59–1:12 | 13 | [SHOT: Hall B intake lane: "✓ quote verified" cards and the "N/M quotes verified" counter; click the §2.3 chip and the PDF opens with the clause highlighted; the §4.2 vs Appendix B open question; "Approve plan".] | Mehul, line 6 |
 | 7 | 1:12–1:19 | 7 | [SCENE s4-agents] Lanes for Intake, Power, Cooling and Procurement on Gemini · Vertex AI; the hall plan draws itself from the model. | Mehul, line 7 |
 | 8 | 1:19–1:29 | 10 | [SHOT: agents at work, with racks dropping in 3D, the SLD staging and pipes routing. Burned-in "time-compressed ×N" and an elapsed clock.] | Mehul, line 8 |
@@ -92,10 +92,10 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 
 ### 5b · The bids inbox, footage (14 s) · voice file `b18-inbox.wav`
 - The same triage, now in the product: six emails, newest first.
-- **Pursue** on the Hall B tender, with the reasons the fit check gives, including the day-zero supply warning *(from capture)*.
-- The scanned BOQ is marked "Not verified (scan)": a number read off a scan is never trusted, so its verdict is a decline until a text copy arrives.
+- **Pursue** on the Hall B tender, with the reasons the fit check gives, including the day-zero supply check, which already expects the in-stock swap *(from capture)*.
+- The Vindhya BOQ is a **decline** for its asset type: a substation is not one of our asset packs. Separately, its load is only on a scanned page, so the card marks it "Not verified (scan)" and asks for a text copy. Do not say the scan caused the decline.
 
-> Suggested: "The bids inbox triages every email. Pursue on the Hall B tender, with its reasons. And a decline for the scanned BOQ, because Kirchhoff never trusts a page it cannot verify."
+> Suggested: "Every email gets a verdict, with reasons. Pursue on the Hall B tender. And a decline for the substation BOQ: not our asset type, and its load is only on a scan."
 
 ### 6 · Intake, footage (13 s)
 - Gemini reads the tender PDF, and a requirement counts only if its quote is found on the cited page: **N/M quotes verified** *(from capture)*.
@@ -130,10 +130,10 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 > Suggested: "Feeder FA-01 drops 2.16 percent against a 2 percent limit. Every fix is re-checked against every rule before an agent can pick it. Revision two: all pass."
 
 ### 10b · From a finding to the tender page, footage (12 s) · voice file `b19-trust.wav`
-- Every finding cites its tender clause, here **§4.6** *(from capture)*.
+- A failing finding cites its tender clause, here **§4.6** *(from capture)*. Say "failing": 37 of the 149 checks (R02, R03, R12) carry no clause chip.
 - Click the chip and the PDF opens on that page, with a box around the exact quote, marked "Verified quote". The quote was found word for word, so anyone can check it.
 
-> Suggested: "Every finding cites its tender clause. Click it, and the PDF opens on that page, with a box around the exact quote. You can check us yourself."
+> Suggested: "A failing finding cites its tender clause. Click it, and the PDF opens on that page, with a box around the exact quote. You can check us yourself."
 
 ### 11 · Lead-time swap, footage (10 s)
 - The **2.5 MVA** unit has **0** in stock and a **98-week** lead time; the tender allows **26** *(from capture)*.

@@ -11,7 +11,7 @@
 # Two plans, chosen with PLAN (default v1, unchanged):
 #
 #   PLAN=v1  the original 13-beat cut (edit-plan.md): clips v01..v13 plus ONE voiceover file, vo.wav.
-#   PLAN=v2  the 17-beat cut of edit-plan-v2.md: product footage from WORK_DIR, scene clips from scenes/out/, ONE
+#   PLAN=v2  the 21-beat cut of edit-plan-v2.md (22 with Jayadratha's optional intro): product footage from WORK_DIR, scene clips from scenes/out/, ONE
 #            voice WAV per beat, and the intro voices carried by the intro scene clips themselves.
 #
 # This script never touches the repo. It only reads from and writes to the WORK_DIR you pass it on the command
@@ -23,8 +23,10 @@
 #
 #   <work_dir>      v1: v01-cold-open.mp4 ... v13-end-card.mp4, vo.wav, optionally music.mp3.
 #                   v2: the product footage v01-cold-open.mp4, v04-tender-in.mp4, v05-agents-at-work.mp4,
-#                       v06-checker.mp4, v07-erp-swap.mp4, v08-what-if-voice.mp4, v09-sign-off.mp4; the voice WAVs
-#                       bNN-<name>.wav (NN = the beat number in edit-plan-v2.md, e.g. b04-problem.wav) in $VO_DIR;
+#                       v06-checker.mp4, v07-erp-swap.mp4, v08-what-if-voice.mp4, v09-sign-off.mp4 and, for the four extra
+#                       beats, v12-inbox-triage.mp4, v13-trust-quote.mp4, v11-grid-solar.mp4; the voice WAVs
+#                       bNN-<name>.wav (NN = the beat number in edit-plan-v2.md, e.g. b04-problem.wav, except for the
+#                       extra beats 5b, 10b, 15b and 16b: b18-inbox, b19-trust, b20-platform, b21-numbers) in $VO_DIR;
 #                       optionally music.mp3. Output is written here too.
 #   [speed_factor]  Speed multiplier of the time-compressed beat (v1: beat 5, v2: beat 8, agents at work), i.e.
 #                   (real length of that beat in the clip) / (its length in the video). v1 defaults to 1 (no
@@ -258,8 +260,9 @@ else
   )
 
   # find the voice WAV of a beat: exactly one bNN-*.wav, or none (that beat is silent). Sets VO_FOUND.
+  # $1 = the voice number NN, $2 = the beat's id for the message (the extra beats 5b, 10b, 15b, 16b have voice numbers 18 to 21).
   find_vo() {
-    local n="$1" pad
+    local n="$1" beat="${2:-$1}" pad
     pad="$(printf '%02d' "$n")"
     local -a m
     shopt -s nullglob
@@ -267,7 +270,7 @@ else
     shopt -u nullglob
     VO_FOUND=""
     if [ "${#m[@]}" -gt 1 ]; then
-      echo "ERROR: more than one voice file for beat $n in $VO_DIR: ${m[*]##*/}" >&2
+      echo "ERROR: more than one voice file for beat $beat (voice number $n) in $VO_DIR: ${m[*]##*/}" >&2
       exit 1
     fi
     if [ "${#m[@]}" -eq 1 ]; then VO_FOUND="${m[0]}"; fi
@@ -283,7 +286,7 @@ else
       echo "ERROR: beat $id: clip not found: $src" >&2
       missing=1
     fi
-    if [ "$vo" != "-" ]; then find_vo "$vo"; fi   # two voice files for one beat is an error: stop before encoding anything
+    if [ "$vo" != "-" ]; then find_vo "$vo" "$id"; fi   # two voice files for one beat is an error: stop before encoding anything
   done
   if [ "$missing" != "0" ]; then
     echo "Render the scenes (scenes/render.py, see edit-plan-v2.md §1) and put the footage in $WORK_DIR." >&2
@@ -383,7 +386,7 @@ if [ "$PLAN" = "v2" ]; then
     id="${IDS[$i]}"; dur="${DURS[$i]}"; keep="${KEEPS[$i]}"; vo="${VOS[$i]}"
     voice_note="-"
     if [ "$vo" != "-" ]; then
-      find_vo "$vo"
+      find_vo "$vo" "$id"
       if [ -n "$VO_FOUND" ]; then
         vo_len="$(probe_duration "$VO_FOUND")"
         add_audio "$VO_FOUND" "$start" ""

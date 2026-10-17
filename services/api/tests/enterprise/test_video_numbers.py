@@ -81,7 +81,7 @@ def test_the_quote_counts_are_the_recorded_runs_and_the_deck_s():
 def test_the_scene_reads_its_numbers_and_types_none():
     html = SCENE.read_text(encoding="utf-8")
     assert 'src="lib/measured.js"' in html and "window.KMEASURED" in html and "K.D.intake" in html
-    typed = re.findall(r"(?<![\w.$])(?:35|149|0\.066|0\.78|0\.84|25|26)(?![\w.])", html)
+    typed = re.findall(r"(?<![\w.])(?:35|149|0\.066|0\.78|0\.84|25|26)(?![\w.])", html)
     assert not typed, f"s10-numbers.html types its own figures {typed}; they must come from lib/measured.js or the recorded run"
 
 

@@ -137,8 +137,8 @@ const BEATS: Beat[] = [
     },
   },
   {
-    // The bids inbox: six emails, newest first; the Hall B tender is triaged (Pursue, with its fit reasons); the scanned BOQ is marked
-    // "Not verified (scan)" and its email is a deterministic Decline. Nothing is clicked that writes: "Pursue" would move a CRM stage in
+    // The bids inbox: six emails, newest first; the Hall B tender is triaged (Pursue, with its fit reasons); the Vindhya BOQ email is a
+    // deterministic Decline (a substation is not one of our asset packs) and its load, only on a scanned page, is marked "Not verified (scan)". Nothing is clicked that writes: "Pursue" would move a CRM stage in
     // the shared sandbox when the API is up, so this clip only reads (the recorded triage comes from the static bundle).
     clip: 'v12-inbox-triage',
     run: async (page) => {
@@ -153,10 +153,10 @@ const BEATS: Beat[] = [
       await expect(fit).toContainText('Pursue', LONG)
       await expect(fit).toContainText('Day-zero supply')
       await hold(page, 4_500) // the verdict and its reasons
-      await page.goto('/app/inbox/em-vindhya-boq')
+      await page.locator('a[href="/app/inbox/em-vindhya-boq"]').click() // a click, not a reload: no "Loading the bids inbox…" frame in the cut
       await expect(detail.getByText('Not verified (scan)').first()).toBeVisible(LONG)
       await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('only on a scanned page')
-      await hold(page, 4_500) // the scan is never trusted: its fit rule asks for a text copy
+      await hold(page, 4_500) // a decline (a substation is not one of our asset packs); its load is only on a scan, so it is unverified and the fit rule asks for a text copy
     },
   },
   {
