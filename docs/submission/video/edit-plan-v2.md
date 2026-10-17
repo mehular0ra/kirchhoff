@@ -9,7 +9,7 @@ This plan goes with `../video-script-v2.md`. The v1 kit (`edit-plan.md`, `captio
 1. **Render the scenes.** Do this after the golden capture, because the scenes read their numbers from the demo bundle.
 2. **Record the voice, one WAV per beat** (§4). Record Mehul's intro first.
 3. **Re-render the intro scenes with the real voice.** Their waveform and length come from the recording.
-4. **Transcribe the voice** with `transcribe.py`, which uses Gemini on Vertex AI. The glossary pass and the cue rules give `captions-v2.srt`.
+4. **Transcribe the voice** with `transcribe.py`, which uses Cloud Speech-to-Text (Chirp 2). The glossary pass and the cue rules give `captions-v2.srt`.
 5. **Assemble** in beat order (§2), with the caption band from #25, and burn in `captions-v2.srt`.
 6. **Check:** the runtime is under 3:59 (the gate ceiling, 239 s) and inside the 3:30 to 3:50 target, every number marked *from capture* matches, and every connector tag is visible.
 
@@ -104,12 +104,12 @@ ffmpeg -f avfoundation -i ":0" -ac 1 -ar 48000 -t 15 intro_mehul.wav
 ## 5. Captions
 
 Captions are built from what was actually said, not from the script:
-- `transcribe.py` sends each WAV to `gemini-3.8-flash` on Vertex AI (project `ordinal-mep`, location `global`) as audio input, with a JSON schema that asks for word-level start and end times.
+- `transcribe.py` sends each WAV to Cloud Speech-to-Text (Chirp 2, `us-central1`, `en-IN`, with phrase hints for our names) and asks for word-level start and end times. It does not use Gemini by default: on 16 Oct Vertex blocked most Gemini calls with a safety filter and a lite model invented timings, so Chirp is the default engine (`--engine gemini` keeps the old path, which needs `google-genai` and `GOOGLE_GENAI_USE_VERTEXAI=true`).
 - It then runs a glossary pass. That pass fixes product names (Kirchhoff, Ordinal, Gemini, Vertex AI, Cloud Run, Firestore, Firebase, SAP S/4HANA, Ariba, Gmail, Google Drive), units (kW, MW, MVA, kV, %), ids (R05, R11, R15, FA-01, FB-03, H-Z2, 2N) and acronyms (MEP, CDU, UPS, LLM, ADK). It also applies British and Indian spelling: organise, colour, programme, centre, metre, licence.
 - Finally it applies the cue rules: at most 42 characters per line, at most 2 lines per cue, and 1.5–6 s per cue. A pause of 0.6 s or a sentence end starts a new cue.
 - It prints `CHECK:` for any cue that still breaks a rule, so you can fix those few by hand in the SRT.
 
-The script was tested only in `--dry-run` mode, on one clip made with macOS `say`; it has not called Vertex yet. The first real call happens when Mehul runs it on his recordings.
+The cue rules and the glossary were tested in `--dry-run` mode (no network) on one clip made with macOS `say`; the real Chirp call was run on 16 Oct on Mehul's intro and heard every product word. The first run on the full narration happens when Jayadratha records it (docs/HANDOFF.md §4.2).
 
 ## 6. Open items
 
