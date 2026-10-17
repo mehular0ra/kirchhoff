@@ -54,7 +54,12 @@ test('the contract links the e2e tour depends on exist exactly once, and the dem
 test('the product window has a legend that says what the three areas of the screenshot are', () => {
   renderWithProviders(<Landing />)
   const legend = screen.getByRole('list', { name: 'What the screenshot shows' })
-  expect(within(legend).getAllByRole('listitem')).toHaveLength(3)
+  const items = within(legend).getAllByRole('listitem')
+  expect(items).toHaveLength(3)
+  // each item is its own glass card with a small map of the screenshot's three columns, the item's column filled: left, centre, right
+  for (const li of items) expect(li.className).toMatch(/(^|\s)glass(\s|$)/)
+  expect(items.map((li) => li.querySelector('svg[aria-hidden="true"]')?.getAttribute('data-at'))).toEqual(['left', 'centre', 'right'])
+  expect(items.map((li) => li.querySelector('p')?.textContent)).toEqual(['Agent lanes', '3D hall', 'Co-pilot'])
   expect(screen.getByRole('img', { name: /Hall A \(sample\)/ })).toBeInTheDocument()
 })
 
@@ -91,7 +96,7 @@ test('the Google Cloud stack is five equal glass tiles, each an icon over a name
   for (const li of tiles) expect(li.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   expect(new Set(tiles.map((li) => li.className)).size).toBe(1)
   // each tile is its own frosted glass (not one panel cut by lines), so there are no dividers between them
-  for (const li of tiles) expect(li.className).toMatch(/\bglass\b/)
+  for (const li of tiles) expect(li.className).toMatch(/(^|\s)glass(\s|$)/)
   expect(stack.className).not.toMatch(/divide-/)
   expect(stack.closest('.glass-strong')).toBeNull()
   // the label is the heading line of the group: full foreground colour and semibold, not a plain grey caption, and no rule under it

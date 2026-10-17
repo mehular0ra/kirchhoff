@@ -1,10 +1,13 @@
 import { motion, useReducedMotion } from 'motion/react'
+import { useState } from 'react'
 import { Bot, CirclePlay, Cloud, Database, FileSearch, Flame, Layers, MessageCircleQuestion, PenLine, ShieldCheck, Sparkles, Stamp, Truck, Workflow, Zap } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { KirchhoffMark } from '@/components/KirchhoffMark'
 import { FICTIONAL_TEXT, ILLUSTRATIVE_TEXT } from '@/components/Labels'
 import { useRecordedRun } from '@/data/useRecordedRun'
+import { CheckGrid, StepCard } from './landingMotion'
+import { useReveal } from './useReveal'
 
 // Effects live only here (spec §12). The background traces are decorative and static under reduced motion.
 const TRACES = ['M 0 40 H 140 V 120 H 240', 'M 0 150 H 90 V 260 H 220', 'M 0 300 H 170 V 380 H 260', 'M 40 0 V 70 H 120']
@@ -25,11 +28,38 @@ const STEPS = [
   { t: 'An engineer signs', d: 'You decide at each gate, sign the revision, and PRs and the CRM update follow.', Icon: PenLine, chip: 'bg-emerald-700 text-white' },
 ] as const
 
+/** The three areas of the screenshot, left to right, each with the icon its card carries. */
 const SCREENSHOT_LEGEND = [
-  ['Agent lanes', 'Each agent’s status, with the quotes it verified against the tender.'],
-  ['3D hall', 'Every finding drawn where it happens, with the clause that raised it.'],
-  ['Co-pilot', 'Ask why a check failed, or what if a rack load or a limit changes.'],
+  ['Agent lanes', 'Each agent’s status, with the quotes it verified against the tender.', 'left', Bot],
+  ['3D hall', 'Every finding drawn where it happens, with the clause that raised it.', 'centre', Layers],
+  ['Co-pilot', 'Ask why a check failed, or what if a rack load or a limit changes.', 'right', MessageCircleQuestion],
 ] as const
+
+/** A small map of the workspace's three columns (agents, hall, co-pilot) with one filled, so a card says where in the picture its area is. */
+function WhereInShot({ at }: { at: 'left' | 'centre' | 'right' }) {
+  const columns = [
+    ['left', 4, 10],
+    ['centre', 16, 20],
+    ['right', 38, 10],
+  ] as const
+  return (
+    <svg aria-hidden data-at={at} viewBox="0 0 52 34" className="h-9 w-14 shrink-0">
+      <rect x="1" y="1" width="50" height="32" rx="5" fill="white" fillOpacity="0.8" stroke="var(--glass-edge)" strokeWidth="1.25" />
+      {columns.map(([name, x, w]) => (
+        <rect
+          key={name}
+          x={x}
+          y="6"
+          width={w}
+          height="22"
+          rx="2.5"
+          fill={name === at ? 'var(--brand-text)' : 'var(--glass-edge)'}
+          fillOpacity={name === at ? 0.9 : 0.5}
+        />
+      ))}
+    </svg>
+  )
+}
 
 /** Generic icons (not the products' own logos), one per service, so the five tiles read as a set. */
 const GOOGLE_STACK = [
@@ -54,20 +84,21 @@ const PRINCIPLES = [
   ['An engineer signs', 'Sign-off always waits for a person. The stamp records who signed, when, and the exact revision.'],
 ] as const
 
-/** A picture of what the checker does, not data: a grid of checks where nearly all pass and two are flagged. Decorative (aria-hidden). */
-function CheckGrid() {
-  const flagged = new Set([17, 38])
-  return (
-    <div aria-hidden className="grid grid-cols-12 gap-1.5">
-      {Array.from({ length: 60 }, (_, i) => (
-        <span key={i} className={`aspect-square rounded-[5px] ${flagged.has(i) ? 'bg-rose-500 ring-2 ring-rose-200' : 'bg-emerald-500/75'}`} />
-      ))}
-    </div>
-  )
-}
+/** Where the three legend areas sit on the screenshot, as a share of the picture (left, top, width, height in %), measured on the 1160 px capture. */
+const AREAS = {
+  left: { left: '0%', top: '13.6%', width: '19.3%', height: '81.2%' },
+  centre: { left: '19.3%', top: '13.6%', width: '56.4%', height: '81.2%' },
+  right: { left: '75.7%', top: '13.6%', width: '24.3%', height: '81.2%' },
+} as const
+
+/** A small glass card lifts a hair on hover; not at all under "reduce motion" (the lift is a CSS transform, so the media query is the whole switch). */
+const LIFT =
+  'transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-14px_rgb(30_58_138/0.4)] motion-reduce:transition-none motion-reduce:hover:translate-y-0'
 
 export function Landing() {
   const reduce = useReducedMotion()
+  const reveal = useReveal()
+  const [hot, setHot] = useState<keyof typeof AREAS | null>(null)
   const recorded = useRecordedRun()
   return (
     <div id="top" className="blueprint relative flex min-h-dvh flex-col overflow-x-clip">
@@ -133,15 +164,21 @@ export function Landing() {
 
       <main id="main" tabIndex={-1} className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-24 px-6 pt-16 pb-16 focus:outline-none sm:pt-20">
         <section aria-label="Kirchhoff" className="flex w-full flex-col items-center gap-6 text-center">
-          <p className="glass rounded-full px-3.5 py-1 text-xs font-medium text-slate-700">AI designs. Physics checks. An engineer signs.</p>
-          <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-[-0.035em] text-foreground sm:text-5xl lg:text-6xl">
+          {/* One entrance sequence on load (spec motion rules: once, and none under "reduce motion"): each part follows the one before it. */}
+          <motion.p {...reveal({ on: 'load' })} className="glass rounded-full px-3.5 py-1 text-xs font-medium text-slate-700">
+            AI designs. Physics checks. An engineer signs.
+          </motion.p>
+          <motion.h1
+            {...reveal({ on: 'load', delay: 0.08 })}
+            className="max-w-3xl text-balance text-4xl font-semibold tracking-[-0.035em] text-foreground sm:text-5xl lg:text-6xl"
+          >
             Weeks of senior-engineer design work, in one reviewed, signed session.
-          </h1>
-          <p className="max-w-xl text-pretty text-base leading-relaxed text-slate-600">
+          </motion.h1>
+          <motion.p {...reveal({ on: 'load', delay: 0.16 })} className="max-w-xl text-pretty text-base leading-relaxed text-slate-600">
             Gemini agents read the tender and design power and cooling for an AI data hall. A deterministic checker proves
             every number. The engineer decides and signs, and procurement and sales pick it up from there.
-          </p>
-          <div className="mt-1 flex flex-col items-center gap-3">
+          </motion.p>
+          <motion.div {...reveal({ on: 'load', delay: 0.24 })} className="mt-1 flex flex-col items-center gap-3">
             <Button asChild size="lg" className="shadow-[0_10px_24px_-10px_rgb(11_13_16/0.6)] ring-1 ring-white/25">
               <Link to="/app">Enter the demo workspace (no login)</Link>
             </Button>
@@ -161,12 +198,13 @@ export function Landing() {
               )}
             </div>
             <p className="text-xs text-slate-600">No login. The demo companies, people and data are all invented.</p>
-          </div>
+          </motion.div>
 
-          {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, fetched first (N4). */}
+          {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, fetched first (N4). It only rises into place (no fade),
+              so the image is painted from the first frame. */}
           {/* Wider than the text column on a large screen, so the screenshot's own text is shown at its real size (the capture is 1160 px wide; never
               narrower than the column). In px because the app's rem is 14 px. */}
-          <figure className="relative mt-8 w-full lg:w-[max(100%,min(1176px,calc(100vw-4rem)))]">
+          <motion.figure {...reveal({ on: 'load', delay: 0.36, y: 28, fade: false })} className="relative mt-8 w-full lg:w-[max(100%,min(1176px,calc(100vw-4rem)))]">
             {/* A soft cooling-blue / power-amber glow under the frame, so the glass bezel has something to refract. */}
             <div aria-hidden className="pointer-events-none absolute inset-x-10 -inset-y-4 -z-10 rounded-[2rem] bg-gradient-to-r from-blue-500/30 via-indigo-400/20 to-amber-400/30 blur-2xl" />
             <div className="glass-strong rounded-2xl p-2">
@@ -179,35 +217,61 @@ export function Landing() {
                 {/* Lossless at 2x (a lossy WebP blurred the small text): WebP first, 57% lighter, and the identical pixels as PNG for a browser without
                     WebP. A phone gets the 3D column only, captured where it is about a phone's width, because the whole workspace shrunk to 360 px
                     cannot be read. */}
-                <picture>
-                  <source media="(max-width: 639px)" type="image/webp" srcSet="/landing/hall-a-r2-phone.webp" />
-                  <source media="(max-width: 639px)" srcSet="/landing/hall-a-r2-phone.png" />
-                  <source type="image/webp" srcSet="/landing/hall-a-r2.webp" />
-                  <img
-                    src="/landing/hall-a-r2.png"
-                    width={1160}
-                    height={725}
-                    // Above the fold on desktop (N4): lazy-loading left a grey box at ~2.6 s.
-                    loading="eager"
-                    fetchPriority="high"
-                    decoding="async"
-                    alt="Hall A (sample) in Kirchhoff's 3D view: the hall boundary, and the signed revision with each fixed check called out as resolved. The wider picture also shows the agent lanes and the co-pilot's what-if chips."
-                    className="block aspect-[16/10] h-auto w-full bg-muted max-sm:aspect-[99/116]"
-                  />
-                </picture>
+                <div className="relative">
+                  <picture>
+                    <source media="(max-width: 639px)" type="image/webp" srcSet="/landing/hall-a-r2-phone.webp" />
+                    <source media="(max-width: 639px)" srcSet="/landing/hall-a-r2-phone.png" />
+                    <source type="image/webp" srcSet="/landing/hall-a-r2.webp" />
+                    <img
+                      src="/landing/hall-a-r2.png"
+                      width={1160}
+                      height={725}
+                      // Above the fold on desktop (N4): lazy-loading left a grey box at ~2.6 s.
+                      loading="eager"
+                      fetchPriority="high"
+                      decoding="async"
+                      alt="Hall A (sample) in Kirchhoff's 3D view: the hall boundary, and the signed revision with each fixed check called out as resolved. The wider picture also shows the agent lanes and the co-pilot's what-if chips."
+                      className="block aspect-[16/10] h-auto w-full bg-muted max-sm:aspect-[99/116]"
+                    />
+                  </picture>
+                  {/* Hover a legend card below and the part of the picture it describes lights up. Decorative: hidden from assistive technology, never takes
+                      the pointer, and not on a phone (its crop is the 3D column only). The fade is a CSS transition, off under "reduce motion". */}
+                  <div aria-hidden className="pointer-events-none absolute inset-0 max-sm:hidden">
+                    {(Object.keys(AREAS) as (keyof typeof AREAS)[]).map((at) => (
+                      <span
+                        key={at}
+                        data-highlight={at}
+                        data-active={hot === at}
+                        style={AREAS[at]}
+                        className={`absolute rounded-md bg-[var(--brand-text)]/10 ring-2 ring-[var(--brand-text)] transition-opacity duration-200 motion-reduce:transition-none ${hot === at ? 'opacity-100' : 'opacity-0'}`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
             <figcaption className="sr-only">Hall A (sample): the first revision’s failures, fixed and signed.</figcaption>
             <ul aria-label="What the screenshot shows" className="mt-5 grid gap-3 text-left text-sm sm:grid-cols-3">
-              {SCREENSHOT_LEGEND.map(([t, d]) => (
-                // The phone crop shows the 3D hall only, so the other two items are for the wide picture.
-                <li key={t} className={`border-l-2 border-[var(--glass-edge)] pl-3${t === '3D hall' ? '' : ' max-sm:hidden'}`}>
-                  <p className="font-semibold text-foreground">{t}</p>
-                  <p className="text-xs leading-relaxed text-slate-600">{d}</p>
+              {SCREENSHOT_LEGEND.map(([t, d, at, Icon]) => (
+                // The phone crop shows the 3D hall only, so the other two cards are for the wide picture.
+                <li
+                  key={t}
+                  onMouseEnter={() => setHot(at)}
+                  onMouseLeave={() => setHot(null)}
+                  className={`glass flex items-start gap-3.5 rounded-xl p-4 ${LIFT}${t === '3D hall' ? '' : ' max-sm:hidden'}`}
+                >
+                  <WhereInShot at={at} />
+                  <div>
+                    <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                      <Icon aria-hidden className="size-4 shrink-0 text-[var(--brand-text)]" />
+                      {t}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-700">{d}</p>
+                  </div>
                 </li>
               ))}
             </ul>
-          </figure>
+          </motion.figure>
 
           {/* A strong label over five equal glass tiles (two columns on a phone, five from sm up; the odd one out spans the phone's width). Every
               tile has the same icon, size and weight and sits in its own frosted glass, so there are no lines between them. */}
@@ -217,7 +281,7 @@ export function Landing() {
               {GOOGLE_STACK.map(([name, Icon]) => (
                 <li
                   key={name}
-                  className="glass flex flex-col items-center justify-start gap-2 rounded-xl px-3 py-4 text-center text-sm font-semibold leading-tight text-slate-800 max-sm:last:col-span-2"
+                  className={`glass flex flex-col items-center justify-start gap-2 rounded-xl px-3 py-4 text-center text-sm font-semibold leading-tight text-slate-800 max-sm:last:col-span-2 ${LIFT}`}
                 >
                   <Icon aria-hidden className="size-5 shrink-0 text-[var(--brand-text)]" />
                   {name}
@@ -263,20 +327,15 @@ export function Landing() {
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">You stay in control at three gates: the plan, the options and the review.</p>
           <ol className="mt-8 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3" aria-label="How it works">
             {STEPS.map(({ t, d, Icon, chip }, i) => (
-              <li key={t} className="glass relative rounded-xl p-5">
+              // The signal path from step to step is a short trace with a node across the gap; StepCard draws it just after its card lands.
+              <StepCard key={t} index={i} last={i === STEPS.length - 1} className="glass relative rounded-xl p-5">
                 <div className="flex items-center gap-2">
                   <span className={`grid h-6 min-w-8 place-items-center rounded-md px-1.5 font-mono text-xs font-semibold ${chip}`}>0{i + 1}</span>
                   <Icon aria-hidden className="size-4 text-slate-700" />
                 </div>
                 <p className="mt-3 font-semibold text-foreground">{t}</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-600">{d}</p>
-                {/* The signal path from step to step: a short trace with a node across the gap (sm and up, where the cards sit in a row). */}
-                {i < STEPS.length - 1 && (
-                  <span aria-hidden className="absolute top-1/2 -right-4 hidden h-0.5 w-4 -translate-y-1/2 bg-[var(--trace-blue)] sm:block">
-                    <span className="absolute top-1/2 -right-0.5 size-2 -translate-y-1/2 rounded-full border-2 border-white bg-[var(--trace-blue)]" />
-                  </span>
-                )}
-              </li>
+              </StepCard>
             ))}
           </ol>
         </section>
