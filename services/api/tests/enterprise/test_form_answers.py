@@ -56,7 +56,7 @@ def test_the_decided_facts_are_recorded_in_both_documents_and_the_old_ones_are_g
     assert "18/10/2026 11:59:00 PM (IST)" in _text()
     for path in (ANSWERS, CHECKLIST):
         text = path.read_text(encoding="utf-8")
-        assert "11:59" in text, f"{path.name}: the form's closing time is not recorded"
+        assert re.search(r"11:59(:00)? PM", text), f"{path.name}: the form's closing time (11:59 PM IST) is not recorded"
         assert "3:00 to 4:00" in text, f"{path.name}: the decided video length (3:00 to 4:00) is not recorded"
         assert "18:00" in text, f"{path.name}: the Sun 18 Oct 18:00 submit target is not recorded"
         # decisions of 15-16 Oct that 17 Oct replaced; the T&C wording "strictly under three (3) minutes" is quoted on purpose and is not listed here
@@ -78,3 +78,9 @@ def test_the_figures_the_description_cites_are_still_in_the_deck_data():
     for figure in ("143.8", "149.2", "211.4", "149 s", "0.066"):
         assert figure in _text(), f"form-answers.md no longer states {figure}"
         assert figure in fill, f"deck/fill.yaml no longer carries {figure}, which form-answers.md quotes"
+
+
+def test_the_descriptions_own_figures_agree_with_the_measured_ones():
+    brief = _brief()
+    assert "about 2.5 minutes" in brief and round(149 / 60, 1) == 2.5  # the 149 s median of fill.yaml
+    assert "$0.07" in brief and round(0.066, 2) == 0.07  # the $0.066 per design of fill.yaml
