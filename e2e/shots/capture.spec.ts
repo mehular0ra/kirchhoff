@@ -14,6 +14,7 @@ import type { Locator, Page } from '@playwright/test'
  *
  *   dry run (default)  writes to e2e/out/shots, so the deck's placeholders are not touched:
  *                      E2E_LOCAL=1 E2E_SHOTS=1 npx playwright test --project=shots
+ *                      (s05-8 waits for the live sandbox, which a local run cannot reach: it times out there; run it against the deployed site)
  *   final capture      after the UI freeze and the golden-capture deploy, against the deployed site:
  *                      E2E_BASE_URL=https://kirchhoff.web.app E2E_SHOTS=1 SHOTS_WRITE=1 npx playwright test --project=shots
  *   manual shots       s05-6 (a real Gemini Live exchange) and s11-2 (a frame of a live Hall B run) are captured by hand on the deployed site, because
@@ -85,7 +86,8 @@ const SHOTS: Shot[] = [
     file: 's05-3-compliance-matrix.png',
     open: async (page) => {
       await workspace(page, '?tab=matrix')
-      await text(page, '150 checks')
+      // a wait only the matrix can satisfy (the text '150 checks' is also on the story strip and the Checker lane, outside the matrix)
+      await expect(page.getByRole('table', { name: 'Compliance matrix' }).getByRole('button', { name: /: Pass$/ }).first()).toBeVisible(LONG)
       return page.getByRole('table', { name: 'Compliance matrix' })
     },
   },
@@ -235,6 +237,7 @@ const SHOTS: Shot[] = [
       await page.goto('/app/p/grid-132kv')
       await expect(page.getByRole('table', { name: 'Asset options' })).toBeVisible(LONG)
       await expect(page.getByRole('region', { name: 'Mini SLD' })).toBeVisible()
+      await expect(page.getByRole('img', { name: 'Site geometry' })).toBeVisible() // the 132 kV route drawn as a line, which the README row names
       await settle(page, 1000)
     },
   },
