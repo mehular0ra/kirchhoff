@@ -1,6 +1,6 @@
 # Kirchhoff — guide for contributors and coding agents
 
-Kirchhoff by Ordinal: Gemini agents design power and liquid cooling for an AI data-centre hall, a deterministic checker verifies every number against a clause-cited rule pack, and an engineer signs. Built for the Google Cloud × Hack2skill AI Builder Cup 2026. **The official submission deadline is Sun 18 Oct 2026 (aibuildercup.com publishes no time or timezone); our internal deadline is Sat 17 Oct 2026, 20:00 IST.**
+Kirchhoff by Ordinal: Gemini agents design power and liquid cooling for an AI data-centre hall, a deterministic checker verifies every number against a clause-cited rule pack, and an engineer signs. Built for the Google Cloud × Hack2skill AI Builder Cup 2026. **Submission closes Sun 18 Oct 2026, 23:59 IST (as the form shows); aim to submit by Sun 18 Oct, 18:00 IST.**
 
 Team Ordinal: Mehul Arora (lead) and Jayadratha.
 
