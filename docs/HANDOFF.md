@@ -31,7 +31,7 @@ Written Sat 17 Oct 2026, 15:45 IST, by Mehul's Claude Code session. **From now o
   - PRs small and single-purpose.
 - **`ws1-engine` … `ws4-infra` are stale.** Branch from `build` only.
 - **GitHub access:** you have **write**, which is the maximum a personal-account repo allows. You can push, merge, create releases and manage issues and PRs. **You can't change repository settings or visibility.** Making the repo public needs Mehul (§7).
-- **GCP:** you have 12 curated roles (Cloud Run admin, Hosting, rules, App Check, Storage, Secret Manager, monitoring, Cloud Build, Artifact Registry, Datastore user, viewer, Service Usage). Mehul is adding **Editor** so you can decide things yourself. If a command says permission denied, check whether Editor has landed (`gcloud projects get-iam-policy ordinal-mep`).
+- **GCP:** you have 12 curated roles (Cloud Run admin, Hosting, rules, App Check, Storage, Secret Manager, monitoring, Cloud Build, Artifact Registry, Datastore user, viewer, Service Usage). **Plus Editor (granted 17 Oct, 16:00 IST)**, so you can decide things yourself. Only IAM changes and billing still need Mehul (Owner).
 
 ## 3. Where things stand (17 Oct, 15:45 IST)
 
