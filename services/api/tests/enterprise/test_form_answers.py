@@ -1,7 +1,7 @@
 """The paste-ready answers for the Hack2skill form (docs/submission/form-answers.md, issue #32) and the checklist beside it
 (docs/submission/checklist.md): the brief description has a hard limit of 1024 characters on the form and must name the Google
 services the form asks about, every form field has a non-empty answer, the facts decided on 17 Oct (the form's closing time, the
-3:00 to 4:00 video, the Sun 18 Oct 18:00 target) stay recorded and the old ones do not creep back, and neither document carries an
+3:00 to 4:00 video, the Sun 18 Oct 18:00 target) stay recorded, the 15-16 Oct state (a Sat 20:00 IST deadline, a 2:55 cut) does not creep back, the figures the description cites are still in the deck data, and neither document carries an
 email address other than the organisers', or a key. A later edit that breaks one of these fails here instead of on the submission day."""
 import re
 from pathlib import Path
@@ -9,6 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[4]
 ANSWERS = REPO / "docs" / "submission" / "form-answers.md"
 CHECKLIST = REPO / "docs" / "submission" / "checklist.md"
+FILL = REPO / "docs" / "submission" / "deck" / "fill.yaml"
 LIMIT = 1024  # "0/1024" on the form's Brief Description field
 
 
@@ -59,8 +60,8 @@ def test_the_decided_facts_are_recorded_in_both_documents_and_the_old_ones_are_g
         assert "3:00 to 4:00" in text, f"{path.name}: the decided video length (3:00 to 4:00) is not recorded"
         assert "18:00" in text, f"{path.name}: the Sun 18 Oct 18:00 submit target is not recorded"
         # decisions of 15-16 Oct that 17 Oct replaced; the T&C wording "strictly under three (3) minutes" is quoted on purpose and is not listed here
-        for stale in ("20:00 IST", "2:55"):
-            assert stale not in text, f"{path.name} still says {stale!r}, which the 17 Oct decisions replaced"
+        stale = re.search(r"20:00 IST|(?<![\d:])2:55", text)  # not "12:55" or "02:55"
+        assert not stale, f"{path.name} still says {stale.group(0)!r}, which the 17 Oct decisions replaced"
 
 
 def test_no_other_email_address_and_no_key_is_in_the_submission_documents():
@@ -70,3 +71,10 @@ def test_no_other_email_address_and_no_key_is_in_the_submission_documents():
         others = [e for e in re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", text) if e != "support+aibuildercup@hack2skill.com"]
         assert not others, f"personal data in {path.name}: {others}"
         assert not re.search(r"AIza[0-9A-Za-z_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY", text), f"a key is in {path.name}"
+
+
+def test_the_figures_the_description_cites_are_still_in_the_deck_data():
+    fill = FILL.read_text(encoding="utf-8")
+    for figure in ("143.8", "149.2", "211.4", "149 s", "0.066"):
+        assert figure in _text(), f"form-answers.md no longer states {figure}"
+        assert figure in fill, f"deck/fill.yaml no longer carries {figure}, which form-answers.md quotes"
