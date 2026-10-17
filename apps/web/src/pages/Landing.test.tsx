@@ -74,9 +74,9 @@ test('the product screenshot is lossless (a WebP first, the same pixels as a PNG
     [null, 'image/webp', '/landing/hall-a-r2.webp'],
   ])
 
-  // shown up to 1176 px wide on desktop, and about 360 px wide on a phone
+  // shown 836 px wide (the text column) on desktop, and about 360 px wide on a phone
   const desktop = pngSize('hall-a-r2.png')
-  expect(desktop.w).toBeGreaterThanOrEqual(2 * 1152)
+  expect(desktop.w).toBeGreaterThanOrEqual(2 * 836)
   expect(desktop.w / desktop.h).toBeCloseTo(16 / 10, 2)
   const phone = pngSize('hall-a-r2-phone.png')
   expect(phone.w).toBeGreaterThanOrEqual(2 * 360)
@@ -85,6 +85,13 @@ test('the product screenshot is lossless (a WebP first, the same pixels as a PNG
   expect(webpLosslessSize('hall-a-r2-phone.webp')).toEqual(phone)
   // the img reserves the phone crop's shape on a phone (no stretching), and the desktop shape from `sm` up
   expect(img.className).toContain(`max-sm:aspect-[${phone.w / 12}/${phone.h / 12}]`)
+})
+
+test('the product window is as wide as the text column, so its edges line up with the side traces (it does not break out of the column)', () => {
+  renderWithProviders(<Landing />)
+  const figure = screen.getByRole('figure')
+  expect(figure.className).toMatch(/\bw-full\b/)
+  expect(figure.className).not.toMatch(/\blg:w-|\bsm:w-|\bmd:w-|-mx-|\bmax-w-none\b/)
 })
 
 test('the Google Cloud stack is five equal glass tiles, each an icon over a name, under a strong label, with no hairline separators', () => {

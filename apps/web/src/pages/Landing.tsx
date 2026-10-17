@@ -202,9 +202,9 @@ export function Landing() {
 
           {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, fetched first (N4). It only rises into place (no fade),
               so the image is painted from the first frame. */}
-          {/* Wider than the text column on a large screen, so the screenshot's own text is shown at its real size (the capture is 1160 px wide; never
-              narrower than the column). In px because the app's rem is 14 px. */}
-          <motion.figure {...reveal({ on: 'load', delay: 0.36, y: 28, fade: false })} className="relative mt-8 w-full lg:w-[max(100%,min(1176px,calc(100vw-4rem)))]">
+          {/* The width of the text column, as before, so the window sits between the side traces. The capture is taken at the width it is shown at, so its
+              text is at full size and sharp, not a larger layout scaled down. */}
+          <motion.figure {...reveal({ on: 'load', delay: 0.36, y: 28, fade: false })} className="relative mt-8 w-full">
             {/* A soft cooling-blue / power-amber glow under the frame, so the glass bezel has something to refract. */}
             <div aria-hidden className="pointer-events-none absolute inset-x-10 -inset-y-4 -z-10 rounded-[2rem] bg-gradient-to-r from-blue-500/30 via-indigo-400/20 to-amber-400/30 blur-2xl" />
             <div className="glass-strong rounded-2xl p-2">
@@ -224,8 +224,8 @@ export function Landing() {
                     <source type="image/webp" srcSet="/landing/hall-a-r2.webp" />
                     <img
                       src="/landing/hall-a-r2.png"
-                      width={1160}
-                      height={725}
+                      width={1672}
+                      height={1045}
                       // Above the fold on desktop (N4): lazy-loading left a grey box at ~2.6 s.
                       loading="eager"
                       fetchPriority="high"
