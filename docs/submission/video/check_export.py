@@ -14,7 +14,7 @@ Exit code 0 = every check passed, 1 = a check failed, 2 = it could not run (miss
 
 What it proves, from the final file's own frames (nothing is read from the build's bookkeeping):
   format    1920x1080, square pixels, 16:9, h264 yuv420p, the same frame rate as the clean picture, one audio track, shorter
-            than 3:00, audio as long as the picture, as long as the clean picture
+            than the ceiling (--max-seconds; default 180 s, 239 s for the v2 cut), audio as long as the picture, as long as the clean picture
   picture   the 90 % picture (1728x972 at x=96,y=0) is the clean picture scaled the same way: SSIM against it, and no run of
             frames where it differs (a caption or a tag drawn over the app would show up here)
   gutters   the 96 px strips left and right of the picture are black

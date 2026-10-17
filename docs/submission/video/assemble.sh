@@ -393,6 +393,29 @@ if [ "$PLAN" = "v2" ]; then
         if [ "${OUTS[$i]}" = "end" ]; then pre=""; else pre="atrim=start=${INS[$i]}:end=${OUTS[$i]},asetpts=PTS-STARTPTS,"; fi
         add_audio "${SRCS[$i]}" "$start" "$pre"
         voice_note="$voice_note + own audio"
+        # The clip's own audio over the SAME span that is mixed, as a WAV that starts with the beat: transcribe.py captions it (the intro voices, whose
+        # delay render.py already put inside the clip, and the in-clip question of beat 12). Without this they would have no captions.
+        own_wav="$TMP_DIR/own_${id}.wav"
+        if [ "${OUTS[$i]}" = "end" ]; then
+          ffmpeg -y -loglevel error -i "${SRCS[$i]}" -vn -ac 1 -ar 48000 -c:a pcm_s16le "$own_wav"
+        else
+          ffmpeg -y -loglevel error -ss "${INS[$i]}" -t "$(awk -v a="${INS[$i]}" -v b="${OUTS[$i]}" 'BEGIN { printf "%.3f", b - a }')" -i "${SRCS[$i]}" -vn -ac 1 -ar 48000 -c:a pcm_s16le "$own_wav"
+        fi
+        TRANSCRIBE_ARGS+=("$own_wav@$(awk -v s="$start" 'BEGIN { printf "%.3f", s }')")
+        own_silent=0
+        own_max="$(ffmpeg -nostdin -hide_banner -i "$own_wav" -af volumedetect -vn -f null - 2>&1 | sed -n 's/.*max_volume: *\([^ ]*\) dB.*/\1/p' | head -1)"
+        case "$own_max" in
+          "") ;;
+          *inf*) own_silent=1 ;;
+          *) if awk -v m="$own_max" 'BEGIN { exit !(m < -60) }'; then own_silent=1; fi ;;
+        esac
+        if [ "$own_silent" = "1" ]; then
+          echo "WARNING: beat $id (${NAMES[$i]}) has an audio track, but it is silent (its loudest sample is below -60 dB)." >&2
+          if [ "$id" = "3" ] || [ "$id" = "3b" ]; then
+            echo "         This intro still carries render.py's silent placeholder: re-render it with the real recording (render.py --intro-mehul/--intro-jayadratha, edit-plan-v2.md §1 step 3)." >&2
+          fi
+          voice_note="$voice_note (silent)"
+        fi
       else
         echo "WARNING: beat $id (${NAMES[$i]}) has no audio track, so there is no voice or question from the clip itself." >&2
         if [ "$id" = "3" ] || [ "$id" = "3b" ]; then
@@ -414,13 +437,20 @@ if [ "$PLAN" = "v2" ]; then
   done
   {
     echo ""
-    echo "# transcribe.py arguments (each WAV@START is where that beat's voice starts in this cut):"
-    echo "${TRANSCRIBE_ARGS[*]:-}"
+    echo "# transcribe.py arguments (each WAV@START is where that beat's voice, or its clip's own audio, starts in this cut):"
+    if [ "${#TRANSCRIBE_ARGS[@]}" -gt 0 ]; then printf '%q ' "${TRANSCRIBE_ARGS[@]}"; fi
+    echo
   } >> "$STARTS_FILE"
   echo "Beat starts (measured), written to $STARTS_FILE:"
   sed -n '1,/^$/p' "$STARTS_FILE"
   if [ "${#no_voice[@]}" -gt 0 ]; then
-    echo "No voice file for beat(s): ${no_voice[*]} (they play silent; edit-plan-v2.md says beat 14 may be silent)."
+    echo "No voice file for beat(s): ${no_voice[*]} (they play silent; video-script-v2.md says beat 14 may be silent)."
+  fi
+  if [ ! -d "$VO_DIR" ]; then
+    echo "WARNING: the voice folder $VO_DIR does not exist (set VO_DIR; the default is <work_dir>/vo): every beat without its own audio plays silent." >&2
+  fi
+  if awk -v t="$TOTAL_S" 'BEGIN { exit !(t < 180) }'; then
+    echo "WARNING: this cut is $(awk -v t="$TOTAL_S" 'BEGIN { printf "%d:%02d", t / 60, t % 60 }'), under 3:00: the form asks for 3 to 4 minutes (target 3:30 to 3:50). Add product footage (edit-plan-v2.md §6, docs/HANDOFF.md §4.3), unless Hack2skill support says otherwise." >&2
   fi
 
   total_fmt="$(awk -v t="$TOTAL_S" 'BEGIN { printf "%.3f", t }')"
@@ -488,8 +518,9 @@ PY="$(command -v python3 || command -v python || true)"
 GATE_ARGS=("$FINAL_OUT" --clean "$ASSEMBLED_VIDEO" --max-seconds "$MAX_SECONDS")
 if [ -n "$SRT_PATH" ]; then GATE_ARGS+=(--srt "$SRT_PATH"); fi
 if [ -z "$PY" ]; then
-  echo "WARNING: python3 not found, the export gate did NOT run. Run it by hand:" >&2
+  echo "WARNING: python3 not found, the export gate did NOT run, so this export is NOT approved. Run it by hand:" >&2
   echo "  python3 $SCRIPT_DIR/check_export.py ${GATE_ARGS[*]}" >&2
+  GATE_FAILED=1
 else
   echo ""
   echo "Export gate (check_export.py):"

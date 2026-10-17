@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """assemble_selftest.py: tests for assemble.sh (issue #25). Standard library plus ffmpeg/ffprobe/bash only.
 
-    python3 assemble_selftest.py [--skip-v1] [--skip-v2] [--baseline-ref origin/build]
+    python3 assemble_selftest.py [--skip-v1] [--skip-v2] [--cases ABCDEF] [--baseline-ref <sha>]
 
 Everything is built from synthetic clips whose content says which beat they are: a solid grey per beat (so the order and the trims are read
 back from the final picture), a sine tone per voice file and per clip-with-sound (so where every voice starts is read back from the final
@@ -64,10 +64,14 @@ def hexgrey(g):
 
 def solid(path, secs, g, hz=None):
     args = ["-f", "lavfi", "-i", f"color=c={hexgrey(g)}:s=320x180:r=30:d={secs}"]
-    if hz:
+    if hz == "silent":
+        args += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono"]
+    elif hz:
         args += ["-f", "lavfi", "-i", f"sine=frequency={hz}:sample_rate=48000:duration={secs}"]
     args += ["-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"]
     args += ["-c:a", "aac", "-b:a", "96k"] if hz else ["-an"]
+    if hz == "silent":
+        args += ["-shortest"]
     ff(*args, path)
 
 
@@ -173,7 +177,7 @@ def n_of(i):
     return 18 if i == "3b" else int(i)
 
 
-def make_v2_workspace(root, v08_audio=True, comp_body=40):
+def make_v2_workspace(root, v08_audio=True, comp_body=40, intro_silent=False):
     work, scenes, vo = root / "work", root / "scenes", root / "work" / "vo"
     for d in (work, scenes, vo):
         d.mkdir(parents=True, exist_ok=True)
@@ -183,7 +187,7 @@ def make_v2_workspace(root, v08_audio=True, comp_body=40):
             body = comp_body if i == "8" else secs
             footage(work / f"{FOOTAGE[i]}.mp4", body, g, V08_HZ if (i == "12" and v08_audio) else None)
         else:
-            solid(scenes / f"{SCENES[i]}.mp4", secs, g, {"3": INTRO_HZ, "3b": JD_HZ}.get(i))
+            solid(scenes / f"{SCENES[i]}.mp4", secs, g, {"3": "silent" if intro_silent else INTRO_HZ, "3b": JD_HZ}.get(i))
         if has_vo:
             tone_wav(vo / f"b{int(i):02d}-{VOICE_NAME[i]}.wav", vo_hz(i), max(1.8, secs * 0.6))
     return work, scenes
@@ -228,9 +232,21 @@ def verify_v2(tag, work, run, with_jd, label_n, music=False, own_audio=True):
     bad = [i for i, (s, _) in exp.items() if i not in starts or abs(starts[i][0] - s) > 0.1]
     check(f"{tag}: beat-starts.txt lists every beat at its measured start", not bad and len(starts) == len(exp), f"{len(starts)} beats, off: {bad}")
     got = [(a.rsplit("@", 1)[0].split("/")[-1], float(a.rsplit("@", 1)[1])) for a in txt.strip().splitlines()[-1].split()]
-    want = [(f"b{int(i):02d}-{VOICE_NAME[i]}.wav", exp[i][0]) for i, _, v in V2 if v and i in exp]
+    own = {"3": "own_3.wav"}  # the clips' own audio, extracted by the script: it is captioned too, in beat order after the beat's voice file
+    if with_jd:
+        own["3b"] = "own_3b.wav"
+    if own_audio:
+        own["12"] = "own_12.wav"
+    want = []
+    for i, _, v in V2:
+        if i not in exp:
+            continue
+        if v:
+            want.append((f"b{int(i):02d}-{VOICE_NAME[i]}.wav", exp[i][0]))
+        if i in own:
+            want.append((own[i], exp[i][0]))
     ok = len(got) == len(want) and all(g[0] == w[0] and abs(g[1] - w[1]) < 0.1 for g, w in zip(got, want))
-    check(f"{tag}: the transcribe.py arguments are wav@start for every voice file", ok, f"{len(got)} of {len(want)}")
+    check(f"{tag}: the transcribe.py arguments are wav@start for every voice file AND every clip's own audio (the intros, the in-clip question)", ok, f"{len(got)} of {len(want)}")
     wrong = []
     for i, (s, secs) in exp.items():
         g = grey(n_of(i))
@@ -290,6 +306,7 @@ def v2_tests(root, cases="ABCD"):
         g = gate_verdicts(r.stdout)
         check("A: the gate ran with the captions: format, picture, gutters, captions, gaps all PASS", [v for v, _ in g] == ["PASS"] * 5, str(g))
         check("A: a beat with no voice file (14) is reported, not an error", "No voice file for beat(s): 14" in r.stdout)
+        check("A: a cut under 3:00 is warned about (the form asks for 3 to 4 minutes), without failing", "under 3:00" in r.stderr and r.returncode == 0, r.stderr[-200:])
         check("A: with no MAX_SECONDS the v2 gate ceiling is 239 s (3:59: the form asks for 3 to 4 minutes)", "Runtime ceiling for the export gate: 239 s" in r.stdout, r.stdout[:300])
 
     # B: with Jayadratha's intro, music, an explicit speed factor, no captions, a clip with no sound in beat 12
@@ -328,6 +345,25 @@ def v2_tests(root, cases="ABCD"):
         check("D: two voice files for one beat stop the run", r.returncode == 1 and "more than one voice file for beat 4" in r.stderr, f"exit {r.returncode}")
         r = run_assemble(script, work, {"PLAN": "v3"})
         check("D: an unknown PLAN is refused", r.returncode == 1 and "PLAN must be v1 or v2" in r.stderr)
+
+
+    # E: an intro scene whose audio track is only silence (render.py's placeholder, before the real recording is put in) is warned about, not an error
+    if "E" in cases:
+        work, scenes = make_v2_workspace(root / "e", intro_silent=True)
+        r = run_assemble(script, work, {"PLAN": "v2", "SCENES_DIR": posix(scenes), "CAPTIONS": posix(root / "none.srt")}, expect_exit=0)
+        check("E: an intro with a silent audio track is warned about as the placeholder it is", "beat 3 " in r.stderr and "silent" in r.stderr and "render.py" in r.stderr, r.stderr[-300:])
+        check("E: and the run still exits 0", r.returncode == 0)
+
+    # F: a voice folder that does not exist is warned about (every voice beat would otherwise play silent with only a list of beat numbers as the signal)
+    if "F" in cases:
+        work, scenes = make_v2_workspace(root / "f")
+        r = run_assemble(script, work, {"PLAN": "v2", "SCENES_DIR": posix(scenes), "CAPTIONS": posix(root / "none.srt"), "VO_DIR": posix(root / "no-such-voices")}, expect_exit=0)
+        check("F: a missing voice folder is warned about on stderr, and the run still exits 0", "voice folder" in r.stderr and "does not exist" in r.stderr and r.returncode == 0, r.stderr[-300:])
+
+    # the gate must not be skippable: with no python the script has to FAIL, not just print a warning (a source check: a run without python cannot be staged here)
+    text = script.read_text(encoding="utf-8")
+    m = re.search(r'if \[ -z "\$PY" \]; then\n(.*?)\nelse', text, re.S)
+    check("the export gate fails closed when python is missing (GATE_FAILED=1 in that branch)", m is not None and "GATE_FAILED=1" in m.group(1))
 
 
 # ================================================================================================================ v1
@@ -399,8 +435,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-v1", action="store_true")
     ap.add_argument("--skip-v2", action="store_true")
-    ap.add_argument("--cases", default="ABCD", help="which v2 cases to run: A plain cut with captions, B intro + music, no captions, C ceiling and no label, D refusals")
-    ap.add_argument("--baseline-ref", default="origin/build", help="the git ref whose assemble.sh, caption_band.sh and check_export.py are the v1 baseline")
+    ap.add_argument("--cases", default="ABCDEF", help="which v2 cases to run: A plain cut with captions, B intro + music, no captions, C ceiling and no label, D refusals, E silent intro placeholder, F missing voice folder")
+    ap.add_argument("--baseline-ref", default="e76c4a097cd8245b64686b1cb9e5ae3849e3238c", help="the git ref whose assemble.sh, caption_band.sh and check_export.py are the v1 baseline: pinned to the build commit this change was made on (e76c4a0), so the comparison stays meaningful after it is merged")
     a = ap.parse_args()
     if not BASH or not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         print("assemble_selftest: needs bash, ffmpeg and ffprobe on PATH", file=sys.stderr)
