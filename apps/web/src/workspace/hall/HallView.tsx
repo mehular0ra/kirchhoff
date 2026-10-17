@@ -32,7 +32,7 @@ const BASE = {
   cdu: '#8bb8f2',
 } as const
 // The stage behind the transparent canvas: a soft top-lit studio wash (white to cool grey).
-const STAGE = 'radial-gradient(120% 90% at 50% 15%, #ffffff 0%, #f4f6f9 55%, #e8ecf1 100%)'
+const STAGE = 'radial-gradient(120% 90% at 50% 12%, #ffffff 0%, #eef3fb 50%, #d9e4f6 100%)'
 const SCENE = {
   floor: '#eceff3',
   gridCell: '#d9dee5',

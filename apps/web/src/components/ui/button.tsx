@@ -17,6 +17,8 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
           "hover:bg-accent hover:text-accent-foreground",
+        // Frosted white over the blueprint canvas (index.css): a visible container for secondary actions on the landing page.
+        glass: "glass-strong text-foreground hover:bg-white",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

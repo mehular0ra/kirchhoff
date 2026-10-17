@@ -95,7 +95,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
           <DesktopNote reviewHref={data.bundle.revisions.length ? `/app/p/${pid}/review/${data.bundle.revisions[data.bundle.revisions.length - 1].id}${runId ? `?run=${runId}` : ''}` : null} />
         </div>
         <div className="grid min-h-0 grid-cols-[16rem_minmax(22rem,1fr)_20rem] overflow-x-auto">
-          <aside className="flex min-h-0 flex-col border-r">
+          <aside className="flex min-h-0 flex-col border-r border-[var(--glass-edge)] bg-[var(--glass)] backdrop-blur-md">
             <div className="min-h-0 flex-1">
               <AgentLanes />
             </div>
@@ -117,7 +117,7 @@ function LoadedWorkspace({ pid, runId, replay, project }: { pid: string; runId: 
               <CanvasTabs panes={panes} aside={<StoryStrip />} />
             </div>
           </section>
-          <aside aria-label="Co-pilot" className="min-h-0 overflow-y-auto border-l">
+          <aside aria-label="Co-pilot" className="min-h-0 overflow-y-auto border-l border-[var(--glass-edge)] bg-[var(--glass)] backdrop-blur-md">
             <CoPilotPanel />
           </aside>
         </div>
