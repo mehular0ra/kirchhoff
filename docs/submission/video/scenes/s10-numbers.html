@@ -34,14 +34,14 @@
   const M = window.KMEASURED;
   const I = K.D.intake;
   // Fail loudly, never fall back to a made-up number: every figure on this card is read from lib/measured.js or the recorded run.
-  if (!M || !M.faults || !M.median || !M.cost) throw new Error('lib/measured.js is missing or incomplete');
+  if (!M || !M.faults || !M.recall || !M.median || !M.cost) throw new Error('lib/measured.js is missing or incomplete');
   if (!I || !I.total) throw new Error('lib/data.js has no intake counts');
 
   const specs = [
     { n: String(M.faults.caught), of: `of ${M.faults.total}`, chip: `<span class="chip pass"><span class="icon-ok">✓</span>${M.faults.false_positives} false alarms</span>`,
       lb: 'planted faults caught', bs: 'Each fault aims at one rule. No unrelated rule failed on any of them.', src: 'seeded-fault benchmark · runs in make test' },
     { n: String(I.verified), of: `of ${I.total}`, chip: `<span class="chip brand">${I.total - I.verified} shown as unverified</span>`,
-      lb: 'tender quotes verified word for word', bs: 'Matched to the tender PDF. A failed quote is labelled, never shown as fact.', src: 'golden-capture run · 16 Oct 2026' },
+      lb: 'tender quotes verified word for word', bs: `Recall against our own ground truth: ${M.recall.low} to ${M.recall.high}. A quote that fails is labelled, never shown as fact.`, src: `quotes: golden-capture run · recall: ${M.recall.runs} live runs` },
     { n: String(M.median.seconds), of: 's', chip: `<span class="chip">median of ${M.median.runs} runs</span>`,
       lb: 'from upload to a checker-clean design', bs: 'Time spent waiting at the human gates is not counted.', src: 'live runs on the deployed site' },
     { n: `$${M.cost.usd}`, of: '', chip: '<span class="chip">about, one run</span>',

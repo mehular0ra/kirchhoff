@@ -68,13 +68,20 @@ def test_the_quote_counts_are_the_recorded_runs_and_the_deck_s():
     m = re.search(r'"intake":\s*\{.*?"verified":\s*(\d+),\s*"total":\s*(\d+)', DATA.read_text(encoding="utf-8"), re.S)
     assert m, "lib/data.js has no intake counts"
     verified, total = int(m.group(1)), int(m.group(2))
-    assert f"{verified} of {total} extracted quotes verified" in _fill_line("intake_accuracy")
+    line = _fill_line("intake_accuracy")
+    assert f"{verified} of {total} extracted quotes verified" in line
+    recall = _block("recall")
+    low, high = (re.search(rf"\b{k}:\s*'(\d\.\d\d)'", recall) for k in ("low", "high"))
+    assert low and high, "lib/measured.js: the recall needs a quoted low and high"
+    assert f"recall of {low.group(1)} to {high.group(1)}" in line, "the card's intake recall is not the deck's"
+    words = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}  # the deck writes the count of runs as a word
+    assert f"over {words.get(_int(recall, 'runs'))} live runs" in line, "the card's run count for the recall is not the deck's"
 
 
 def test_the_scene_reads_its_numbers_and_types_none():
     html = SCENE.read_text(encoding="utf-8")
     assert 'src="lib/measured.js"' in html and "window.KMEASURED" in html and "K.D.intake" in html
-    typed = re.findall(r"(?<![\w.$])(?:35|149|0\.066|25|26)(?![\w.])", html)
+    typed = re.findall(r"(?<![\w.$])(?:35|149|0\.066|0\.78|0\.84|25|26)(?![\w.])", html)
     assert not typed, f"s10-numbers.html types its own figures {typed}; they must come from lib/measured.js or the recorded run"
 
 
