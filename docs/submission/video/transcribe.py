@@ -45,7 +45,7 @@ STT_MODEL, STT_LOCATION, STT_LANGUAGE = "chirp_2", "us-central1", "en-IN"
 STT_PHRASES = ["Kirchhoff", "Jayadratha", "Mehul", "Ordinal", "Gemini", "Vertex AI", "Cloud Run", "Firestore",
                "Firebase", "SAP S/4HANA", "Ariba", "Gmail", "Google Drive", "MEP", "CDU", "UPS", "AI data centre",
                "power and cooling", "busway", "transformer", "tender", "2N", "R05", "R11", "R15", "FA-01", "H-Z2",
-               "kirchhoff.web.app"]
+               "BOQ", "MWp", "kirchhoff.web.app"]
 STT_BOOST = 15
 ATTEMPTS = 8
 PROJECT = "ordinal-mep"
@@ -87,10 +87,12 @@ GLOSSARY: list[tuple[str, str]] = [
     (r"\bl\.?\s*l\.?\s*m\b", "LLM"),
     (r"\ba\.?\s*d\.?\s*k\b", "ADK"),
     (r"\b(\d[\d,.]*)\s*(?:kilowatts?|kilo\s*watts?|kw)\b", r"\1 kW"),
+    (r"\b(\d[\d,.]*)\s*(?:megawatts?|mega\s*watts?|mw)[\s-]*(?:peak|p)\b", r"\1 MWp"),  # before the MW rule: a solar plant is rated in MWp
     (r"\b(\d[\d,.]*)\s*(?:megawatts?|mega\s*watts?|mw)\b", r"\1 MW"),
     (r"\b(\d[\d,.]*)\s*(?:m\.?\s*v\.?\s*a)\b", r"\1 MVA"),
     (r"\b(\d[\d,.]*)\s*(?:kilovolts?|kv)\b", r"\1 kV"),
     (r"\bmva\b", "MVA"),
+    (r"\bb[\s.-]*o[\s.-]*q\b", "BOQ"),  # the bill of quantities of a tender
     (r"\b(\d[\d,.]*)\s*per\s*cent\b|\b(\d[\d,.]*)\s*percent\b", lambda m: f"{m.group(1) or m.group(2)}%"),
     (r"\br\s*0?5\b|\br\s*zero\s*five\b", "R05"),
     (r"\br\s*11\b|\br\s*eleven\b", "R11"),

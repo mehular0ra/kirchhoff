@@ -226,6 +226,8 @@ else
   #      keep_audio  keep = the clip's own audio goes into the mix (the intro voices; the in-clip question of beat 12)
   #      voice_beat  the NN of bNN-<name>.wav in VO_DIR, or - for a beat with no WAV
   #    Order and lengths are edit-plan-v2.md's. Re-check every footage in/out against the REAL clip length.
+  #    The ids 5b, 10b, 15b and 16b are the four extra beats of the longer cut (the bids inbox, the clause-to-PDF click-through, the grid and
+  #    solar projects, the measured numbers): their voice files are b18 to b21, whatever place the beat has in the order.
   # -------------------------------------------------------------------------
   SCENES_DIR="${SCENES_DIR:-$SCRIPT_DIR/scenes/out}"
   VO_DIR="${VO_DIR:-$WORK_DIR/vo}"
@@ -237,17 +239,21 @@ else
     "3b|J|s1c-intro-jayadratha.mp4|0|end|0|keep|-"
     "4|s|s2-problem.mp4|0|end|9|-|4"
     "5|s|s3-requirements-in.mp4|0|end|14|-|5"
+    "5b|w|v12-inbox-triage.mp4|2.0|16.0|14|-|18"
     "6|w|v04-tender-in.mp4|2.0|15.0|13|-|6"
     "7|s|s4-agents.mp4|0|end|7|-|7"
     "8|w|v05-agents-at-work.mp4|2.0|COMP|10|-|8"
     "9|s|s5-checks.mp4|0|end|8|-|9"
     "10|w|v06-checker.mp4|2.0|17.0|15|-|10"
+    "10b|w|v13-trust-quote.mp4|2.0|14.0|12|-|19"
     "11|w|v07-erp-swap.mp4|2.0|12.0|10|-|11"
     "12|w|v08-what-if-voice.mp4|2.0|14.0|12|keep|12"
     "13|s|s6-sign.mp4|0|end|6|-|13"
     "14|w|v09-sign-off.mp4|2.0|8.0|6|-|14"
     "15|s|s7-connectors.mp4|0|end|12|-|15"
+    "15b|w|v11-grid-solar.mp4|2.0|13.0|11|-|20"
     "16|s|s8-google-cloud.mp4|0|end|8|-|16"
+    "16b|s|s10-numbers.mp4|0|end|12|-|21"
     "17|s|s9-end.mp4|0|end|7|-|17"
   )
 

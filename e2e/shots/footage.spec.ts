@@ -137,6 +137,49 @@ const BEATS: Beat[] = [
     },
   },
   {
+    // The bids inbox: six emails, newest first; the Hall B tender is triaged (Pursue, with its fit reasons); the scanned BOQ is marked
+    // "Not verified (scan)" and its email is a deterministic Decline. Nothing is clicked that writes: "Pursue" would move a CRM stage in
+    // the shared sandbox when the API is up, so this clip only reads (the recorded triage comes from the static bundle).
+    clip: 'v12-inbox-triage',
+    run: async (page) => {
+      await page.goto('/app/inbox')
+      await expect(page.getByRole('heading', { name: 'Bids inbox', level: 1 })).toBeVisible(LONG)
+      await expect(page.locator('a[href^="/app/inbox/em-"]')).toHaveCount(6)
+      await hold(page, HANDLE)
+      await hold(page, 2_500) // the list: six emails, newest first
+      await page.locator('a[href="/app/inbox/em-hall-b"]').click()
+      const detail = page.getByRole('region', { name: 'Email' })
+      const fit = detail.getByRole('region', { name: 'Fit verdict' })
+      await expect(fit).toContainText('Pursue', LONG)
+      await expect(fit).toContainText('Day-zero supply')
+      await hold(page, 4_500) // the verdict and its reasons
+      await page.goto('/app/inbox/em-vindhya-boq')
+      await expect(detail.getByText('Not verified (scan)').first()).toBeVisible(LONG)
+      await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('only on a scanned page')
+      await hold(page, 4_500) // the scan is never trusted: its fit rule asks for a text copy
+    },
+  },
+  {
+    // The trust moment: a failing finding cites its tender clause; click the clause and the tender PDF opens on that page with a box
+    // around the quote and "Verified quote". Hall A r1, R05 FA-01 (section 4.6). Silent: the voice is laid over it in the edit.
+    clip: 'v13-trust-quote',
+    run: async (page) => {
+      await page.goto('/app/p/hall-a?tab=matrix&rev=r1')
+      await text(page, '149 checks')
+      await hold(page, HANDLE)
+      await page.getByRole('button', { name: 'R05 FA-01: Fail' }).click()
+      const drawer = page.getByRole('dialog').first()
+      await expect(drawer).toContainText('2.16%')
+      await hold(page, 3_500) // the finding, its formula and its clause chip
+      await page.getByRole('button', { name: /^Open tender §4\.6 · p\.\d+$/ }).first().click()
+      const source = page.getByRole('dialog', { name: /^Tender §4\.6 · page \d+$/ })
+      await expect(source).toContainText('Verified quote:')
+      await expect(source.locator('canvas').first()).toBeVisible({ timeout: 20_000 }) // the PDF page rendered
+      await expect(page.getByTestId('citation-highlight').first()).toBeVisible({ timeout: 20_000 }) // the box around the quote
+      await hold(page, 6_000)
+    },
+  },
+  {
     clip: 'v10-integrations',
     run: async (page) => {
       await page.goto('/app/integrations')
