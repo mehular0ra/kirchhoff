@@ -180,7 +180,7 @@ test('I2 / N4: the landing shows a real product frame (above the fold: eager, hi
   const shot = screen.getByRole('img', { name: /Hall A \(sample\) in Kirchhoff's 3D view/ })
   expect(shot).toHaveAttribute('loading', 'eager')
   expect(shot).toHaveAttribute('fetchpriority', 'high')
-  expect(shot).toHaveAttribute('src', '/landing/hall-a-r2.webp')
+  expect(shot).toHaveAttribute('src', '/landing/hall-a-r2.png') // a lossless PNG: the lossy WebP blurred the small text
   expect(shot).toHaveAttribute('width')
   expect(screen.getByText('Hall A (sample): the first revision’s failures, fixed and signed.')).toBeInTheDocument()
   // The stack is a list of five items (it used to be one "Gemini · ADK · ..." text line).

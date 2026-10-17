@@ -1,6 +1,15 @@
+/// <reference types="node" />
+import { readFileSync } from 'node:fs'
 import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '@/test/render'
 import { Landing } from './Landing'
+
+/** Width and height of a PNG, read from its IHDR chunk (and the 8-byte signature checked), so a lossy or tiny replacement is caught. */
+function pngSize(file: string): { w: number; h: number } {
+  const b = readFileSync(`${process.cwd()}/public/landing/${file}`)
+  expect(b.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }
+}
 
 // The landing page's structure (YC-style: nav, hero, product, features, how it works, trust, closing call to action). Copy is checked where it is
 // a contract: the e2e tour starts from "Enter the demo workspace (no login)" and "Run it live", so each must exist exactly once.
@@ -37,6 +46,24 @@ test('the product window has a legend that says what the three areas of the scre
   const legend = screen.getByRole('list', { name: 'What the screenshot shows' })
   expect(within(legend).getAllByRole('listitem')).toHaveLength(3)
   expect(screen.getByRole('img', { name: /Hall A \(sample\)/ })).toBeInTheDocument()
+})
+
+test('the product screenshot is a lossless PNG with at least two pixels per shown pixel, and narrow screens get a sharper crop of the 3D column', () => {
+  const { container } = renderWithProviders(<Landing />)
+  const img = screen.getByRole('img', { name: /Hall A \(sample\)/ })
+  expect(img).toHaveAttribute('src', '/landing/hall-a-r2.png')
+  const source = container.querySelector('picture > source')
+  expect(source).toHaveAttribute('media', '(max-width: 639px)')
+  expect(source).toHaveAttribute('srcset', '/landing/hall-a-r2-phone.png')
+
+  // shown up to 1152 px wide on desktop, and about 360 px wide on a phone
+  const desktop = pngSize('hall-a-r2.png')
+  expect(desktop.w).toBeGreaterThanOrEqual(2 * 1152)
+  expect(desktop.w / desktop.h).toBeCloseTo(16 / 10, 2)
+  const phone = pngSize('hall-a-r2-phone.png')
+  expect(phone.w).toBeGreaterThanOrEqual(2 * 360)
+  // the img reserves the phone crop's shape on a phone (no stretching), and the desktop shape from `sm` up
+  expect(img.className).toContain(`max-sm:aspect-[${phone.w / 12}/${phone.h / 12}]`)
 })
 
 test('"What Kirchhoff does" lists the features: a lead feature and five more', () => {

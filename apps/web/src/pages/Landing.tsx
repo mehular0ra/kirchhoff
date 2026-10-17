@@ -157,7 +157,9 @@ export function Landing() {
           </div>
 
           {/* The product in the first viewport (UX-1 I2): a real capture of the shipped Hall A view, fetched first (N4). */}
-          <figure className="relative mt-8 w-full">
+          {/* Wider than the text column on a large screen, so the screenshot's own text is shown at its real size (the capture is 1160 px wide; never
+              narrower than the column). In px because the app's rem is 14 px. */}
+          <figure className="relative mt-8 w-full lg:w-[max(100%,min(1176px,calc(100vw-4rem)))]">
             {/* A soft cooling-blue / power-amber glow under the frame, so the glass bezel has something to refract. */}
             <div aria-hidden className="pointer-events-none absolute inset-x-10 -inset-y-4 -z-10 rounded-[2rem] bg-gradient-to-r from-blue-500/30 via-indigo-400/20 to-amber-400/30 blur-2xl" />
             <div className="glass-strong rounded-2xl p-2">
@@ -167,23 +169,29 @@ export function Landing() {
                   <span className="size-2.5 rounded-full bg-amber-400" />
                   <span className="size-2.5 rounded-full bg-emerald-500" />
                 </div>
-                <img
-                  src="/landing/hall-a-r2.webp"
-                  width={1440}
-                  height={900}
-                  // Above the fold on desktop (N4): lazy-loading left a grey box at ~2.6 s.
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                  alt="Hall A (sample) in Kirchhoff's 3D view: the signed revision with each fixed check called out as resolved, the revision story, the agent lanes and the co-pilot's what-if chips."
-                  className="block aspect-[16/10] h-auto w-full bg-muted"
-                />
+                {/* Lossless PNGs at 2x: the lossy WebP blurred the small text. A phone gets the 3D column only, captured where it is about a
+                    phone's width, because the whole workspace shrunk to 360 px cannot be read. */}
+                <picture>
+                  <source media="(max-width: 639px)" srcSet="/landing/hall-a-r2-phone.png" />
+                  <img
+                    src="/landing/hall-a-r2.png"
+                    width={1160}
+                    height={725}
+                    // Above the fold on desktop (N4): lazy-loading left a grey box at ~2.6 s.
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                    alt="Hall A (sample) in Kirchhoff's 3D view: the hall boundary, and the signed revision with each fixed check called out as resolved. The wider picture also shows the agent lanes and the co-pilot's what-if chips."
+                    className="block aspect-[16/10] h-auto w-full bg-muted max-sm:aspect-[99/116]"
+                  />
+                </picture>
               </div>
             </div>
             <figcaption className="sr-only">Hall A (sample): the first revision’s failures, fixed and signed.</figcaption>
             <ul aria-label="What the screenshot shows" className="mt-5 grid gap-3 text-left text-sm sm:grid-cols-3">
               {SCREENSHOT_LEGEND.map(([t, d]) => (
-                <li key={t} className="border-l-2 border-[var(--glass-edge)] pl-3">
+                // The phone crop shows the 3D hall only, so the other two items are for the wide picture.
+                <li key={t} className={`border-l-2 border-[var(--glass-edge)] pl-3${t === '3D hall' ? '' : ' max-sm:hidden'}`}>
                   <p className="font-semibold text-foreground">{t}</p>
                   <p className="text-xs leading-relaxed text-slate-600">{d}</p>
                 </li>
