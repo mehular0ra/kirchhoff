@@ -39,7 +39,7 @@
 
   const specs = [
     { n: String(M.faults.caught), of: `of ${M.faults.total}`, chip: `<span class="chip pass"><span class="icon-ok">✓</span>${M.faults.false_positives} false alarms</span>`,
-      lb: 'planted faults caught', bs: 'Each fault aims at a rule. No rule outside the expected ones failed.', src: 'seeded-fault benchmark · runs in make test' },
+      lb: 'planted faults caught', bs: 'Each fault aims at a rule. Only that rule and its known knock-ons failed.', src: 'seeded-fault benchmark · runs in make test' },
     { n: String(I.verified), of: `of ${I.total}`, chip: `<span class="chip brand">${I.total - I.verified} shown as unverified</span>`,
       lb: 'tender quotes verified word for word', bs: `Recall against our own ground truth: ${M.recall.low} to ${M.recall.high}. A quote that fails is labelled, never shown as fact.`, src: `quotes: golden-capture run · recall: ${M.recall.runs} live runs` },
     { n: String(M.median.seconds), of: 's', chip: `<span class="chip">median of ${M.median.runs} runs</span>`,

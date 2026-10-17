@@ -133,7 +133,7 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 - A failing finding cites its tender clause, here **§4.6** *(from capture)*. Say "failing": 37 of the 149 checks (R02, R03, R12) carry no clause chip.
 - Click the chip and the PDF opens on that page, with a box around the exact quote, marked "Verified quote". The quote was found word for word, so anyone can check it.
 
-> Suggested: "A failing finding cites its tender clause. Click it, and the PDF opens on that page, with a box around the exact quote. You can check us yourself."
+> Suggested: "This failing finding cites its tender clause. Click it, and the PDF opens on that page with the exact quote boxed. You can check us yourself."
 
 ### 11 · Lead-time swap, footage (10 s)
 - The **2.5 MVA** unit has **0** in stock and a **98-week** lead time; the tender allows **26** *(from capture)*.
@@ -166,7 +166,7 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 - The same app and engine also handle a **132 kV** grid intake and a **5 MWp** solar plant, each with its own checks (the project names in the demo bundle).
 - Say it lightly: this shows breadth, it is not a second product. Do not say the solar project is checked or signed; it is a draft.
 
-> Suggested: "It is not only data-centre halls. The same engine also handles a 132 kV grid intake and a 5 MWp solar plant, each with its own checks."
+> Suggested: "Not only data-centre halls. The same engine handles a 132 kV grid intake and a 5 MWp solar plant, each with its own checks."
 
 ### 16 · Google Cloud, scene (8 s)
 - Gemini on Vertex AI proposes; the engine decides.
@@ -176,10 +176,11 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 
 ### 16b · Measured numbers, scene (12 s) · voice file `b21-numbers.wav`
 - Four numbers, each measured, each with its source on the card: **35 of 35** planted faults caught and no false alarms; **25 of 26** tender quotes verified; a **149 s** median from upload to a checker-clean design, time at the gates excluded; **$0.066** of Gemini per design.
-- Say "6.6 cents" for $0.066, and say "about": it is one recorded run, not a promise.
+- Say "6.6 cents" for $0.066, and say "about" and "on our recorded run": two other live runs cost $0.068 and $0.101, so it is not a promise. The card says the gates are not counted in the 149 s; the spoken line may leave that out.
+- The title on the card ("Four numbers, each from a run or a test we can repeat") says "four numbers" for you, so the line does not need to. Keep each line within its beat: about 2.4 words a second, and read the numbers slowly.
 - The card reads these numbers from the engine's own benchmark, the deck data and the recorded run; `tests/enterprise/test_video_numbers.py` fails if they drift.
 
-> Suggested: "Four numbers, all measured. 35 of 35 planted faults caught. 25 of 26 quotes verified. 149 seconds, median, to a checked design. About 6.6 cents a design."
+> Suggested: "35 of 35 planted faults caught. 25 of 26 quotes verified. 149 seconds median to a checked design. About 6.6 cents of Gemini, on our recorded run."
 
 ### 17 · End card (7 s)
 - Say the URL slowly.
