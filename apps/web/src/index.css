@@ -27,8 +27,8 @@
   --brand: #2563eb;
   --brand-foreground: #ffffff;
   --destructive: #e11d48;
-  --border: #e5e7eb;
-  --input: #d9dce1;
+  --border: #cdd6e4; /* a blue-grey hairline (was #e5e7eb, 1.2:1 on white): cards, panels, tables and tabs read as boxes */
+  --input: #a9b5ca; /* form controls: a stronger edge than a card */
   --ring: #2563eb;
 
   /* Glass direction (light only). A cool "blueprint" canvas carries soft blue (cooling) and amber (power) washes; panels over it are

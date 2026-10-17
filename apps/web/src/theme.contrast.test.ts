@@ -72,6 +72,17 @@ describe('text on glass stays AA over the worst backdrop', () => {
   }
 })
 
+describe('lines and bounding boxes are visible', () => {
+  const white: RGBA = [255, 255, 255, 1]
+  it('--border (cards, panels, tables, tabs) is at least 1.4:1 against white and against the canvas', () => {
+    expect(ratio(token('border'), white)).toBeGreaterThanOrEqual(1.4)
+    expect(ratio(token('border'), token('canvas'))).toBeGreaterThanOrEqual(1.2)
+  })
+  it('--input (form controls) is at least 1.9:1 against white', () => {
+    expect(ratio(token('input'), white)).toBeGreaterThanOrEqual(1.9)
+  })
+})
+
 describe('the decorative circuit traces are visible on light', () => {
   it.each(['trace-blue', 'trace-amber'])('--%s is at least 3:1 against the canvas', (name) => {
     expect(ratio(token(name), token('canvas'))).toBeGreaterThanOrEqual(3)

@@ -1,6 +1,7 @@
 // 3D hall (spec §12): instanced racks, tube busways/feeders/pipes on their tiers, columns,
 // keep-out volume, CDU bays; coloured by finding status with icon+text labels; click → finding.
-import { Edges, Grid, Instance, Instances, OrbitControls } from '@react-three/drei'
+import { Edges, Grid, Instance, Instances, Line, OrbitControls } from '@react-three/drei'
+import { boundaryLoop, boundaryWalls } from './hallBoundary'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
@@ -44,6 +45,8 @@ const SCENE = {
   bayEdge: '#0284c7',
   rackOutline: '#334155',
   cduEdge: '#1e40af',
+  boundary: '#1e3a8a', // the hall's outline on the floor and the edges of its low perimeter walls
+  wall: '#bcd0f2',
 } as const
 const DIM = '#cfd5dd'
 const RESOLVED = '#10b981'
@@ -365,6 +368,15 @@ function HallScene3D({
         <meshBasicMaterial color={SCENE.floor} />
       </mesh>
       <Grid position={[0, 0.01, 0]} args={[scene.hall.w, scene.hall.d]} cellSize={1.2} sectionSize={12} cellColor={SCENE.gridCell} sectionColor={SCENE.gridSection} fadeDistance={160} />
+      {/* The hall boundary: a bold outline on the floor and four low translucent perimeter walls, so the edge of the hall reads at a glance. */}
+      <Line points={boundaryLoop(scene.hall.w, scene.hall.d)} color={SCENE.boundary} lineWidth={2.5} />
+      {boundaryWalls(scene.hall.w, scene.hall.d).map((w) => (
+        <mesh key={w.id} position={w.center}>
+          <boxGeometry args={w.size} />
+          <meshStandardMaterial color={SCENE.wall} transparent opacity={0.45} depthWrite={false} />
+          <Edges color={SCENE.boundary} />
+        </mesh>
+      ))}
       {scene.rooms.map((r) => (
         <mesh key={r.id} position={pos(r.center)}>
           <boxGeometry args={size(r.size)} />
@@ -517,8 +529,9 @@ export default function HallView() {
   if (!scene) return <EmptyState title="No revision yet">The 3D hall is built from the first checked revision.</EmptyState>
   if (!webgl) return <EmptyState tone="error" title="3D needs WebGL">Your browser has WebGL disabled; the SLD and Matrix tabs show the same design.</EmptyState>
   return (
-    <div className="relative h-full w-full" role="figure" aria-label="3D hall" style={{ background: STAGE }}>
-      <Canvas flat camera={{ position: [scene.hall.w * 0.45, scene.hall.w * 0.5, scene.hall.d * 1.15], fov: 40, near: 0.1, far: 500 }} dpr={[1, 2]}>
+    <div className="relative h-full w-full ring-1 ring-inset ring-[var(--glass-edge)]" role="figure" aria-label="3D hall" style={{ background: STAGE }}>
+      {/* The opening view frames the whole hall, so its boundary is in the picture (it used to crop to the equipment). */}
+      <Canvas flat camera={{ position: [scene.hall.w * 0.62, scene.hall.w * 0.68, scene.hall.d * 1.5], fov: 40, near: 0.1, far: 500 }} dpr={[1, 2]}>
         <HallScene3D scene={scene} labels={labels} labelEls={labelEls} leaders={leaders} />
       </Canvas>
       <HallLabelOverlay labels={labels} els={labelEls} leaders={leaders} />

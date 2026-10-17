@@ -33,7 +33,8 @@ export function AppShell() {
       </a>
       <DemoBanner />
       <header className="z-20 flex h-11 shrink-0 items-center gap-3 border-b border-[var(--glass-edge)] bg-[var(--glass-strong)] px-4 shadow-[0_8px_24px_-16px_rgb(30_58_138/0.4)] backdrop-blur-xl backdrop-saturate-150 sm:gap-6">
-        <Link to="/app" className="flex items-center gap-2 font-semibold tracking-tight">
+        {/* The logo goes back to the landing page; "Projects" in the nav is the way to the dashboard. */}
+        <Link to="/" title="Back to the Kirchhoff landing page" className="flex items-center gap-2 rounded font-semibold tracking-tight">
           <KirchhoffMark />
           Kirchhoff
         </Link>
