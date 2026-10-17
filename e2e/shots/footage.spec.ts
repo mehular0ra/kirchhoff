@@ -152,7 +152,7 @@ const BEATS: Beat[] = [
       const fit = detail.getByRole('region', { name: 'Fit verdict' })
       await expect(fit).toContainText('Pursue', LONG)
       await expect(fit).toContainText('Day-zero supply')
-      await hold(page, 4_500) // the verdict and its reasons
+      await hold(page, 3_000) // the verdict and its reasons; short, so the BOQ is up by the time the voice-over reaches "a decline for the substation BOQ"
       await page.locator('a[href="/app/inbox/em-vindhya-boq"]').click() // a click, not a reload: no "Loading the bids inbox…" frame in the cut
       await expect(detail.getByText('Not verified (scan)').first()).toBeVisible(LONG)
       await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('only on a scanned page')

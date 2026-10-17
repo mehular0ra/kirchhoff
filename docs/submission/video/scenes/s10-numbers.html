@@ -39,7 +39,7 @@
 
   const specs = [
     { n: String(M.faults.caught), of: `of ${M.faults.total}`, chip: `<span class="chip pass"><span class="icon-ok">✓</span>${M.faults.false_positives} false alarms</span>`,
-      lb: 'planted faults caught', bs: 'Each fault aims at one rule. No unrelated rule failed on any of them.', src: 'seeded-fault benchmark · runs in make test' },
+      lb: 'planted faults caught', bs: 'Each fault aims at a rule. No rule outside the expected ones failed.', src: 'seeded-fault benchmark · runs in make test' },
     { n: String(I.verified), of: `of ${I.total}`, chip: `<span class="chip brand">${I.total - I.verified} shown as unverified</span>`,
       lb: 'tender quotes verified word for word', bs: `Recall against our own ground truth: ${M.recall.low} to ${M.recall.high}. A quote that fails is labelled, never shown as fact.`, src: `quotes: golden-capture run · recall: ${M.recall.runs} live runs` },
     { n: String(M.median.seconds), of: 's', chip: `<span class="chip">median of ${M.median.runs} runs</span>`,
@@ -61,7 +61,7 @@
       K.stagger(tw, t, 0.1, 0.05, 0.6, { y: 24, blur: 8 });
       rise(K.$('#foot'), p(t, 0.5, 0.6), { y: 0, blur: 0 });
       tiles.forEach((tile, i) => {
-        const at = 1.0 + i * 1.6; // one number per spoken phrase of the voice-over, with the last one in by about 8 s
+        const at = 1.0 + i * 2.3; // one number per spoken phrase of the voice-over (about 2.4 words a second), the last one in at about 8 s
         rise(tile, p(t, at, 0.6), { y: 36, blur: 8 });
         K.$('.n', tile).textContent = K.count(specs[i].n, p(t, at + 0.25, 1.4, ease.out3));
         rise(K.$('.chipwrap', tile), p(t, at + 1.5, 0.5), { y: 8, blur: 3 });

@@ -67,7 +67,7 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 ### 3 · Intro, Mehul reads (in-clip audio, about 8–12 s, 25–30 words)
 - Who you are, in one line. No title.
 - What Kirchhoff does for an AI data-centre team, in one line.
-- One honest outcome, measured: from a tender to a checked design in minutes (median 149 s on the golden capture), with an engineer still signing.
+- One honest outcome, measured: from a tender to a checked design in minutes (median 149 s over 3 live runs, time at the gates excluded), with an engineer still signing.
 
 > Suggested: "Hi, I'm Mehul. Jayadratha and I built Kirchhoff, so AI data-centre teams can go from a tender to a checked power and cooling design in minutes, and an engineer still signs it."
 
@@ -95,7 +95,7 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 - **Pursue** on the Hall B tender, with the reasons the fit check gives, including the day-zero supply check, which already expects the in-stock swap *(from capture)*.
 - The Vindhya BOQ is a **decline** for its asset type: a substation is not one of our asset packs. Separately, its load is only on a scanned page, so the card marks it "Not verified (scan)" and asks for a text copy. Do not say the scan caused the decline.
 
-> Suggested: "Every email gets a verdict, with reasons. Pursue on the Hall B tender. And a decline for the substation BOQ: not our asset type, and its load is only on a scan."
+> Suggested: "Every email is triaged, with reasons. Pursue on the Hall B tender. And a decline for the substation BOQ: not our asset type, and its load is only on a scan."
 
 ### 6 · Intake, footage (13 s)
 - Gemini reads the tender PDF, and a requirement counts only if its quote is found on the cited page: **N/M quotes verified** *(from capture)*.
@@ -118,7 +118,7 @@ Speak as you would to a senior engineer friend: plain, warm, direct, one breath 
 
 ### 9 · Physics checks, scene (8 s)
 - The checker is deterministic code, with no LLM in the verdict path; the AI cannot mark its own homework.
-- **149 checks · 147 pass · 2 fail** *(from capture)*, each citing its clause.
+- **149 checks · 147 pass · 2 fail** *(from capture)*; each failing one cites its clause.
 
 > Suggested: "Now the checker runs. It is plain physics code, no LLM, so the AI cannot mark its own homework. 149 checks. Two fail."
 
