@@ -175,7 +175,7 @@ test('D14: the main nav keeps each link on one line and names the inbox link "Bi
   expect(within(inbox).getByText('Inbox')).toHaveClass('sm:hidden')
 })
 
-test('I2 / N4: the landing shows a real product frame (above the fold: eager, high priority), the stack line and both labels', async () => {
+test('I2 / N4: the landing shows a real product frame (above the fold: eager, high priority), the Google Cloud stack and both labels', async () => {
   renderWithProviders(<Landing />)
   const shot = screen.getByRole('img', { name: /Hall A \(sample\) in Kirchhoff's 3D view/ })
   expect(shot).toHaveAttribute('loading', 'eager')
@@ -183,7 +183,9 @@ test('I2 / N4: the landing shows a real product frame (above the fold: eager, hi
   expect(shot).toHaveAttribute('src', '/landing/hall-a-r2.webp')
   expect(shot).toHaveAttribute('width')
   expect(screen.getByText('Hall A (sample): the first revision’s failures, fixed and signed.')).toBeInTheDocument()
-  expect(screen.getByText('Built on Gemini · ADK · Cloud Run · Firestore · Firebase')).toBeInTheDocument()
+  // The stack is a list of five items (it used to be one "Gemini · ADK · ..." text line).
+  const stack = screen.getByRole('list', { name: 'Built on' })
+  expect(within(stack).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Gemini on Vertex AI', 'Agent Development Kit', 'Cloud Run', 'Firestore', 'Firebase'])
   const footer = screen.getByRole('contentinfo')
   expect(footer).toHaveTextContent('Demo workspace — all companies, people and data are fictional')
   expect(footer).toHaveTextContent('IEC-based, illustrative values, not for construction')
