@@ -14,6 +14,16 @@ function pngSize(file: string): { w: number; h: number } {
 // The landing page's structure (YC-style: nav, hero, product, features, how it works, trust, closing call to action). Copy is checked where it is
 // a contract: the e2e tour starts from "Enter the demo workspace (no login)" and "Run it live", so each must exist exactly once.
 
+/** Width and height of a lossless WebP (VP8L: 14 bits each, minus one). A lossy file has another chunk type and fails the first check. */
+function webpLosslessSize(file: string): { w: number; h: number } {
+  const b = readFileSync(`${process.cwd()}/public/landing/${file}`)
+  expect(b.subarray(0, 4).toString()).toBe('RIFF')
+  expect(b.subarray(8, 12).toString()).toBe('WEBP')
+  expect(b.subarray(12, 16).toString()).toBe('VP8L')
+  const bits = b.readUInt32LE(21)
+  return { w: (bits & 0x3fff) + 1, h: ((bits >> 14) & 0x3fff) + 1 }
+}
+
 test('the nav is a landmark with anchors to three sections and a way into the demo', () => {
   renderWithProviders(<Landing />)
   const nav = screen.getByRole('navigation', { name: 'Landing' })
@@ -48,22 +58,36 @@ test('the product window has a legend that says what the three areas of the scre
   expect(screen.getByRole('img', { name: /Hall A \(sample\)/ })).toBeInTheDocument()
 })
 
-test('the product screenshot is a lossless PNG with at least two pixels per shown pixel, and narrow screens get a sharper crop of the 3D column', () => {
+test('the product screenshot is lossless (a WebP first, the same pixels as a PNG fallback), with at least two pixels per shown pixel, and narrow screens get a sharper crop of the 3D column', () => {
   const { container } = renderWithProviders(<Landing />)
   const img = screen.getByRole('img', { name: /Hall A \(sample\)/ })
   expect(img).toHaveAttribute('src', '/landing/hall-a-r2.png')
-  const source = container.querySelector('picture > source')
-  expect(source).toHaveAttribute('media', '(max-width: 639px)')
-  expect(source).toHaveAttribute('srcset', '/landing/hall-a-r2-phone.png')
+  const sources = Array.from(container.querySelectorAll('picture > source')).map((s) => [s.getAttribute('media'), s.getAttribute('type'), s.getAttribute('srcset')])
+  expect(sources).toEqual([
+    ['(max-width: 639px)', 'image/webp', '/landing/hall-a-r2-phone.webp'],
+    ['(max-width: 639px)', null, '/landing/hall-a-r2-phone.png'],
+    [null, 'image/webp', '/landing/hall-a-r2.webp'],
+  ])
 
-  // shown up to 1152 px wide on desktop, and about 360 px wide on a phone
+  // shown up to 1176 px wide on desktop, and about 360 px wide on a phone
   const desktop = pngSize('hall-a-r2.png')
   expect(desktop.w).toBeGreaterThanOrEqual(2 * 1152)
   expect(desktop.w / desktop.h).toBeCloseTo(16 / 10, 2)
   const phone = pngSize('hall-a-r2-phone.png')
   expect(phone.w).toBeGreaterThanOrEqual(2 * 360)
+  // the WebP files are lossless and exactly the PNGs' size (a lossy re-encode is what blurred the text before)
+  expect(webpLosslessSize('hall-a-r2.webp')).toEqual(desktop)
+  expect(webpLosslessSize('hall-a-r2-phone.webp')).toEqual(phone)
   // the img reserves the phone crop's shape on a phone (no stretching), and the desktop shape from `sm` up
   expect(img.className).toContain(`max-sm:aspect-[${phone.w / 12}/${phone.h / 12}]`)
+})
+
+test('the Google Cloud stack is a plain row of names under one label, not a row of glass pills', () => {
+  renderWithProviders(<Landing />)
+  const stack = screen.getByRole('list', { name: 'Built on' })
+  expect(within(stack).getAllByRole('listitem')).toHaveLength(5)
+  for (const li of within(stack).getAllByRole('listitem')) expect(li.className).not.toMatch(/glass|rounded-full|\bbg-/)
+  expect(screen.getByText('Built on Google Cloud')).toBeInTheDocument()
 })
 
 test('"What Kirchhoff does" lists the features: a lead feature and five more', () => {

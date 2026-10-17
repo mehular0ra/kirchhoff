@@ -169,10 +169,13 @@ export function Landing() {
                   <span className="size-2.5 rounded-full bg-amber-400" />
                   <span className="size-2.5 rounded-full bg-emerald-500" />
                 </div>
-                {/* Lossless PNGs at 2x: the lossy WebP blurred the small text. A phone gets the 3D column only, captured where it is about a
-                    phone's width, because the whole workspace shrunk to 360 px cannot be read. */}
+                {/* Lossless at 2x (a lossy WebP blurred the small text): WebP first, 57% lighter, and the identical pixels as PNG for a browser without
+                    WebP. A phone gets the 3D column only, captured where it is about a phone's width, because the whole workspace shrunk to 360 px
+                    cannot be read. */}
                 <picture>
+                  <source media="(max-width: 639px)" type="image/webp" srcSet="/landing/hall-a-r2-phone.webp" />
                   <source media="(max-width: 639px)" srcSet="/landing/hall-a-r2-phone.png" />
+                  <source type="image/webp" srcSet="/landing/hall-a-r2.webp" />
                   <img
                     src="/landing/hall-a-r2.png"
                     width={1160}
@@ -199,13 +202,12 @@ export function Landing() {
             </ul>
           </figure>
 
-          <div className="mt-2 flex flex-col items-center gap-3">
-            <p className="text-xs text-slate-600">Built on Google Cloud</p>
-            <ul aria-label="Built on" className="flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-slate-700">
+          {/* A quiet strip, not a row of pills: the names are plain text between two hairlines, so nothing here looks like a button. */}
+          <div className="mt-2 flex w-full flex-col items-center gap-3 border-y border-[var(--glass-edge)] py-5 sm:flex-row sm:justify-between sm:gap-6">
+            <p className="text-xs font-medium text-slate-600">Built on Google Cloud</p>
+            <ul aria-label="Built on" className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm font-semibold text-slate-700 sm:justify-end">
               {GOOGLE_STACK.map((s) => (
-                <li key={s} className="glass rounded-full px-3 py-1">
-                  {s}
-                </li>
+                <li key={s}>{s}</li>
               ))}
             </ul>
           </div>
