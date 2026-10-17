@@ -11,11 +11,19 @@ export interface LiveVoiceCall {
   name: string
   args: Record<string, unknown>
 }
+/**
+ * What a Live conversation reports besides its tool calls (workspace/copilot/voice/liveEvents.ts): a piece of what the
+ * visitor said, that the model has started its spoken reply, and that the turn is over. The model's own words are
+ * never in an event: the written answer is the engine's.
+ */
+export type LiveVoiceEvent = { type: 'heard'; text: string } | { type: 'speaking' } | { type: 'turn_complete' }
 export interface LiveVoiceHandle {
   stop(): Promise<void>
 }
 export type StartLiveVoice = (opts: {
   onToolCall: (call: LiveVoiceCall) => Promise<Record<string, unknown>>
+  /** Optional: the transcript and turn boundaries, for the conversation history. */
+  onEvent?: (e: LiveVoiceEvent) => void
 }) => Promise<LiveVoiceHandle>
 
 export interface Services {

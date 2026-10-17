@@ -3,10 +3,11 @@
 // Summaries are built from engine records only (spec §6.3): the one piece of LLM-sourced text
 // (the engine's own explanation, or /api/explain's answer) is passed through fillPlaceholders,
 // the same digit-insertion mechanism FindingDrawer.tsx already uses for displaying finding text.
-import { fillPlaceholders, fmtKeyValue, fmtQty } from '@/lib/format'
+import { fillPlaceholders, fmtKeyValue, fmtNum, fmtQty } from '@/lib/format'
+import { canvasesFor, type Canvas } from '@/lib/model'
 import { findingsFor, parentRevision, revisionLabel, revisionRef } from '@/lib/select'
 import { statusRank } from '@/lib/status'
-import type { Finding, Revision, WhatIfParam } from '@/lib/types'
+import type { DesignModel, Finding, Revision, WhatIfParam } from '@/lib/types'
 import type { ApiClient } from '@/services/apiClient'
 import type { ViewRevSource } from '@/store/ui'
 import { readFix } from '../finding/fixView'
@@ -32,9 +33,58 @@ export interface ToolOutcome {
   summary: string
   /** Sent back to Gemini Live as the FunctionResponse.response. */
   data: Record<string, unknown>
+  /** What the engine was asked, in words ("Explain finding R05 · FA-01"): the source label of the answer. */
+  check: string
+  /** What changed on screen because of it, one plain sentence each; empty when nothing did. */
+  actions: string[]
 }
 
 const WHAT_IF_PARAMS: WhatIfParam[] = ['rack_kw', 'liquid_fraction', 'dv_limit_pct', 'tx_loading_cap_pct']
+
+/** The what-if chips' wording ("Racks → 200 kW"), so the history reads like the controls. */
+export function whatIfCheck(param: WhatIfParam, value: number): string {
+  const label = {
+    rack_kw: `Racks → ${fmtNum(value)} kW`,
+    liquid_fraction: `Liquid fraction → ${fmtNum(value)}`,
+    dv_limit_pct: `ΔV limit → ${fmtNum(value)}%`,
+    tx_loading_cap_pct: `Transformer loading cap → ${fmtNum(value)}%`,
+  }[param]
+  return label ? `What-if: ${label}` : 'What-if'
+}
+
+const CANVAS_NAME: Record<Canvas, string> = { hall: '3D hall', sld: 'SLD' }
+
+/** "R05:FA-01" as the history writes it: "R05 · FA-01". */
+export const findingLabel = (findingId: string): string => findingId.replace(':', ' · ')
+
+/** What a "show" changed on screen (typed, Live and push-to-talk say it the same way). */
+export function focusActions(model: DesignModel | null, id: string, drawn: boolean): string[] {
+  if (!drawn) return [`Nothing moved: ${id} is not drawn on a canvas`]
+  const on = canvasesFor(model, id).map((c) => CANVAS_NAME[c])
+  return [`Showing ${id} on the ${on.length ? on.join(' and the ') : 'canvas'}`]
+}
+
+/**
+ * How long a spoken or typed "why" waits for the language model's rewrite of the explanation. The engine's own
+ * explanation of the finding is always there; a Live conversation must not sit silent for a whole model call (6 to
+ * 11 s measured), so after this the engine's text stands.
+ */
+const EXPLAIN_WAIT_MS = 4_000
+
+/** The promise's value, or 'late' if it has not come back in `ms`. A late rejection is still handled (race subscribes to both). */
+async function withinWait<T>(p: Promise<T>, ms: number): Promise<T | 'late'> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      p,
+      new Promise<'late'>((resolve) => {
+        timer = setTimeout(() => resolve('late'), ms)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 function worstFindingFor(findings: Finding[], element: string, rule?: string): Finding | null {
   return (
@@ -89,9 +139,11 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
   if (name === 'what_if') {
     const param = String(args.param) as WhatIfParam
     const value = Number(args.value)
-    if (!WHAT_IF_PARAMS.includes(param) || !Number.isFinite(value)) return { summary: 'That what-if is not supported.', data: { error: 'unsupported' } }
+    if (!WHAT_IF_PARAMS.includes(param) || !Number.isFinite(value))
+      return { summary: 'That what-if is not supported.', data: { error: 'unsupported' }, check: 'What-if', actions: [] }
+    const check = whatIfCheck(param, value)
     const ran = await ctx.runWhatIf(param, value)
-    if (!ran) return { summary: 'The engine is unreachable for that what-if.', data: { error: 'unavailable' } }
+    if (!ran) return { summary: 'The engine is unreachable for that what-if.', data: { error: 'unavailable' }, check, actions: [] }
     const { result: r, rev } = ran
     const fails = r.findings.filter((f) => f.status === 'fail')
     // Names the revision it ran on (#37): "On r2 (signed): 60 checks fail: …", id and status from the bundle.
@@ -111,6 +163,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         failing: fails.map((f) => ({ rule: f.rule_id, element: f.element_id, value: f.value, limit: f.limit, unit: f.unit })),
         impact_chain: r.impact_chain,
       },
+      check,
+      actions: [`Ran on ${revisionLabel(rev)}; engine only, nothing saved`, 'The result is in the What-if panel and lit on the canvases'],
     }
   }
   if (name === 'explain_finding') {
@@ -118,7 +172,8 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     const element = String(args.element_id ?? id.split(':')[1] ?? '')
     const rule = (args.rule_id as string | undefined) ?? (id.includes(':') ? id.split(':')[0] : undefined)
     const located = locate(ctx.view, id, element, rule)
-    if (!located) return { summary: `No finding for ${id || element} in this revision.`, data: { error: 'not_found' } }
+    if (!located)
+      return { summary: `No finding for ${id || element} in this revision.`, data: { error: 'not_found' }, check: `Explain finding ${id.replace(':', ' · ') || element}`, actions: [] }
     const { finding, rev } = located
     const elsewhere = !!rev && rev.id !== ctx.view.rev?.id
     if (elsewhere) ctx.setViewRev(rev.id, { source: 'auto' })
@@ -127,22 +182,31 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     const ref = rev ? revisionRef(ctx.view.bundle, rev.id, ctx.view.source) : ctx.view.revRef
     if (ref) {
       try {
-        text = fillPlaceholders((await ctx.api.explain(ref, finding.id)).text, finding)
+        const rewrite = await withinWait(ctx.api.explain(ref, finding.id), EXPLAIN_WAIT_MS)
+        if (rewrite !== 'late') text = fillPlaceholders(rewrite.text, finding)
       } catch {
         // engine explanation stands
       }
     }
     const summary = `${elsewhere ? `In ${rev.id}: ` : ''}${text}${elsewhere ? fixLine(located, ctx.view) : ''}`
+    const label = `${finding.rule_id} · ${finding.element_id}`
     return {
       summary,
       data: { finding_id: finding.id, revision: rev?.id ?? null, status: finding.status, value: finding.value, limit: finding.limit, unit: finding.unit, text: summary },
+      check: `Explain finding ${label}`,
+      actions: [...(elsewhere ? [`Switched to ${revisionLabel(rev)}, where this check failed`] : []), `Opened ${label} in the finding drawer`],
     }
   }
   if (name === 'focus_element') {
     const id = String(args.element_id ?? '').toUpperCase()
     if (!ctx.focus(id))
-      return { summary: `${id} is not drawn on the 3D hall or the SLD; its checks are in the Matrix.`, data: { element_id: id, drawn: false } }
-    return { summary: `Showing ${id}.`, data: { element_id: id } }
+      return {
+        summary: `${id} is not drawn on the 3D hall or the SLD; its checks are in the Matrix.`,
+        data: { element_id: id, drawn: false },
+        check: `Show ${id}`,
+        actions: focusActions(ctx.view.model, id, false),
+      }
+    return { summary: `Showing ${id}.`, data: { element_id: id }, check: `Show ${id}`, actions: focusActions(ctx.view.model, id, true) }
   }
-  return { summary: `Unknown tool ${name}.`, data: { error: 'unknown_tool' } }
+  return { summary: `Unknown tool ${name}.`, data: { error: 'unknown_tool' }, check: name, actions: [] }
 }

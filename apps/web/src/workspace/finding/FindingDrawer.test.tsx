@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -242,4 +242,64 @@ test('residual: a finding without clause or tender refs renders no stray "0"; an
   expect(bare).toEqual([])
   expect(within(drawer).getByText('BOQ is checked as a whole; it is not drawn on the 3D hall or the SLD.')).toBeInTheDocument()
   expect(within(drawer).getByText('none')).toBeInTheDocument()
+})
+
+// The drawer must not hide the co-pilot that opened it: on a wide screen it opens beside the co-pilot column (20rem, the
+// workspace grid's last column) with no dimming layer, so the conversation, the status and the Stop button stay in view.
+describe('beside the co-pilot', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const media = (wide: boolean) => (query: string) =>
+    ({ matches: wide && query.includes('min-width: 1200px'), media: query, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false }) as MediaQueryList
+
+  function renderBesideCoPilot(wide: boolean) {
+    vi.spyOn(window, 'matchMedia').mockImplementation(media(wide))
+    resetStores()
+    const view = render(
+      <ServicesProvider services={fakeServices()}>
+        <TooltipProvider>
+          <WorkspaceProvider bundle={fixtureBundle()} source="static">
+            <aside aria-label="Co-pilot">
+              <input aria-label="Ask the co-pilot" />
+            </aside>
+            <button>Somewhere else</button>
+            <FindingDrawer />
+          </WorkspaceProvider>
+        </TooltipProvider>
+      </ServicesProvider>,
+    )
+    act(() => {
+      useUi.getState().setViewRev('r1')
+      useUi.getState().openFinding('R05:FA-01')
+    })
+    return view
+  }
+
+  test('on a wide screen it opens beside the co-pilot column, with no dimming layer over the page', () => {
+    renderBesideCoPilot(true)
+    expect(screen.getByRole('dialog').style.right).toBe('20rem') // the authored value; computed styles report it in px
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeNull()
+  })
+
+  test('on a wide screen the co-pilot stays usable while the drawer is open', async () => {
+    const user = userEvent.setup()
+    renderBesideCoPilot(true)
+    await user.click(screen.getByRole('textbox', { name: 'Ask the co-pilot' }))
+    await user.keyboard('why FA-01')
+    expect(screen.getByRole('textbox', { name: 'Ask the co-pilot' })).toHaveValue('why FA-01')
+    expect(screen.getByRole('dialog')).toBeInTheDocument() // working in the co-pilot does not close the finding
+  })
+
+  test('on a wide screen a click anywhere else on the page still closes the drawer', async () => {
+    const user = userEvent.setup()
+    renderBesideCoPilot(true)
+    await user.click(screen.getByRole('button', { name: 'Somewhere else' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  test('on a narrow screen it is the dimmed overlay over the right edge, as before', () => {
+    renderBesideCoPilot(false)
+    expect(screen.getByRole('dialog').style.right).toBe('')
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).not.toBeNull()
+  })
 })

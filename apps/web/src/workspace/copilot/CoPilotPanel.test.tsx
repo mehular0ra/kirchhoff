@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useChecklist } from '@/onboarding/checklist/checklistStore'
 import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiClient'
-import { ServicesProvider, type LiveVoiceCall, type Services } from '@/services/services'
+import { ServicesProvider, type LiveVoiceCall, type LiveVoiceEvent, type Services } from '@/services/services'
+import { useConversation } from '@/store/conversation'
 import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle, type WhatIfResult } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
@@ -225,10 +226,10 @@ test('D1: an element that never failed keeps the current revision\'s answer', as
   renderPanel(fakeServices(), realHallA())
   await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'why FA-02{Enter}')
   const convo = await screen.findByRole('list', { name: 'Conversation' })
-  const items = await within(convo).findAllByRole('listitem')
-  expect(items).toHaveLength(2)
-  expect(items[1].textContent).toMatch(/^Co-pilot: .*FA-02/)
-  expect(items[1].textContent).not.toMatch(/In r1/)
+  const [card, ...others] = (await within(convo).findAllByRole('listitem')).filter((li) => li.hasAttribute('data-turn'))
+  expect(others).toHaveLength(0) // one question, one card
+  await waitFor(() => expect(card.textContent).toMatch(/Explain finding R\d+ · FA-02/))
+  expect(card.textContent).not.toMatch(/In r1/)
   expect(useUi.getState().viewRev).toBeNull()
 })
 
@@ -328,7 +329,7 @@ test('#37: after "why FA-01" moves the view to r1, a typed 200 kW what-if runs o
   const { head, fails } = headWhatIf200()
   expect(head.status).toBe('signed')
   const answer = await (await conversation()).findByText(new RegExp(`^On ${escape(head.id)} \\(${head.status}\\): ${fails} checks fail: `))
-  expect(answer.textContent).toMatch(/^Co-pilot: On r2 \(signed\): /)
+  expect(answer.textContent).toMatch(/^On r2 \(signed\): /)
   expect(whatIf).not.toHaveBeenCalled() // the head revision's seed what-if, from the bundle
   expect(useUi.getState().whatIf).toMatchObject({ origin: 'precomputed', result: { revision_ref: `seed:hall-a@${head.id}` } })
   expect(useUi.getState().viewRev).toBeNull() // the overlay is drawn on the revision it was computed for: back on the head
@@ -420,4 +421,211 @@ test('#37: a Gemini Live what_if call after the automatic switch runs on the hea
   expect(response).toMatchObject({ revision: head.id, revision_status: head.status })
   expect((response.failing as unknown[]).length).toBe(fails)
   expect(useUi.getState().viewRev).toBeNull()
+})
+
+// ---- The conversation history: what was asked, which engine check answered, what changed, and what Live is doing.
+
+const turnCards = () => screen.queryAllByRole('listitem').filter((li) => li.hasAttribute('data-turn'))
+
+/** A Gemini Live session the test drives by hand: the tool calls and the events the service would send. */
+function liveHarness(api = fakeApi()) {
+  let onToolCall: (c: LiveVoiceCall) => Promise<Record<string, unknown>> = async () => ({})
+  let onEvent: (e: LiveVoiceEvent) => void = () => undefined
+  const services = fakeServices({
+    api,
+    startLiveVoice: async (o) => {
+      onToolCall = o.onToolCall
+      onEvent = o.onEvent ?? onEvent
+      return { stop: async () => undefined }
+    },
+  })
+  return { services, call: (c: LiveVoiceCall) => onToolCall(c), emit: (e: LiveVoiceEvent) => act(() => onEvent(e)) }
+}
+
+async function startLive(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Start voice' }))
+  await screen.findByText('Listening (Gemini Live)')
+}
+
+test('a typed "why" shows its card: what was asked, the engine check, the answer and what changed on screen', async () => {
+  const user = userEvent.setup()
+  renderPanel(fakeServices(), realHallA())
+  await ask(user, 'why did FA-01 fail?')
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(await convo.findByText('Explain finding R05 · FA-01')).toBeInTheDocument()
+  expect(convo.getByText('Engine check')).toBeInTheDocument()
+  expect(convo.getByText('You · typed')).toBeInTheDocument()
+  expect(convo.getByText('why did FA-01 fail?')).toBeInTheDocument()
+  const changes = within(convo.getByRole('list', { name: 'What changed on screen' }))
+  expect(changes.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+    expect.stringMatching(/^Switched to r1 \(.*\), where this check failed$/),
+    'Opened R05 · FA-01 in the finding drawer',
+  ])
+})
+
+test('a slow answer stays under its own question and never lands under a later one', async () => {
+  const user = userEvent.setup()
+  let finish: (v: { text: string }) => void = () => undefined
+  const explain = vi.fn(() => new Promise<{ text: string }>((resolve) => (finish = resolve)))
+  renderPanel(fakeServices({ api: fakeApi({ explain }) }), realHallA())
+  await ask(user, 'why did FA-01 fail?') // waits on the language model's rewrite
+  await ask(user, 'show H-Z2') // answers at once
+  await within(await screen.findByRole('list', { name: 'Conversation' })).findByText('Showing H-Z2.')
+  await act(async () => finish({ text: 'Voltage drop is {value} against {limit}.' }))
+  await waitFor(() => expect(turnCards()[0].textContent).toContain('Voltage drop is 2.16% against 2%.'))
+  const cards = turnCards()
+  expect(cards).toHaveLength(2)
+  expect(cards[0].textContent).toContain('why did FA-01 fail?')
+  expect(cards[1].textContent).toContain('show H-Z2')
+  expect(cards[1].textContent).toContain('Showing H-Z2.')
+  expect(cards[1].textContent).not.toContain('Voltage drop')
+})
+
+test('a typed question the co-pilot does not understand says no engine check ran', async () => {
+  const user = userEvent.setup()
+  renderPanel()
+  await ask(user, 'hello')
+  expect(await screen.findByText('No engine check ran')).toBeInTheDocument()
+  expect(screen.getByText(/Try: “what if racks go to 200 kW”/)).toBeInTheDocument()
+})
+
+test('Live: the history shows what was said, the engine check behind the answer and what changed, and the status follows the turn', async () => {
+  const user = userEvent.setup()
+  let finishExplain: (v: { text: string }) => void = () => undefined
+  const explain = vi.fn(() => new Promise<{ text: string }>((resolve) => (finishExplain = resolve)))
+  const live = liveHarness(fakeApi({ explain }))
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+
+  await live.emit({ type: 'heard', text: 'Why did' })
+  await live.emit({ type: 'heard', text: ' FA-01 fail?' })
+  expect(screen.getByText('Hearing you…')).toBeInTheDocument()
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(convo.getByText('You · voice')).toBeInTheDocument()
+  expect(convo.getByText('Why did FA-01 fail?')).toBeInTheDocument()
+  expect(convo.getByText('Listening…')).toBeInTheDocument()
+
+  let done: Promise<Record<string, unknown>> = Promise.resolve({})
+  act(() => {
+    done = live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+  })
+  expect(await screen.findByText('Checking with the engine…')).toBeInTheDocument()
+  await act(async () => {
+    finishExplain({ text: 'Voltage drop is {value} against {limit}.' })
+    await done
+  })
+  expect(await convo.findByText('Explain finding R05 · FA-01')).toBeInTheDocument()
+  expect(convo.getByText(/^In r1: Voltage drop is 2\.16% against 2%\./)).toBeInTheDocument()
+  expect(convo.getByText('Opened R05 · FA-01 in the finding drawer')).toBeInTheDocument()
+  expect(useUi.getState().findingId).toBe('R05:FA-01')
+
+  await live.emit({ type: 'speaking' })
+  expect(screen.getByText('Gemini is replying…')).toBeInTheDocument()
+  await live.emit({ type: 'turn_complete' })
+  expect(screen.getByText('Listening (Gemini Live)')).toBeInTheDocument()
+  expect(convo.queryByText('No engine check ran')).not.toBeInTheDocument()
+  expect(turnCards()).toHaveLength(1)
+})
+
+test('Live: a spoken reply with no engine check behind it is flagged, and nothing opens or moves', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Why did FA-01 fail?' })
+  await live.emit({ type: 'speaking' })
+  await live.emit({ type: 'turn_complete' })
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(await convo.findByText('No engine check ran')).toBeInTheDocument()
+  expect(convo.getByText(/Nothing was verified and nothing changed on screen/)).toBeInTheDocument()
+  expect(convo.getByText(/Gemini replied by voice on its own/)).toBeInTheDocument()
+  expect(useUi.getState().findingId).toBeNull()
+  expect(useUi.getState().viewRev).toBeNull()
+})
+
+test('Live: each question is its own card, in the order it was asked', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Show FA-01' })
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
+  await live.emit({ type: 'speaking' })
+  await live.emit({ type: 'turn_complete' })
+  await live.emit({ type: 'heard', text: 'Show H-Z2' })
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'H-Z2' } })))
+  await live.emit({ type: 'turn_complete' })
+  await waitFor(() => expect(turnCards()).toHaveLength(2))
+  const cards = turnCards()
+  expect(cards[0].textContent).toContain('Show FA-01')
+  expect(cards[0].textContent).toContain('Showing FA-01.')
+  expect(cards[1].textContent).toContain('Show H-Z2')
+  expect(cards[1].textContent).toContain('Showing H-Z2.')
+})
+
+test('Live: a tool call that arrives before any transcript still gets a card, and the words fill in when they come', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(convo.getByText('(your words were not transcribed)')).toBeInTheDocument()
+  await live.emit({ type: 'heard', text: 'Show me FA-01' })
+  expect(convo.getByText('Show me FA-01')).toBeInTheDocument()
+  expect(convo.queryByText('(your words were not transcribed)')).not.toBeInTheDocument()
+  expect(turnCards()).toHaveLength(1)
+})
+
+test('Live: stopping the voice mid-question closes its card as unchecked', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Why did FA-01' })
+  await user.click(screen.getByRole('button', { name: 'Stop' }))
+  expect(await screen.findByText('No engine check ran')).toBeInTheDocument()
+  expect(screen.getByText('Voice was stopped before there was an answer.')).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Start voice' })).toBeInTheDocument()
+})
+
+test('Live: the model\'s own words never reach the screen, only the engine\'s text', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Why did FA-01 fail?' })
+  await act(async () => void (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })))
+  await live.emit({ type: 'speaking' })
+  await live.emit({ type: 'turn_complete' })
+  // The only events the service can send are heard/speaking/turn_complete: nothing in them carries the model's speech.
+  expect(screen.queryByText(/Gemini said/i)).not.toBeInTheDocument()
+  expect(turnCards()[0].textContent).toMatch(/Explain finding R05 · FA-01/)
+})
+
+test('push-to-talk writes up the turn too: the transcript, the engine check and what changed', async () => {
+  const answer = 'In r1: Voltage drop from the UPS output board to the furthest tap-off via FA-01 is 2.16% against a limit of 2%.'
+  await pushToTalk({
+    transcript: 'Why did FA-01 fail?',
+    answer,
+    tool_results: [{ name: 'explain_finding', args: { finding_id: 'R05:FA-01' }, result: { text: answer, revision: 'r1' } }],
+  })
+  const convo = await conversation()
+  expect(await convo.findByText('You · push-to-talk')).toBeInTheDocument()
+  expect(convo.getByText('Why did FA-01 fail?')).toBeInTheDocument()
+  expect(convo.getByText('Explain finding R05 · FA-01')).toBeInTheDocument()
+  expect(convo.getByText('Opened R05 · FA-01 in the finding drawer')).toBeInTheDocument()
+  expect(convo.getByText(/^Switched to r1 \(.*\), where this check failed$/)).toBeInTheDocument()
+})
+
+test('push-to-talk with no engine check behind the reply says so', async () => {
+  await pushToTalk({ transcript: 'Tell me a joke', answer: 'No tool answers that question.', tool_results: [] })
+  const convo = await conversation()
+  expect(await convo.findByText('No engine check ran')).toBeInTheDocument()
+  expect(convo.getByText('No tool answers that question.')).toBeInTheDocument()
+})
+
+test('the conversation is filed under the project it was had in', () => {
+  renderPanel(fakeServices(), realHallA())
+  expect(useConversation.getState().project).toBe(realHallA().project.id)
 })
