@@ -54,6 +54,7 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page)
       await text(page, /signed by Priya Raman/)
+      await text(page, 'CDU gallery') // the lazy-loaded hall has drawn, not just its empty canvas
     },
   },
   {
@@ -64,6 +65,8 @@ const SHOTS: Shot[] = [
       const lanes = page.getByRole('navigation', { name: 'Agent lanes' })
       await lanes.getByRole('button', { name: /Intake/ }).click() // expand: the verified quotes, the DXF read and the contradiction it found
       await text(page, 'Contradiction found')
+      await text(page, 'CDU gallery') // the replay has reached the drawn hall: until then the frame is mid-play, with a blank canvas and a running clock
+      await expect(lanes.getByRole('listitem').first()).toContainText('Done')
       await settle(page, 800)
       return lanes.getByRole('listitem').first() // the Intake lane itself, not the whole column
     },
@@ -82,6 +85,7 @@ const SHOTS: Shot[] = [
     file: 's05-3-compliance-matrix.png',
     open: async (page) => {
       await workspace(page, '?tab=matrix')
+      await text(page, '150 checks')
       return page.getByRole('table', { name: 'Compliance matrix' })
     },
   },
@@ -112,7 +116,9 @@ const SHOTS: Shot[] = [
       await page.goto('/app/p/hall-a/review/r2')
       await text(page, 'APPROVED')
       await settle(page)
-      return page.getByRole('figure', { name: 'Approval stamp' }) // the stamp's own accessible name, not a class guess
+      const stamp = page.getByRole('figure', { name: 'Approval stamp' }) // the stamp's own accessible name, not a class guess
+      await expect(stamp).toContainText('sha256')
+      return stamp
     },
   },
   {
@@ -183,6 +189,7 @@ const SHOTS: Shot[] = [
       const drawer = page.getByRole('dialog').first()
       await expect(drawer).toContainText('H-Z2')
       await expect(drawer).toContainText('§6.3.4')
+      await text(page, 'CDU gallery') // the hall behind the drawer has drawn
     },
   },
   {
@@ -190,6 +197,9 @@ const SHOTS: Shot[] = [
     open: async (page) => {
       await workspace(page, '?tab=options')
       await text(page, /R15, line transformer/) // needs the options from the golden capture
+      const card = page.getByRole('article', { name: 'Option 2N' }) // the card the README row names, not any of the three
+      await expect(card).toContainText('Selected')
+      await expect(card).toContainText('38.07%')
     },
   },
   {
