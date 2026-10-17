@@ -50,13 +50,15 @@ while read -r name a b; do
   case "$name" in *\?) name="${name%\?}"; skip_missing=1 ;; esac
   read -r start dur < <(FOOTAGE_SKIP_MISSING="$skip_missing" python3 - "$MARKS" "$a" "$b" "$OFFSET" "$HANDLE" <<'PY' | tr -d '\015'
 import json, os, sys
-marks = json.load(open(sys.argv[1]))["marks_s"]
+data = json.load(open(sys.argv[1]))
+marks = data["marks_s"]
 a, b, off, h = sys.argv[2], sys.argv[3], float(sys.argv[4]), float(sys.argv[5])
 if a not in marks or b not in marks:
     if os.environ.get("FOOTAGE_SKIP_MISSING") == "1":
         print("SKIP SKIP")  # an unsigned live run (E2E_FOOTAGE_SIGN=0) has no sign-off marks
         sys.exit(0)
-    sys.exit(f"footage_cut: mark {a!r} or {b!r} missing from the marks file")
+    hint = " (this recording is from an unsigned run, E2E_FOOTAGE_SIGN=0: set FOOTAGE_SKIP_MISSING=1 to skip the clips that need the sign-off)" if data.get("signed") is False else ""
+    sys.exit(f"footage_cut: mark {a!r} or {b!r} missing from the marks file" + hint)
 start = max(0.0, marks[a] + off - h)
 end = marks[b] + off + h
 print(f"{start:.2f} {end - start:.2f}")

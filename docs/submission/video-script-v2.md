@@ -38,7 +38,7 @@
 | 11 | 1:38–1:48 | 10 | [SHOT: the Procurement option card "2.5 MVA · stock 0 · 98 wk > 26 wk", which swaps to "3.15 MVA · stock 6"; the fault-level re-check.] | Mehul, line 11 |
 | 12 | 1:48–2:00 | 12 | [SHOT: the co-pilot voice what-if "What if racks go to 200 kW?" and the impact chain lighting in two colours.] | In-clip question, then Mehul, line 12 |
 | 13 | 2:00–2:06 | 6 | [SCENE s6-sign] The review card, "Approve and sign", then the stamp with name, time and revision hash. | Mehul, line 13 |
-| 14 | 2:06–2:12 | 6 | [SHOT: the real review page and stamp: "You (Demo Reviewer) · time · hash".] | (silence or a short line) |
+| 14 | 2:06–2:12 | 6 | [SHOT: the approved Hall A r2 review page and its stamp: "Priya Raman · Lead Electrical Engineer (Reviewer) · time · hash".] | (silence or a short line) |
 | 15 | 2:12–2:24 | 12 | [SCENE s7-connectors] From the signed revision: **7 PRs** to SAP S/4HANA (sandbox), documents to Google Drive (sandbox), and the CRM stage moves "Design in progress → Design approved". | Mehul, line 15 |
 | 16 | 2:24–2:32 | 8 | [SCENE s8-google-cloud] Firebase → Cloud Run → Gemini on Vertex AI → engine and checker (no LLM) → Firestore. | Mehul, line 16 |
 | 17 | 2:32–2:39 | 7 | [SCENE s9-end] kirchhoff.web.app, repo link, disclaimers. | Mehul, line 17 |
