@@ -22,7 +22,11 @@ Written Sat 17 Oct 2026, 15:45 IST, by Mehul's Claude Code session. **From now o
 ## 2. How you work now (new rules, approved by Mehul on 17 Oct)
 
 - **You may push and merge to `build` directly.** You no longer need Mehul's session to merge, and `AGENTS.md` says so.
-- **Every PR goes through a review loop before merge.** A fresh reviewer agent reviews, you fix, and you repeat. **Stop after 4–5 rounds, or as soon as a round finds no real issues, whichever comes first.**
+- **Every PR goes through a review loop before merge.** A fresh reviewer agent reviews, you fix, and you repeat. **Stop after 4–5 rounds, or as soon as a round finds nothing useful, whichever comes first.**
+- **The same loop applies to:**
+  - the open PRs (#46–#50);
+  - the open issues: verify each, then close it, update it or fix it;
+  - every piece of code you write from now on.
 - **Then request a review from `@mehular0ra` on the PR** (Reviewers → mehular0ra) and leave a one-line summary of the rounds. Mehul reviews when he's online. Don't block submission-critical work on him: merge, and he follows up.
 - **Keep what already worked:**
   - TDD and `make test` green;
