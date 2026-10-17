@@ -17,6 +17,8 @@ import { expect, test } from '../tests/fixtures'
  * E2E_FOOTAGE_SIGN   unset or 1: the run is SIGNED, which writes purchase requisitions and a CRM stage move into the SHARED ERP/CRM sandbox that every
  *                    visitor sees on the Integrations page until the next seed. 0: the run stops at the review gate (nothing signed, no sign-off marks;
  *                    cut it with FOOTAGE_SKIP_MISSING=1, see footage_cut.sh). Any other value is refused, so "false" or "no" cannot sign by accident.
+ *                    Both modes write live-run-full.webm and live-run-marks.json: copy a SIGNED take (it cost a write into the shared sandbox) aside before
+ *                    a rehearsal with E2E_FOOTAGE_SIGN=0, which would overwrite it.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OUT = process.env.FOOTAGE_OUT ?? path.join(HERE, '..', 'out', 'footage')
