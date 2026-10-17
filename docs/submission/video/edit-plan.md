@@ -117,8 +117,8 @@ If Jayadratha's actual filenames differ even slightly, rename to this table befo
 ### Beat 9 — Engineer sign-off (`1:56–2:12`, 16 s)
 - **Clip:** `v09-sign-off.mp4`.
 - **VO:** "Nothing ships until an engineer signs. The review shows the diff and every assumption, then stamps the revision hash. Approval raises purchase requisitions in the ERP and moves the CRM deal."
-- **On-screen text/lower-thirds:** lower-third "An engineer signs" when the Approve click happens (reinforces the tagline); let the stamp "You (Demo Reviewer) · time · revision hash" read as recorded — this is a must-show item (see checklist below).
-- **Zoom/crop/speed:** push-in on the stamp at the moment of approval; none elsewhere.
+- **On-screen text/lower-thirds:** lower-third "An engineer signs" when the review page appears (reinforces the tagline; the default static `v09-sign-off` clip, the approved Hall A r2 review page, has no Approve click); let its stamp "Priya Raman · Lead Electrical Engineer (Reviewer) · time · revision hash" read as recorded. A signed live run (`v09-sign-off-live`) would instead show "You (Demo Reviewer)", the Approve click, and the PRs and the CRM stage. The stamp is a must-show item (see checklist below).
+- **Zoom/crop/speed:** push-in on the stamp once the review page has settled (with a signed live run, `v09-sign-off-live`: at the Approve click); none elsewhere.
 - **Transition in/out:** cuts.
 - **Verify against golden capture:** the revision hash and timestamp on the stamp (don't fabricate a hash if the recorded one is hard to read — crop tighter instead).
 

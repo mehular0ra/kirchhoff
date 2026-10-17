@@ -15,8 +15,9 @@ import type { Page } from '@playwright/test'
  *   then        shots/footage_to_mp4.sh converts the clips to .mp4 and prints each clip's real length for the issue checklist.
  *
  * Beats that need the recorded run (events, options) from the golden capture fail with a clear message until it is deployed.
- * Beat 3 (problem card), 12 (proof) and 13 (end card) have no product footage; beat 5 and 9 come from the live run
- * (footage-live.spec.ts).
+ * Beat 3 (problem card), 12 (proof) and 13 (end card) have no product footage; beat 5 comes from the live run
+ * (footage-live.spec.ts). Beat 9 (sign-off) is the static `v09-sign-off` clip below, the approved Hall A review page, which touches no
+ * shared state; a SIGNED live run's sign-off is the alternative `v09-sign-off-live` (footage_cut.sh), named apart so neither overwrites the other.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OUT = process.env.FOOTAGE_OUT ?? path.join(HERE, '..', 'out', 'footage')
@@ -120,6 +121,19 @@ const BEATS: Beat[] = [
       await text(page, 'Show all 18 impact chains')
       await text(page, 'Show all 60 findings')
       await hold(page, 8_000)
+    },
+  },
+  {
+    // The sign-off beat without touching the shared sandbox: the recorded run's approved review page, its stamp with the revision hash.
+    // The live variant, signing as "You (Demo Reviewer)" and moving the PRs and the CRM stage, is footage-live.spec.ts.
+    clip: 'v09-sign-off',
+    run: async (page) => {
+      await page.goto('/app/p/hall-a/review/r2')
+      await text(page, 'APPROVED')
+      await hold(page, HANDLE)
+      const stamp = page.getByRole('figure', { name: 'Approval stamp' })
+      await expect(stamp).toContainText('sha256')
+      await hold(page, 6_000)
     },
   },
   {
