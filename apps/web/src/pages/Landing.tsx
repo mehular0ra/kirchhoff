@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react'
-import { Bot, CirclePlay, FileSearch, Layers, MessageCircleQuestion, PenLine, ShieldCheck, Stamp, Truck, Zap } from 'lucide-react'
+import { Bot, CirclePlay, Cloud, Database, FileSearch, Flame, Layers, MessageCircleQuestion, PenLine, ShieldCheck, Sparkles, Stamp, Truck, Workflow, Zap } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { KirchhoffMark } from '@/components/KirchhoffMark'
@@ -31,7 +31,14 @@ const SCREENSHOT_LEGEND = [
   ['Co-pilot', 'Ask why a check failed, or what if a rack load or a limit changes.'],
 ] as const
 
-const GOOGLE_STACK = ['Gemini on Vertex AI', 'Agent Development Kit', 'Cloud Run', 'Firestore', 'Firebase'] as const
+/** Generic icons (not the products' own logos), one per service, so the five tiles read as a set. */
+const GOOGLE_STACK = [
+  ['Gemini on Vertex AI', Sparkles],
+  ['Agent Development Kit', Workflow],
+  ['Cloud Run', Cloud],
+  ['Firestore', Database],
+  ['Firebase', Flame],
+] as const
 
 const FEATURES = [
   { t: 'Reads the tender and quotes it back', d: 'A requirement counts only if its quote is found on the tender page. Where the documents contradict each other, it asks you instead of guessing.', Icon: FileSearch },
@@ -202,12 +209,16 @@ export function Landing() {
             </ul>
           </figure>
 
-          {/* A quiet strip, not a row of pills: the names are plain text between two hairlines, so nothing here looks like a button. */}
-          <div className="mt-2 flex w-full flex-col items-center gap-3 border-y border-[var(--glass-edge)] py-5 sm:flex-row sm:justify-between sm:gap-6">
-            <p className="text-xs font-medium text-slate-600">Built on Google Cloud</p>
-            <ul aria-label="Built on" className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm font-semibold text-slate-700 sm:justify-end">
-              {GOOGLE_STACK.map((s) => (
-                <li key={s}>{s}</li>
+          {/* One frosted panel, label on top, five equal tiles divided by hairlines (rows on a phone, columns from sm up). Not separate pills, and
+              not a line of mixed sizes: every tile has the same icon, size and weight. */}
+          <div className="glass-strong mt-2 w-full rounded-2xl px-4 pb-1 pt-4 sm:px-5">
+            <p className="border-b border-[var(--glass-edge)] pb-3 text-center text-base font-semibold tracking-tight text-foreground">Built on Google Cloud</p>
+            <ul aria-label="Built on" className="grid divide-y divide-[var(--glass-edge)] sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+              {GOOGLE_STACK.map(([name, Icon]) => (
+                <li key={name} className="flex items-center gap-3 px-3 py-3 text-sm font-semibold leading-tight text-slate-800 sm:flex-col sm:justify-start sm:gap-2 sm:py-4 sm:text-center">
+                  <Icon aria-hidden className="size-5 shrink-0 text-[var(--brand-text)]" />
+                  {name}
+                </li>
               ))}
             </ul>
           </div>
