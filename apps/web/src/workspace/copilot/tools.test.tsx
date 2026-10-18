@@ -155,6 +155,14 @@ test('a name only the checks use (the bill of quantities) still answers with the
   expect(out.actions).toEqual(['Nothing moved: BOQ is not drawn on a canvas'])
 })
 
+test('while the design model is still loading the answer says so, instead of claiming the element is not in the design', async () => {
+  const view = viewOf()
+  const out = await executeTool('focus_element', { element_id: 'R2-05' }, ctxFor({ ...view, model: null }, { focus: vi.fn(() => false) }))
+  expect(out.summary).toBe('The design model is not loaded yet, so there are no details of R2-05. Ask again in a moment.')
+  expect(out.data).toMatchObject({ element_id: 'R2-05', error: 'loading' })
+  expect(out.summary).not.toMatch(/not in this design/)
+})
+
 test('an id that is not in the design says what the design does have, so the answer is not a dead end', async () => {
   const view = viewOf()
   const racks = modelOf(view).racks

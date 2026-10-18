@@ -11,6 +11,19 @@ async function reload() {
   return (await import('./conversation')).useConversation
 }
 
+test('an answer that comes back after the visitor moved to another project still lands on its own question', () => {
+  const s = useConversation.getState()
+  s.enter('hall-a')
+  const id = s.start('typed', 'why FA-01', 'working')
+  s.enter('hall-b') // the panel moved on before the engine answered
+  s.hear(id, '!')
+  s.addStep(id, { check: 'Explain finding R05 · FA-01', answer: 'late', actions: [] })
+  s.setPhase(id, 'answered')
+  expect(useConversation.getState().turns).toEqual([])
+  s.enter('hall-a')
+  expect(useConversation.getState().turns[0]).toMatchObject({ asked: 'why FA-01!', phase: 'answered', steps: [{ answer: 'late' }] })
+})
+
 test('a turn keeps what was asked, how, and when, and starts in the phase it was given', () => {
   const id = useConversation.getState().start('typed', 'why FA-01', 'working')
   const [turn] = useConversation.getState().turns

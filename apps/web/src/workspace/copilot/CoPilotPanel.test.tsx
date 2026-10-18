@@ -7,6 +7,7 @@ import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiCl
 import { clearDebugLog, debugEntries } from '@/lib/debugLog'
 import { ServicesProvider, type LiveTurnRecord, type LiveVoiceCall, type LiveVoiceEvent, type Services } from '@/services/services'
 import { useConversation } from '@/store/conversation'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle, type WhatIfResult } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
@@ -436,17 +437,19 @@ function liveHarness(api = fakeApi()) {
   let onToolCall: (c: LiveVoiceCall) => Promise<Record<string, unknown>> = async () => ({})
   let onEvent: (e: LiveVoiceEvent) => void = () => undefined
   let onDebug: (t: LiveTurnRecord) => void = () => undefined
+  const stop = vi.fn(async () => undefined)
   const services = fakeServices({
     api,
     startLiveVoice: async (o) => {
       onToolCall = o.onToolCall
       onEvent = o.onEvent ?? onEvent
       onDebug = o.onDebug ?? onDebug
-      return { stop: async () => undefined }
+      return { stop }
     },
   })
   return {
     services,
+    stop,
     call: (c: LiveVoiceCall) => onToolCall(c),
     emit: (e: LiveVoiceEvent) => act(() => onEvent(e)),
     debug: (t: LiveTurnRecord) => act(() => onDebug(t)),
@@ -674,6 +677,58 @@ test('push-to-talk with no engine check behind the reply says so', async () => {
 })
 
 // ---- The debug log: what was typed, heard, said and answered, kept for debugging (lib/debugLog.ts).
+
+describe('a Live card is never left open', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  test('a question that never got its turn end is closed when the visitor speaks again much later', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await live.emit({ type: 'heard', text: 'first question' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 25_000)
+    await live.emit({ type: 'heard', text: 'second question' })
+    const [first, second] = useConversation.getState().turns
+    expect(first).toMatchObject({ asked: 'first question', phase: 'unchecked' })
+    expect(second).toMatchObject({ asked: 'second question', phase: 'hearing' })
+  })
+
+  test('the same when the late arrival is a tool call', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await live.emit({ type: 'heard', text: 'first question' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 25_000)
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    expect(useConversation.getState().turns[0].phase).toBe('unchecked')
+  })
+
+  test('leaving the page while a question is open closes its card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    const view = renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'half a question' })
+    view.unmount()
+    expect(useConversation.getState().turns[0]).toMatchObject({ phase: 'unchecked', note: 'Voice was stopped before there was an answer.' })
+  })
+
+  test('hiding the co-pilot stops the voice conversation, so the microphone is never left on out of sight', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'a question' })
+    act(() => useLayout.getState().toggleCopilot())
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    expect(useConversation.getState().turns[0].phase).toBe('unchecked')
+    act(() => useLayout.getState().reset())
+  })
+})
 
 describe('the debug log', () => {
   beforeEach(() => clearDebugLog())

@@ -89,10 +89,13 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
   const room = (other: number) => (gridW > 0 ? gridW - CANVAS_MIN_PX - SPLITTER_PX - other : Infinity)
   const lanesMax = Math.max(LANES_W.min, Math.min(LANES_W.max, room(copilotOpen ? copilotW + SPLITTER_PX : 0)))
   const copilotMax = Math.max(COPILOT_W.min, Math.min(COPILOT_W.max, room(lanesOpen ? lanesW + SPLITTER_PX : 0)))
+  // A saved width that no longer fits a smaller window is shown at the width that does, so the canvas keeps its minimum.
+  const lanesShown = Math.min(lanesW, lanesMax)
+  const copilotShown = Math.min(copilotW, copilotMax)
   const columns = [
-    lanesOpen ? `${lanesW}px ${SPLITTER_PX}px` : '0px 0px',
+    lanesOpen ? `${lanesShown}px ${SPLITTER_PX}px` : '0px 0px',
     'minmax(22rem,1fr)',
-    copilotOpen ? `${SPLITTER_PX}px ${copilotW}px` : '0px 0px',
+    copilotOpen ? `${SPLITTER_PX}px ${copilotShown}px` : '0px 0px',
   ].join(' ')
   return (
     <div ref={gridRef} className="grid min-h-0 overflow-x-auto" style={{ gridTemplateColumns: columns }}>
@@ -108,7 +111,7 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
       {lanesOpen && (
         <PaneSplitter
           label="Resize the agents lane"
-          value={lanesW}
+          value={lanesShown}
           min={LANES_W.min}
           max={lanesMax}
           grow={1}
@@ -134,7 +137,7 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
       {copilotOpen && (
         <PaneSplitter
           label="Resize the co-pilot"
-          value={copilotW}
+          value={copilotShown}
           min={COPILOT_W.min}
           max={copilotMax}
           grow={-1}

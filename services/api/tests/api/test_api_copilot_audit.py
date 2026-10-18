@@ -6,6 +6,7 @@ call fell back), so "why did it say that?" could not be answered from the logs. 
 hash of the caller (never the uid or the token), the status, how long it took, and what was asked and answered.
 Unset, nothing is written: that is the deployed default.
 """
+import hashlib
 import json
 
 import pytest
@@ -79,7 +80,8 @@ def test_a_failure_inside_the_route_is_recorded_as_500_and_still_raised(client, 
 def test_the_record_never_holds_the_caller_or_the_token(client, seeded, auth, audit, tmp_path):
     _what_if(client, auth)
     raw = (tmp_path / "copilot.jsonl").read_text(encoding="utf-8")
-    assert "u1" not in json.loads(raw)["user"] and len(json.loads(raw)["user"]) == 8
+    line = json.loads(raw)
+    assert line["user"] == hashlib.sha256(b"u1").hexdigest()[:8] and "u1" not in {v for v in line.values() if isinstance(v, str) and v != line["user"]}
     assert "test-token" not in raw and "Bearer" not in raw
 
 
@@ -93,5 +95,6 @@ def test_with_no_log_dir_nothing_is_written(client, seeded, auth, tmp_path, monk
     monkeypatch.delenv("KIRCHHOFF_LOG_DIR", raising=False)
     copilot_log.reset()
     copilot_log.configure()
+    assert copilot_log._handler is None  # nothing is attached, so nothing can be written anywhere
     assert _what_if(client, auth).status_code == 200
     assert list(tmp_path.glob("copilot.jsonl*")) == []

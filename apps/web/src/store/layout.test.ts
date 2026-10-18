@@ -1,3 +1,4 @@
+import { useTour } from '@/onboarding/tour/tour'
 import { COPILOT_W, LANES_W, useLayout } from './layout'
 
 beforeEach(() => {
@@ -38,6 +39,35 @@ test('each side panel can be hidden and shown again without losing its width', (
   expect(useLayout.getState()).toMatchObject({ lanesOpen: true, lanesW: 300 })
   s.toggleCopilot()
   expect(useLayout.getState().copilotOpen).toBe(false)
+})
+
+test('openAll shows both panels again and keeps the widths the visitor chose', () => {
+  const s = useLayout.getState()
+  s.setLanesW(300)
+  s.setCopilotW(420)
+  s.toggleLanes()
+  s.toggleCopilot()
+  s.openAll()
+  expect(useLayout.getState()).toMatchObject({ lanesOpen: true, copilotOpen: true, lanesW: 300, copilotW: 420 })
+})
+
+test('starting the guided tour opens a panel the visitor had hidden, because its steps point into them', () => {
+  useLayout.getState().toggleCopilot()
+  useLayout.getState().toggleLanes()
+  useTour.getState().start()
+  expect(useLayout.getState()).toMatchObject({ lanesOpen: true, copilotOpen: true })
+  useTour.getState().stop(false)
+})
+
+test('a tour resumed after a reload opens the panels too', async () => {
+  useLayout.getState().toggleCopilot()
+  localStorage.setItem('kirchhoff.tour', JSON.stringify({ active: true, step: 3, done: false }))
+  vi.resetModules()
+  const layout = (await import('./layout')).useLayout
+  expect(layout.getState().copilotOpen).toBe(false)
+  await import('@/onboarding/tour/tour')
+  expect(layout.getState().copilotOpen).toBe(true)
+  localStorage.removeItem('kirchhoff.tour')
 })
 
 test('reset puts both panels back, open, at their usual widths', () => {

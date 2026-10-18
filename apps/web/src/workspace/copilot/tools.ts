@@ -5,7 +5,7 @@
 // the same digit-insertion mechanism FindingDrawer.tsx already uses for displaying finding text.
 import { fillPlaceholders, fmtKeyValue, fmtNum, fmtQty } from '@/lib/format'
 import { canvasesFor, type Canvas } from '@/lib/model'
-import { findingsFor, parentRevision, revisionLabel, revisionRef } from '@/lib/select'
+import { findingsFor, parentRevision, revisionLabel, revisionRef, shortRevisionId } from '@/lib/select'
 import { statusRank } from '@/lib/status'
 import type { DesignModel, EquipmentKind, Finding, Revision, WhatIfParam } from '@/lib/types'
 import type { ApiClient } from '@/services/apiClient'
@@ -167,6 +167,11 @@ export function describeElement(model: DesignModel | null, id: string): ElementD
  * never the language model's words (spec §6.3).
  */
 export function lookUpElement(model: DesignModel | null, findings: Finding[], id: string, drawn: boolean): { summary: string; data: Record<string, unknown> } {
+  // A live run's model file arrives after its first snapshot: until then "not in this design" would be wrong.
+  if (!model) {
+    const summary = `The design model is not loaded yet, so there are no details of ${id}. Ask again in a moment.`
+    return { summary, data: { element_id: id, drawn: false, error: 'loading', text: summary } }
+  }
   const info = describeElement(model, id)
   const checks = checksOn(findings, id)
   if (!info && !checks) {
@@ -231,7 +236,7 @@ function fixLine(located: Located, view: WorkspaceView): string {
   const fix = readFix(located.finding.fix ?? null, located.finding.rule_id)
   if (!fix) return ''
   const after = located.child ? findingsFor(view.bundle, located.child.id).find((f) => f.id === located.finding.id) : null
-  const lead = after && !isProblem(after) && located.child ? `Fixed in ${located.child.id}` : 'Chosen fix'
+  const lead = after && !isProblem(after) && located.child ? `Fixed in ${shortRevisionId(located.child.id)}` : 'Chosen fix'
   // The cost and the rule's resulting metric, chosen by key (readFix), never "the first two" (the limit, in a recorded bundle).
   const deltas = fix.headline.map(([k, v]) => fmtKeyValue(k, v))
   return ` ${lead}: ${[fix.label, ...deltas].join(' · ')}.`
@@ -290,7 +295,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         // engine explanation stands
       }
     }
-    const summary = `${elsewhere ? `In ${rev.id}: ` : ''}${text}${elsewhere ? fixLine(located, ctx.view) : ''}`
+    const summary = `${elsewhere ? `In ${shortRevisionId(rev.id)}: ` : ''}${text}${elsewhere ? fixLine(located, ctx.view) : ''}`
     const label = `${finding.rule_id} · ${finding.element_id}`
     return {
       summary,

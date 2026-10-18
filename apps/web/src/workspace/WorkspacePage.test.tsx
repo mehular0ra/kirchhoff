@@ -82,16 +82,32 @@ test('the top bar hides and shows the agents lane and the co-pilot, and the canv
   expect(screen.getByRole('complementary', { name: 'Co-pilot' })).toBeInTheDocument()
 })
 
-test('a hidden co-pilot stays mounted, so its conversation and voice session are not lost', async () => {
+test('a hidden co-pilot stays mounted: what was half typed in it is still there when it comes back', async () => {
   const user = userEvent.setup()
   open()
   await screen.findByRole('navigation', { name: 'Agent lanes' })
-  // "show H-Z2" (not "why …", which opens a modal finding drawer over the page)
-  await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'show H-Z2{Enter}')
-  await screen.findByRole('list', { name: 'Conversation' })
+  await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'half a quest')
   await user.click(screen.getByRole('button', { name: 'Co-pilot', pressed: true }))
   await user.click(screen.getByRole('button', { name: 'Co-pilot', pressed: false }))
-  expect(within(screen.getByRole('list', { name: 'Conversation' })).getByText('show H-Z2')).toBeInTheDocument()
+  // component state (not the global store) survives only if hiding did not unmount the panel
+  expect(screen.getByRole('textbox', { name: 'Ask the co-pilot' })).toHaveValue('half a quest')
+})
+
+describe('on a window too small for the saved widths', () => {
+  const clientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+  afterEach(() => {
+    if (clientWidth) Object.defineProperty(HTMLElement.prototype, 'clientWidth', clientWidth)
+  })
+
+  test('the panels give way so the canvas keeps its minimum, and the separators report the widths in use', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 700 })
+    open()
+    await screen.findByRole('navigation', { name: 'Agent lanes' })
+    // 700 px: the canvas keeps 352, so the lane may be 160 at most and the co-pilot 260 at most
+    expect(gridOf().style.gridTemplateColumns).toBe('160px 6px minmax(22rem,1fr) 6px 260px')
+    const lanes = screen.getByRole('separator', { name: 'Resize the agents lane' })
+    expect(Number(lanes.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(Number(lanes.getAttribute('aria-valuemax')))
+  })
 })
 
 test('Reset layout appears once the layout is changed, and puts everything back', async () => {

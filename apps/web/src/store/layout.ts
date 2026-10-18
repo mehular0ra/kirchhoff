@@ -28,6 +28,8 @@ interface LayoutState extends Stored {
   setCopilotW(px: number): void
   toggleLanes(): void
   toggleCopilot(): void
+  /** Shows both panels again, at the widths the visitor chose (the guided tour points into them). */
+  openAll(): void
   reset(): void
 }
 
@@ -47,6 +49,7 @@ export const useLayout = create<LayoutState>()((set) => ({
   setCopilotW: (px) => set({ copilotW: clamp(px, COPILOT_W) }),
   toggleLanes: () => set((s) => ({ lanesOpen: !s.lanesOpen })),
   toggleCopilot: () => set((s) => ({ copilotOpen: !s.copilotOpen })),
+  openAll: () => set({ lanesOpen: true, copilotOpen: true }),
   reset: () => set(DEFAULTS),
 }))
 

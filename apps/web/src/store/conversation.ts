@@ -94,6 +94,13 @@ let next = Math.max(0, ...[initial.turns, ...Object.values(initial.saved)].flat(
 
 const patch = (turns: Turn[], id: number, f: (t: Turn) => Turn): Turn[] => turns.map((t) => (t.id === id ? f(t) : t))
 
+/** Changes one turn wherever it is: an answer can arrive after the visitor moved to another project, and must still reach its own question. */
+const update = (s: ConversationState, id: number, f: (t: Turn) => Turn): Partial<ConversationState> => {
+  if (s.turns.some((t) => t.id === id)) return { turns: patch(s.turns, id, f) }
+  const home = Object.keys(s.saved).find((p) => s.saved[p].some((t) => t.id === id))
+  return home ? { saved: { ...s.saved, [home]: patch(s.saved[home], id, f) } } : {}
+}
+
 export const useConversation = create<ConversationState>()((set) => ({
   project: initial.project,
   turns: initial.turns,
@@ -112,9 +119,9 @@ export const useConversation = create<ConversationState>()((set) => ({
     set((s) => ({ turns: [...s.turns, { id, via, asked, phase, steps: [], note: null, at: Date.now() }].slice(-MAX_TURNS) }))
     return id
   },
-  hear: (id, text) => set((s) => ({ turns: patch(s.turns, id, (t) => ({ ...t, asked: (t.asked ?? '') + text })) })),
-  setPhase: (id, phase, note = null) => set((s) => ({ turns: patch(s.turns, id, (t) => ({ ...t, phase, note })) })),
-  addStep: (id, step) => set((s) => ({ turns: patch(s.turns, id, (t) => ({ ...t, steps: [...t.steps, step] })) })),
+  hear: (id, text) => set((s) => update(s, id, (t) => ({ ...t, asked: (t.asked ?? '') + text }))),
+  setPhase: (id, phase, note = null) => set((s) => update(s, id, (t) => ({ ...t, phase, note }))),
+  addStep: (id, step) => set((s) => update(s, id, (t) => ({ ...t, steps: [...t.steps, step] }))),
   clear: () => set({ turns: [] }),
 }))
 

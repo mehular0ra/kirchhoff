@@ -1,10 +1,10 @@
 // The co-pilot's history: one card per question, oldest first. Each card keeps together what was asked (typed, or the
 // transcript of what was said), which engine check answered, the engine's answer, and what changed on screen because
 // of it, so a spoken question is never an answer from nowhere. When no engine check ran, the card says so.
-import { Check, CircleX, Cpu, Download, Keyboard, LoaderCircle, Mic, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, CircleX, Cpu, Download, Eraser, Keyboard, LoaderCircle, Mic, Trash2, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { exportDebugLog } from '@/lib/debugLog'
+import { clearDebugLog, exportDebugLog } from '@/lib/debugLog'
 import { useConversation, type Turn, type TurnVia } from '@/store/conversation'
 
 const VIA: Record<TurnVia, { label: string; Icon: typeof Mic }> = {
@@ -119,6 +119,9 @@ export function ConversationLog() {
         <span className="ml-auto flex items-center gap-0.5">
           <Button size="icon-xs" variant="ghost" aria-label="Download debug log" title="Download the debug log: what was asked, heard and said, and what the engine answered" onClick={download}>
             <Download aria-hidden />
+          </Button>
+          <Button size="icon-xs" variant="ghost" aria-label="Clear debug log" title="Clear the debug log kept in this browser" onClick={clearDebugLog}>
+            <Eraser aria-hidden />
           </Button>
           {turns.length > 0 && (
             <Button size="icon-xs" variant="ghost" aria-label="Clear conversation" onClick={clear}>

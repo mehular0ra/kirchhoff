@@ -54,6 +54,14 @@ describe('the debug log download', () => {
     expect(JSON.parse(await text(saved!.blob)).entries).toHaveLength(1)
   })
 
+  test('the debug record has its own Clear button, since it holds what was said and heard', async () => {
+    const user = userEvent.setup()
+    logDebug('live_turn', { heard: 'a', said: 'b' })
+    render(<ConversationLog />)
+    await user.click(screen.getByRole('button', { name: 'Clear debug log' }))
+    expect(debugEntries()).toEqual([])
+  })
+
   test('Clear conversation does not throw the debug record away', async () => {
     const user = userEvent.setup()
     store().start('typed', 'a', 'working')

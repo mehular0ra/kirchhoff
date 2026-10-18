@@ -31,7 +31,7 @@ function PaneToggles() {
         size="icon-sm"
         aria-label="Co-pilot"
         aria-pressed={copilotOpen}
-        title={copilotOpen ? 'Hide the co-pilot' : 'Show the co-pilot'}
+        title={copilotOpen ? 'Hide the co-pilot (this also stops voice)' : 'Show the co-pilot'}
         onClick={toggleCopilot}
       >
         {copilotOpen ? <PanelRightClose aria-hidden /> : <PanelRightOpen aria-hidden />}

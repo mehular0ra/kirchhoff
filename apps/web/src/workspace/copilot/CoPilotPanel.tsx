@@ -10,6 +10,7 @@ import { useServices, type LiveVoiceCall, type LiveVoiceEvent } from '@/services
 import { canvasesFor } from '@/lib/model'
 import { revisionById, revisionLabel, revisionRef } from '@/lib/select'
 import { useConversation } from '@/store/conversation'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { PlanGate } from '../gates/PlanGate'
 import { RequirementsPanel } from '../RequirementsPanel'
@@ -121,6 +122,7 @@ export function CoPilotPanel() {
         conv().hear(open.id, e.text)
         open.last = Date.now()
       } else {
+        endLiveTurn(NO_TOOL_NOTE) // a card whose turn end never came is closed before the next one opens
         liveTurn.current = { id: conv().start('live', e.text, 'hearing'), last: Date.now() }
       }
       setActivity('hearing')
@@ -139,7 +141,10 @@ export function CoPilotPanel() {
     completeItem('ask_copilot')
     // A tool call with no transcript before it (the service sends none) still gets a card, with no words.
     let open = currentLiveTurn()
-    if (!open) open = liveTurn.current = { id: conv().start('live', null, 'working'), last: Date.now() }
+    if (!open) {
+      endLiveTurn(NO_TOOL_NOTE)
+      open = liveTurn.current = { id: conv().start('live', null, 'working'), last: Date.now() }
+    }
     open.last = Date.now()
     conv().setPhase(open.id, 'working')
     setActivity('checking')
@@ -221,6 +226,14 @@ export function CoPilotPanel() {
     endLiveTurn(STOPPED_NOTE)
     setActivity('idle')
   }
+  // A voice session never runs out of sight: hiding the co-pilot (the panel stays mounted, but its Stop button is gone)
+  // stops it, and leaving the page closes the card of a question still open.
+  const copilotOpen = useLayout((s) => s.copilotOpen)
+  useEffect(() => {
+    if (!copilotOpen && voice.mode === 'live') void stopVoice()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [copilotOpen])
+  useEffect(() => () => endLiveTurn(STOPPED_NOTE), [])
   // Live's activity is only shown while Live is on (starting it again begins from idle).
   const live = LIVE_STATUS[voice.mode === 'live' ? activity : 'idle']
 
