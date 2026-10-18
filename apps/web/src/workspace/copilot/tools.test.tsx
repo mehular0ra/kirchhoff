@@ -108,6 +108,11 @@ test('a rack comes back with its row, power, liquid fraction and feeds, from the
   expect(out.actions).toEqual(['Showing R1-01 on the 3D hall and the SLD'])
 })
 
+test('a spoken rule id with a space ("R 05") is read as R05', async () => {
+  const out = await executeTool('focus_element', { element_id: 'r 05' }, ctxFor(viewOf('r1')))
+  expect(out.summary).toMatch(/^Rule R05 \(/)
+})
+
 test('a spoken id is read the way it was meant: spaces around the dash and lower case', async () => {
   const ctx = ctxFor(viewOf())
   const out = await executeTool('focus_element', { element_id: 'r1 - 01' }, ctx)
@@ -218,6 +223,27 @@ test('the brief given to Gemini at the start has the overview and every rule wit
   expect(brief).toContain(lookUpElement(view.model, view.findings, 'DESIGN', false).summary)
   expect(brief).toMatch(new RegExp(`R05 ${ruleName('R05')}: \\d+ fail`))
   expect(brief).toMatch(/R01 .*: all \d+ pass/)
+})
+
+describe('a rule that does not apply to this design (n/a)', () => {
+  const naView = () => {
+    const view = viewOf()
+    const base = view.findings[0]
+    const findings = [1, 2, 3].map((i) => ({ ...base, id: `R04b:FA-0${i}`, rule_id: 'R04b', element_id: `FA-0${i}`, status: 'n/a' as const, value: null, limit: null }))
+    return { ...view, findings: [...view.findings.filter((f) => f.rule_id !== 'R04b'), ...findings] }
+  }
+
+  test('is answered as not applicable, with parts that add up to the total', async () => {
+    const out = await executeTool('focus_element', { element_id: 'R04b' }, ctxFor(naView()))
+    expect(out.summary).toBe(`Rule R04b (${ruleName('R04b')}): 3 checks: 3 n/a.`)
+    expect(out.data).toMatchObject({ kind: 'rule', rule: 'R04b', na: 3, pass: 0, fail: 0 })
+  })
+
+  test('is told to Gemini as n/a, never as "all 0 pass"', () => {
+    const brief = designBrief(naView())
+    expect(brief).toContain(`R04b ${ruleName('R04b')}: n/a`)
+    expect(brief).not.toContain('all 0 pass')
+  })
 })
 
 test('an id that is not in the design says what the design does have, so the answer is not a dead end', async () => {

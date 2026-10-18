@@ -34,6 +34,18 @@ test.each([
   expect(parseIntent(text)).toEqual({ tool: 'explain_finding', element: '', rule })
 })
 
+test('a rule id wins over words like "the design" or "summary": the question is about that rule', () => {
+  expect(parseIntent('why does R05 fail in the design')).toEqual({ tool: 'explain_finding', element: '', rule: 'R05' })
+  expect(parseIntent('what is the summary of R05')).toEqual({ tool: 'focus_element', element: 'R05' })
+})
+
+test('"show R05", "rule R05" and a spoken "R 05" reach the rule too', () => {
+  expect(parseIntent('show R05')).toEqual({ tool: 'focus_element', element: 'R05' })
+  expect(parseIntent('rule R05')).toEqual({ tool: 'focus_element', element: 'R05' })
+  expect(parseIntent('what is R 05')).toEqual({ tool: 'focus_element', element: 'R05' })
+  expect(parseIntent('why did R 04 b fail')).toEqual({ tool: 'explain_finding', element: '', rule: 'R04b' })
+})
+
 test('a rule id with a "what is" question is looked up as a rule', () => {
   expect(parseIntent('what is R05')).toEqual({ tool: 'focus_element', element: 'R05' })
 })

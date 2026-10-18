@@ -31,8 +31,8 @@ const REPEATING_NOTE = 'Voice was stopped because Gemini kept repeating the same
 /** The same tool call within this long, with no new words from the visitor, is a repeat; this many repeats stop the conversation. */
 const REPEAT_WINDOW_MS = 90_000
 const MAX_REPEATS = 3
-/** Words arriving this soon after a card was made without any belong to that card. */
-const LATE_WORDS_MS = 30_000
+/** Words arriving this soon after a card ended without any belong to that card. */
+const LATE_WORDS_MS = 10_000
 
 /** What a Live conversation is doing right now, for the status line next to the mic. */
 type LiveActivity = 'idle' | 'hearing' | 'checking' | 'replying'
@@ -107,6 +107,8 @@ export function CoPilotPanel() {
   const liveTurn = useRef<{ id: number; last: number } | null>(null)
   const lastCall = useRef<{ key: string; at: number } | null>(null)
   const repeats = useRef(0)
+  /** The card that ended without any words, and until when words arriving late still belong to it. */
+  const lateWords = useRef<{ id: number; until: number } | null>(null)
   const [activity, setActivity] = useState<LiveActivity>('idle')
 
   /** The card of the question being asked or answered, if there is one that is not long over. */
@@ -123,6 +125,7 @@ export function CoPilotPanel() {
     conv().setEnded(t.id, true)
     const turn = conv().turns.find((x) => x.id === t.id)
     if (!turn || turn.phase === 'failed') return
+    if (turn.asked === null) lateWords.current = { id: t.id, until: nowMs() + LATE_WORDS_MS }
     if (turn.steps.length > 0) conv().setPhase(t.id, 'answered')
     else conv().setPhase(t.id, 'unchecked', note)
   }
@@ -130,23 +133,32 @@ export function CoPilotPanel() {
   const onLiveEvent = (e: LiveVoiceEvent) => {
     if (e.type === 'heard') {
       const open = currentLiveTurn()
+      let newQuestion = true // false when these words only complete a card that already has its tool call
       if (open) {
+        newQuestion = (conv().turns.find((x) => x.id === open.id)?.steps.length ?? 0) === 0
         conv().hear(open.id, e.text)
         open.last = nowMs()
       } else {
+        // The service often sends the words after the tool call and the turn end: for a few seconds they belong to the card
+        // that ended without any (never a stopped one). Read before closing an expired card, which must not take them.
+        const late = lateWords.current
+        lateWords.current = null
         endLiveTurn(NO_TOOL_NOTE) // a card whose turn end never came is closed before the next one opens
-        // The service often sends the words after the tool call and the turn end: they belong to the card just made without any.
-        const last = conv().turns.at(-1)
-        if (last && last.via === 'live' && last.asked === null && nowMs() - last.at < LATE_WORDS_MS) {
-          conv().hear(last.id, e.text)
-          conv().setEnded(last.id, false)
-          liveTurn.current = { id: last.id, last: nowMs() }
+        const card = late && nowMs() <= late.until ? conv().turns.find((x) => x.id === late.id && x.phase !== 'failed') : undefined
+        if (card) {
+          newQuestion = false
+          conv().hear(card.id, e.text)
+          conv().setEnded(card.id, false)
+          liveTurn.current = { id: card.id, last: nowMs() }
         } else {
           liveTurn.current = { id: conv().start('live', e.text, 'hearing'), last: nowMs() }
         }
       }
-      lastCall.current = null // new words from the visitor: the next question is a new one, even if it is the same
-      repeats.current = 0
+      if (newQuestion) {
+        // New words from the visitor: the next call is a new question, even if it is the same one.
+        lastCall.current = null
+        repeats.current = 0
+      }
       setActivity('hearing')
     } else if (e.type === 'speaking') {
       const open = currentLiveTurn()
@@ -182,6 +194,7 @@ export function CoPilotPanel() {
     let open = currentLiveTurn()
     if (!open) {
       endLiveTurn(NO_TOOL_NOTE)
+      lateWords.current = null // a tool call with no words opens a card of its own: later words are not for an older one
       open = liveTurn.current = { id: conv().start('live', null, 'working'), last: nowMs() }
     }
     open.last = nowMs()
@@ -211,7 +224,9 @@ export function CoPilotPanel() {
   const onLiveTurn = (t: LiveTurnRecord) => {
     logDebug('live_turn', { ...t })
     if (!t.said) return
-    let id = currentLiveTurn()?.id
+    // The card still open for this turn, however long the reply took (the turn end has not come yet), else none.
+    const open = liveTurn.current
+    let id = open && conv().turns.some((x) => x.id === open.id) ? open.id : undefined
     if (id === undefined) {
       id = conv().start('live', t.heard || null, 'unchecked')
       conv().setPhase(id, 'unchecked', NO_TOOL_NOTE)
@@ -291,6 +306,14 @@ export function CoPilotPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [copilotOpen, voice.mode])
   useEffect(() => () => endLiveTurn(STOPPED_NOTE), [])
+  // A voice session that is not running leaves nothing behind for the next one: the same question is not a repeat.
+  useEffect(() => {
+    if (voice.mode !== 'live') {
+      lastCall.current = null
+      repeats.current = 0
+      lateWords.current = null
+    }
+  }, [voice.mode])
   // Live's activity is only shown while Live is on (starting it again begins from idle).
   const live = LIVE_STATUS[voice.mode === 'live' ? activity : 'idle']
 

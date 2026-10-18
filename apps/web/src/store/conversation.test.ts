@@ -43,6 +43,14 @@ test('what the model said is kept on its card, apart from the engine answer', ()
   expect(useConversation.getState().turns[0]).toMatchObject({ said: 'It drops 2.16 percent.', steps: [] })
 })
 
+test('two spoken replies on one card are both kept, in order', () => {
+  const s = useConversation.getState()
+  const id = s.start('live', 'why FA-01', 'working')
+  s.setSaid(id, 'It drops too much.')
+  s.setSaid(id, 'Fixed in r2.')
+  expect(useConversation.getState().turns[0].said).toBe('It drops too much. Fixed in r2.')
+})
+
 test('a spoken question restored after a reload counts as ended, so it does not claim to be listening', async () => {
   const s = useConversation.getState()
   s.enter('hall-a')

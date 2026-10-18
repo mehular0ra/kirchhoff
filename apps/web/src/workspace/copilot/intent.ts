@@ -32,8 +32,17 @@ export function parseIntent(text: string): Intent | null {
     if (tx) return { tool: 'what_if', param: 'tx_loading_cap_pct', value: Number(tx[1]) }
     return null
   }
-  // A spoken id arrives with spaces around the dash ("r1 - 01"): read it as R1-01.
-  const el = t.replace(/\s*-\s*/g, '-').match(ELEMENT)?.[1]?.toUpperCase()
+  // A spoken id arrives with spaces ("r1 - 01", "R 05", "R 04 b"): read it as R1-01, R05, R04b.
+  const spoken = t.replace(/\bR\s*(\d{2})(?:\s?(b)\b)?/gi, 'R$1$2').replace(/\s*-\s*/g, '-')
+  const el = spoken.match(ELEMENT)?.[1]?.toUpperCase()
+  // A rule id on its own (R05) names a check on the design, not an element: explain it, or say what it is. This comes
+  // before the whole-design words, so "why does R05 fail in the design" is about R05.
+  const ruleOnly = spoken.match(RULE)?.[1]
+  if (!el && ruleOnly) {
+    const rule = ruleOnly.toUpperCase().replace('B', 'b')
+    if (/\b(why|explain)\b/i.test(t) || PROBLEM.test(t)) return { tool: 'explain_finding', element: '', rule }
+    if (/^(show|rule|focus|find)\b/i.test(t) || DETAILS.test(t)) return { tool: 'focus_element', element: rule }
+  }
   // "this hall" is a question about the whole design, not about R06's check target HALL.
   if ((!el || el === 'HALL') && OVERVIEW.test(t)) return { tool: 'focus_element', element: 'DESIGN' }
   // An explain question either starts with why/explain or names an element together with a problem word.
@@ -43,13 +52,6 @@ export function parseIntent(text: string): Intent | null {
   }
   // Showing an element, or asking what it is (its power, rating, feeds, length, capacity): both answer from the model.
   if (el && (/^(show|focus|where|zoom|find)\b/i.test(t) || DETAILS.test(t))) return { tool: 'focus_element', element: el }
-  // A rule id on its own (R05) names a check on the design, not an element: explain it, or say what it is.
-  const ruleOnly = t.match(RULE)?.[1]
-  if (!el && ruleOnly) {
-    const rule = ruleOnly.toUpperCase().replace('B', 'b')
-    if (/\b(why|explain)\b/i.test(t) || PROBLEM.test(t)) return { tool: 'explain_finding', element: '', rule }
-    if (DETAILS.test(t)) return { tool: 'focus_element', element: rule }
-  }
   // A question about the whole design: the overview.
   if (OVERVIEW.test(t)) return { tool: 'focus_element', element: 'DESIGN' }
   return null

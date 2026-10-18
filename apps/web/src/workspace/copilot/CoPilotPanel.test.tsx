@@ -667,6 +667,34 @@ describe('Live: a model that repeats itself', () => {
     expect(useConversation.getState().turns).toHaveLength(2)
   })
 
+  test('a new voice session starts clean: the same question after Stop is answered, not counted as a repeat', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    await callWhy(live)
+    await user.click(screen.getByRole('button', { name: 'Stop' }))
+    await startLive(user)
+    const again = await callWhy(live) // no words yet: the transcript may come after the call
+    expect(again).not.toHaveProperty('already_answered')
+  })
+
+  test('words that arrive late do not forget the call they belong to: a repeat after them is still caught', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await callWhy(live) // the tool call comes before any words
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'why FA-01' }) // the words, late
+    let again: Record<string, unknown> = {}
+    await act(async () => {
+      again = await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+    })
+    expect(again).toMatchObject({ already_answered: true })
+  })
+
   test('after three repeats the voice conversation is stopped, and the history says why', async () => {
     const user = userEvent.setup()
     const live = liveHarness()
@@ -686,6 +714,59 @@ test('Live starts with facts about the design from the engine, so a general ques
   await startLive(user)
   expect(live.context()).toMatch(/^Design: topology \S+; \d+ racks/)
   expect(live.context()).toMatch(/Rules: .*R05 /)
+})
+
+describe('Live: late words', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  test('belong to the card made without words only for a few seconds: the next question is a new card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    await live.emit({ type: 'turn_complete' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 12_000)
+    await live.emit({ type: 'heard', text: 'a different question' })
+    const turns = useConversation.getState().turns
+    expect(turns).toHaveLength(2)
+    expect(turns[0].asked).toBeNull()
+    expect(turns[1].asked).toBe('a different question')
+  })
+
+  test('are never put on the card of a stopped conversation, and do not erase its note', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    for (let i = 0; i < 4; i++) await act(async () => void (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })))
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'show H-Z2' })
+    const turns = useConversation.getState().turns
+    expect(turns.at(-1)).toMatchObject({ asked: 'show H-Z2' })
+    expect(turns.find((t) => t.phase === 'failed')?.note).toMatch(/kept repeating/)
+  })
+
+  test('a reply spoken for longer than the idle time still lands on its own card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await live.emit({ type: 'heard', text: 'give me an overview' })
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'DESIGN' } })))
+    const clock = vi.spyOn(Date, 'now')
+    clock.mockReturnValue(t0 + 15_000)
+    await live.emit({ type: 'speaking' }) // still speaking 15 s in
+    clock.mockReturnValue(t0 + 30_000)
+    await live.debug({ heard: 'give me an overview', said: 'The design has 48 racks.', interrupted: false })
+    const turns = useConversation.getState().turns
+    expect(turns).toHaveLength(1)
+    expect(turns[0]).toMatchObject({ said: 'The design has 48 racks.', phase: 'answered' })
+  })
 })
 
 describe('Live: what Gemini said', () => {

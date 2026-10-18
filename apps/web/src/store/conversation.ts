@@ -132,7 +132,8 @@ export const useConversation = create<ConversationState>()((set) => ({
   setPhase: (id, phase, note = null) => set((s) => update(s, id, (t) => ({ ...t, phase, note }))),
   addStep: (id, step) => set((s) => update(s, id, (t) => ({ ...t, steps: [...t.steps, step] }))),
   setEnded: (id, ended) => set((s) => update(s, id, (t) => ({ ...t, ended }))),
-  setSaid: (id, said) => set((s) => update(s, id, (t) => ({ ...t, said }))),
+  // A second model turn on one question adds to the first reply instead of replacing it.
+  setSaid: (id, said) => set((s) => update(s, id, (t) => ({ ...t, said: t.said ? `${t.said} ${said}` : said }))),
   clear: () => set({ turns: [] }),
 }))
 

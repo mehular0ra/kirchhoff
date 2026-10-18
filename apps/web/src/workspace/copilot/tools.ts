@@ -97,7 +97,8 @@ function worstFindingFor(findings: Finding[], element: string, rule?: string): F
 const isProblem = (f: Finding | null): f is Finding => !!f && (f.status === 'fail' || f.status === 'warn')
 
 /** A spoken or typed id is read the way it was meant: "r1 - 01" is R1-01. */
-export const elementId = (raw: unknown): string => String(raw ?? '').trim().toUpperCase().replace(/\s*-\s*/g, '-')
+export const elementId = (raw: unknown): string =>
+  String(raw ?? '').trim().toUpperCase().replace(/^R\s*(\d{2})\s*(B?)$/, 'R$1$2').replace(/\s*-\s*/g, '-')
 
 const EQUIPMENT_NAME: Record<EquipmentKind, string> = {
   mv_board: 'MV board',
@@ -167,7 +168,8 @@ const isRuleId = (s: string) => /^R\d{2}b?$/i.test(s)
 const ruleKey = (s: string) => s.toUpperCase().replace('B', 'b')
 export const targetKind = (id: string): 'design' | 'rule' | 'element' => (id === DESIGN_ID ? 'design' : isRuleId(id) ? 'rule' : 'element')
 
-const countText = (pass: number, warn: number, fail: number) => [fail && `${fail} fail`, warn && `${warn} warn`, pass && `${pass} pass`].filter(Boolean).join(', ')
+const countText = (pass: number, warn: number, fail: number, na = 0) =>
+  [fail && `${fail} fail`, warn && `${warn} warn`, pass && `${pass} pass`, na && `${na} n/a`].filter(Boolean).join(', ')
 
 /**
  * What Gemini Live is told about the design when the session starts, so a general question has something real to be answered
@@ -179,7 +181,8 @@ export function designBrief(view: WorkspaceView): string {
   const rules = [...new Set(view.findings.map((f) => f.rule_id))].sort().map((r) => {
     const mine = view.findings.filter((f) => f.rule_id === r)
     const n = (s: Finding['status']) => mine.filter((f) => f.status === s).length
-    return `${r} ${ruleName(r)}: ${n('fail') ? `${n('fail')} fail` : n('warn') ? `${n('warn')} warn` : `all ${n('pass')} pass`}`
+    // A rule that does not apply to this design (all n/a) is said so, never "all 0 pass".
+    return `${r} ${ruleName(r)}: ${n('fail') ? `${n('fail')} fail` : n('warn') ? `${n('warn')} warn` : n('pass') ? `all ${n('pass')} pass` : 'n/a'}`
   })
   return `${overview} Rules: ${rules.join('; ')}.`
 }
@@ -195,11 +198,12 @@ function ruleAnswer(findings: Finding[], rule: string): { summary: string; data:
   const fail = status('fail')
   const pass = status('pass').length
   const warn = status('warn').length
+  const na = status('n/a').length
   const vs = (f: Finding) => `${f.element_id} ${fmtQty(f.value ?? null, f.unit)} vs ${fmtQty(f.limit ?? null, f.unit)}`
   const failing = fail.length > 0 ? ` Failing: ${fail.slice(0, 4).map(vs).join('; ')}.` : ''
-  const summary = `Rule ${rule} (${ruleName(rule)}): ${mine.length} checks: ${countText(pass, warn, fail.length)}.${failing}`
+  const summary = `Rule ${rule} (${ruleName(rule)}): ${mine.length} checks: ${countText(pass, warn, fail.length, na)}.${failing}`
   const row = (f: Finding) => ({ element: f.element_id, value: f.value, limit: f.limit, unit: f.unit })
-  return { summary, data: { element_id: rule, drawn: false, kind: 'rule', rule, name: ruleName(rule), pass, warn, fail: fail.length, failing: fail.map(row), text: summary } }
+  return { summary, data: { element_id: rule, drawn: false, kind: 'rule', rule, name: ruleName(rule), pass, warn, na, fail: fail.length, failing: fail.map(row), text: summary } }
 }
 
 /** The whole design in a few lines, from the model's records and the checks on screen: what a general question is answered from. */
