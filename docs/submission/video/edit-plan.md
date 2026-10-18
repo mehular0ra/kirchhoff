@@ -241,7 +241,7 @@ beat carries at least one item nothing else covers.
    Built with Gemini, Google ADK, Cloud Run, Firestore and Firebase, for the
    AI Builder Cup 2026 (Future of Work & Enterprise Productivity).
 
-   Team Ordinal: Mehul Arora, Jayadratha.
+   Team Ordinal: Jayadratha Gayen (team leader), Mehul Arora.
 
    Demo companies, people and data shown are fictional. Engineering values
    are IEC-based and illustrative, not for construction.

@@ -17,12 +17,12 @@ Draft for the 16-slide submission template, in the template's order and with its
 **On-slide copy**
 
 a. Team name: Ordinal
-b. Team leader name: Mehul Arora (with Jayadratha)
+b. Team leader name: Jayadratha Gayen (with Mehul Arora)
 c. Problem Statement: AI data halls need power and liquid cooling designed together, around equipment that can actually ship, by senior engineers in short supply. And only 6% of engineers trust AI results without checking.¹
 
 **Speaker notes**
 
-We are Ordinal: Mehul Arora, who leads, and Jayadratha. Our product is Kirchhoff.
+We are Ordinal: Jayadratha Gayen, who leads, and Mehul Arora. Our product is Kirchhoff.
 
 The problem has three parts. First, AI halls couple two disciplines that are usually designed apart: the electrical chain and the liquid-cooling loop. Racks now run far denser than older halls; Vertiv's own reference designs span 20 to 142 kW per rack.² Our sample hall runs 132 kW per rack. Second, the supply chain now shapes the design. Transformer lead times are long enough that Hitachi's standardisation push talks about getting them down to "as little as 12 months".³ A design that specifies equipment nobody can deliver is a design you redo. Third, the people who do this work are scarce, and Hitachi's HMAX Energy launch names workforce shortages directly.⁴
 
@@ -448,8 +448,8 @@ Three rows, each with an icon and a QR code (GitHub, video, live app). Put the U
 **On-slide copy**
 
 **Team Ordinal**
-- Mehul Arora, team lead. [TBD: role and one-line background]
-- Jayadratha. [TBD: role and one-line background]
+- Jayadratha Gayen, team leader. [TBD: role and one-line background]
+- Mehul Arora. [TBD: role and one-line background]
 
 Built in JAPAC, for engineering teams everywhere.
 
@@ -459,7 +459,7 @@ Built in JAPAC, for engineering teams everywhere.
 
 **Visual**
 
-[TEAM PHOTO SLOT: headshots of Mehul Arora and Jayadratha, supplied by the team.] Under the photos, add a small strip: "Theme: Future of Work & Enterprise Productivity".
+[TEAM PHOTO SLOT: headshots of Jayadratha Gayen and Mehul Arora, supplied by the team.] Under the photos, add a small strip: "Theme: Future of Work & Enterprise Productivity".
 
 ---
 
@@ -509,6 +509,6 @@ Everything below is a `[TBD]` (or team-photo) slot only the team can fill. Nothi
 - **Slide 10 (Estimated implementation cost):** measured USD per design run (on-slide bullet); Gemini tokens and USD per full run, measured from the recorded run (spec §4, metric 4) (speaker notes).
 - **Slide 12 (Prototype Performance report):** measured time from upload to a checker-clean revision, median of 5 live runs, excluding time at human gates (spec §4, metric 1); intake accuracy against our ground truth (spec §4, metric 2).
 - **Slide 14 (Provide links to your):** GitHub public repository URL; demo video URL.
-- **Slide 15 (Team):** Mehul Arora's role and one-line background; Jayadratha's role and one-line background; two sentences per person on what each built and the credibility background (speaker notes); team photo (headshots of Mehul Arora and Jayadratha).
+- **Slide 15 (Team):** Jayadratha Gayen's role and one-line background; Mehul Arora's role and one-line background; two sentences per person on what each built and the credibility background (speaker notes); team photo (headshots of Jayadratha Gayen and Mehul Arora).
 
 - Re-check every quoted number against the DEPLOYED Hall A bundle after the golden capture (P4 Task 14). The 200 kW what-if count changed from 62 to 60 once the signed revision used the R23 fix choice (parallel cable on FA-01).

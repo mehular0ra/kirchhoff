@@ -194,7 +194,7 @@ TBD_KEYS = {
     (10, "notes"): ["metrics.tokens_and_usd_per_run"],
     (12, "notes"): ["metrics.upload_to_clean_median", "metrics.intake_accuracy"],
     (14, "copy"): ["links.github_repo", "links.demo_video"],
-    (15, "copy"): ["team.mehul_role_background", "team.jayadratha_role_background"],
+    (15, "copy"): ["team.jayadratha_role_background", "team.mehul_role_background"],
     (15, "notes"): ["team.notes_bios"],
 }
 # On-slide "(spec)" markers in order of appearance, mapped to fill.yaml spec_verified keys.
@@ -1653,7 +1653,7 @@ def s15_team(slide, sec: Section, ctx: Ctx, deck: Deck):
     add_heading(slide, heading)
     people = [ln[2:] for ln in lines if ln.startswith("- ")]
     closing = [ln for ln in lines[1:] if not ln.startswith("- ")][0]
-    photo_keys = ["photos.mehul", "photos.jayadratha"]
+    photo_keys = ["photos.jayadratha", "photos.mehul"]
     w, gap = (CW - 0.3) / 2, 0.3
     ch = 2.1
     for i, person in enumerate(people):
