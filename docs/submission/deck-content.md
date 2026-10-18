@@ -430,7 +430,7 @@ Footer (small print): "IEC-based, illustrative values, not for construction. Dem
 **On-slide copy**
 
 - GitHub Public Repository: [TBD: https://github.com/<org>/kirchhoff]
-- Demo Video Link (3 Minutes): [TBD: video URL] (runs 3:40)
+- Demo Video Link (3 Minutes): [TBD: video URL] (runs 3:33)
 - Final Product Link: https://kirchhoff.web.app (no login: "Enter the demo workspace" opens the guided tour)
 
 **Speaker notes**
