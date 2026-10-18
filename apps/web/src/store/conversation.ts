@@ -2,6 +2,7 @@
 // One turn per question: the answer, the engine check behind it and what changed on screen stay together, so a slow
 // answer can never land under a later question.
 import { create } from 'zustand'
+import { readJson, writeJson } from '@/lib/storage'
 
 export type TurnVia = 'typed' | 'live' | 'ptt'
 /**
@@ -32,10 +33,13 @@ export interface Turn {
 }
 
 interface ConversationState {
-  /** The project the turns belong to: a conversation about Hall A is never shown in another project's panel. */
+  /** The project on screen: a conversation about Hall A is never shown in another project's panel. */
   project: string | null
+  /** That project's turns. */
   turns: Turn[]
-  /** Called when a panel opens on a project: a different project starts an empty conversation, the same one keeps its turns. */
+  /** The other projects' turns, kept until their panel opens again. */
+  saved: Record<string, Turn[]>
+  /** Called when a panel opens on a project: its own turns come back (none, the first time), the previous project's are kept. */
   enter(project: string): void
   start(via: TurnVia, asked: string | null, phase?: TurnPhase): number
   /** Appends a piece of the transcript of a spoken question. */
@@ -45,17 +49,67 @@ interface ConversationState {
   clear(): void
 }
 
-let next = 0
+// The history lives in localStorage (like the getting-started checklist), so a reload, or a visit to another hall and
+// back, does not lose it. Only the latest turns of a few projects are kept.
+const KEY = 'conversation'
+const MAX_TURNS = 100
+const MAX_SAVED_PROJECTS = 8
+const LEFT = 'This page was closed or reloaded before there was an answer.'
+
+interface Stored {
+  project: string | null
+  turns: Turn[]
+  saved: Record<string, Turn[]>
+}
+
+const isTurn = (t: unknown): t is Turn => {
+  const x = t as Partial<Turn> | null
+  return !!x && typeof x === 'object' && typeof x.id === 'number' && typeof x.at === 'number' && Array.isArray(x.steps)
+}
+
+/** A question still being heard or checked when the page went away will never get its answer: say so, instead of spinning. */
+const settle = (t: Turn): Turn => {
+  if (t.phase === 'hearing') return { ...t, phase: 'unchecked', note: LEFT }
+  if (t.phase === 'working') return t.steps.length > 0 ? { ...t, phase: 'answered', note: null } : { ...t, phase: 'failed', note: LEFT }
+  return t
+}
+
+const turnList = (v: unknown): Turn[] => (Array.isArray(v) ? v.filter(isTurn).map(settle).slice(-MAX_TURNS) : [])
+
+function restore(): Stored {
+  const raw = readJson<Partial<Stored> | null>(KEY, null)
+  if (!raw || typeof raw !== 'object') return { project: null, turns: [], saved: {} }
+  const saved: Record<string, Turn[]> = {}
+  if (raw.saved && typeof raw.saved === 'object' && !Array.isArray(raw.saved))
+    for (const [project, turns] of Object.entries(raw.saved)) {
+      const list = turnList(turns)
+      if (list.length > 0) saved[project] = list
+    }
+  return { project: typeof raw.project === 'string' ? raw.project : null, turns: turnList(raw.turns), saved }
+}
+
+const initial = restore()
+// New ids continue after the restored ones, so an answer can never land on an older question.
+let next = Math.max(0, ...[initial.turns, ...Object.values(initial.saved)].flat().map((t) => t.id))
 
 const patch = (turns: Turn[], id: number, f: (t: Turn) => Turn): Turn[] => turns.map((t) => (t.id === id ? f(t) : t))
 
 export const useConversation = create<ConversationState>()((set) => ({
-  project: null,
-  turns: [],
-  enter: (project) => set((s) => (s.project === project ? s : { project, turns: [] })),
+  project: initial.project,
+  turns: initial.turns,
+  saved: initial.saved,
+  enter: (project) =>
+    set((s) => {
+      if (s.project === project) return s
+      const saved = { ...s.saved }
+      if (s.project && s.turns.length > 0) saved[s.project] = s.turns
+      const turns = saved[project] ?? (s.project === null ? s.turns : [])
+      delete saved[project]
+      return { project, turns, saved: Object.fromEntries(Object.entries(saved).slice(-MAX_SAVED_PROJECTS)) }
+    }),
   start: (via, asked, phase = 'working') => {
     const id = ++next
-    set((s) => ({ turns: [...s.turns, { id, via, asked, phase, steps: [], note: null, at: Date.now() }] }))
+    set((s) => ({ turns: [...s.turns, { id, via, asked, phase, steps: [], note: null, at: Date.now() }].slice(-MAX_TURNS) }))
     return id
   },
   hear: (id, text) => set((s) => ({ turns: patch(s.turns, id, (t) => ({ ...t, asked: (t.asked ?? '') + text })) })),
@@ -63,3 +117,5 @@ export const useConversation = create<ConversationState>()((set) => ({
   addStep: (id, step) => set((s) => ({ turns: patch(s.turns, id, (t) => ({ ...t, steps: [...t.steps, step] })) })),
   clear: () => set({ turns: [] }),
 }))
+
+useConversation.subscribe((s) => writeJson(KEY, { project: s.project, turns: s.turns, saved: s.saved } satisfies Stored))

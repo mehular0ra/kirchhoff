@@ -13,6 +13,8 @@ const ELEMENT = /\b([A-Z]{1,3}\d?-[A-Z]?\d{1,2}(?:-\d{2})?|[A-Z]\d|BOQ|HALL)\b/i
 const RULE = /\b(R\d{2}b?)\b/i
 // Paraphrases of "why" (N1): "What caused FA-01 to fail?", "what is wrong with H-Z2", "any issue on FA-01".
 const PROBLEM = /\b(fail\w*|wrong|caus\w*|issues?|problems?)\b/i
+// Questions about what an element is: "details of R1-01", "what is the power of rack R1-01", "how long is FA-01".
+const DETAILS = /\b(details?|describe|tell me|info(?:rmation)?|what(?:'s| is| are)|how (?:much|many|long|big)|power|load|rating|rated|capacity|feeds?|fed|length)\b/i
 
 export function parseIntent(text: string): Intent | null {
   const t = text.trim()
@@ -27,14 +29,16 @@ export function parseIntent(text: string): Intent | null {
     if (tx) return { tool: 'what_if', param: 'tx_loading_cap_pct', value: Number(tx[1]) }
     return null
   }
-  const el = t.match(ELEMENT)?.[1]?.toUpperCase()
+  // A spoken id arrives with spaces around the dash ("r1 - 01"): read it as R1-01.
+  const el = t.replace(/\s*-\s*/g, '-').match(ELEMENT)?.[1]?.toUpperCase()
   // An explain question either starts with why/explain or names an element together with a problem word.
   if (el && (/^(why|explain)\b/i.test(t) || PROBLEM.test(t))) {
     const rule = t.match(RULE)?.[1]
     return { tool: 'explain_finding', element: el, rule: rule ? rule.toUpperCase().replace('B', 'b') : undefined }
   }
-  if (/^(show|focus|where|zoom|find)\b/i.test(t) && el) return { tool: 'focus_element', element: el }
+  // Showing an element, or asking what it is (its power, rating, feeds, length, capacity): both answer from the model.
+  if (el && (/^(show|focus|where|zoom|find)\b/i.test(t) || DETAILS.test(t))) return { tool: 'focus_element', element: el }
   return null
 }
 
-export const INTENT_HELP = 'Try: “what if racks go to 200 kW”, “why FA-01”, “show H-Z2”.'
+export const INTENT_HELP = 'Try: “what if racks go to 200 kW”, “why FA-01”, “show H-Z2”, “details of R1-01”.'

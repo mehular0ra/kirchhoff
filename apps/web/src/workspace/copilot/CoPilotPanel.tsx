@@ -15,7 +15,7 @@ import { RequirementsPanel } from '../RequirementsPanel'
 import { useWorkspace } from '../WorkspaceContext'
 import { ConversationLog } from './ConversationLog'
 import { INTENT_HELP, parseIntent } from './intent'
-import { executeTool, findingLabel, focusActions, whatIfCheck, type ToolContext } from './tools'
+import { elementId, executeTool, findingLabel, focusActions, lookUpElement, whatIfCheck, type ToolContext } from './tools'
 import { useWhatIf } from './useWhatIf'
 import { canRecord, speak } from './voice/pushToTalk'
 import { useVoice } from './voice/useVoice'
@@ -145,10 +145,11 @@ export function CoPilotPanel() {
       conv().setPhase(open.id, 'answered')
       setActivity('replying')
       return out.data
-    } catch (err) {
+    } catch {
       conv().setPhase(open.id, 'failed', 'That check could not run.')
       setActivity('idle')
-      throw err
+      // Answer Gemini instead of throwing: the SDK ends the whole conversation when this handler throws.
+      return { error: 'unavailable' }
     }
   }
 
@@ -160,6 +161,7 @@ export function CoPilotPanel() {
     let whatIfOn: Revision | null = null
     const checks: string[] = []
     const actions: string[] = []
+    const details: string[] = []
     for (const t of res.tool_results) {
       if (t.name === 'what_if' && Array.isArray((t.result as Partial<WhatIfResult>).impact_chain)) {
         const w = { result: t.result as unknown as WhatIfResult, origin: 'engine' as const }
@@ -171,9 +173,11 @@ export function CoPilotPanel() {
         actions.push('The result is in the What-if panel and lit on the canvases')
       }
       if (t.name === 'focus_element') {
-        const id = String(t.args.element_id ?? t.result.element_id ?? '')
+        // The server only says "Showing X"; what X is comes from the engine's model here, as for typed and Live questions.
+        const id = elementId(t.args.element_id ?? t.result.element_id)
         const drawn = focus(id)
-        checks.push(`Show ${id}`)
+        details.push(lookUpElement(view.model, view.findings, id, drawn).summary)
+        checks.push(`Details of ${id}`)
         actions.push(...focusActions(view.model, id, drawn))
       }
       if (t.name === 'explain_finding' && t.args.finding_id) {
@@ -189,7 +193,8 @@ export function CoPilotPanel() {
       }
     }
     // A what-if answer names the revision it ran on, like the typed one: "On r2 (signed): …".
-    const answer = whatIfOn ? `On ${revisionLabel(whatIfOn)}: ${res.answer}` : res.answer
+    const onlyElements = res.tool_results.length > 0 && res.tool_results.every((t) => t.name === 'focus_element')
+    const answer = whatIfOn ? `On ${revisionLabel(whatIfOn)}: ${res.answer}` : onlyElements ? details.join(' ') : res.answer
     const id = conv().start('ptt', res.transcript || null, 'working')
     if (checks.length > 0) {
       conv().addStep(id, { check: checks.join(' + '), answer, actions })

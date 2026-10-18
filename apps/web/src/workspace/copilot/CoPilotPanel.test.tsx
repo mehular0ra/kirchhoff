@@ -82,9 +82,11 @@ test('Gemini Live tool calls run in the browser and return engine data', async (
   await act(async () => {
     response = await handler!({ name: 'focus_element', args: { element_id: 'fa-01' } })
   })
-  expect(response).toEqual({ element_id: 'FA-01' })
+  // Gemini gets the engine's record of the element, not just its id, so it can answer questions about it.
+  expect(response).toMatchObject({ element_id: 'FA-01', drawn: true })
+  expect(String(response.text)).toMatch(/^(Cable|Busway) FA-01: /)
   expect(useUi.getState().focusId).toBe('FA-01')
-  expect(screen.getByText('Showing FA-01.')).toBeInTheDocument()
+  expect(screen.getByText(/^(Cable|Busway) FA-01: /)).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Stop' }))
   expect(stop).toHaveBeenCalled()
 })
@@ -252,7 +254,8 @@ test('N1: paraphrased "why" questions that name an element and a problem route t
   expect(parseIntent('What is the cause of the H-Z2 failure')).toEqual({ tool: 'explain_finding', element: 'H-Z2', rule: undefined })
   // a problem word without an element, or an element without one, does not guess
   expect(parseIntent('what failed?')).toBeNull()
-  expect(parseIntent('tell me about FA-01')).toBeNull()
+  // asking about an element with no problem word asks what it is (its details)
+  expect(parseIntent('tell me about FA-01')).toEqual({ tool: 'focus_element', element: 'FA-01' })
   // existing routes are unchanged
   expect(parseIntent('show H-Z2')).toEqual({ tool: 'focus_element', element: 'H-Z2' })
   expect(parseIntent('what if racks go to 200 kW')).toEqual({ tool: 'what_if', param: 'rack_kw', value: 200 })
@@ -470,14 +473,14 @@ test('a slow answer stays under its own question and never lands under a later o
   renderPanel(fakeServices({ api: fakeApi({ explain }) }), realHallA())
   await ask(user, 'why did FA-01 fail?') // waits on the language model's rewrite
   await ask(user, 'show H-Z2') // answers at once
-  await within(await screen.findByRole('list', { name: 'Conversation' })).findByText('Showing H-Z2.')
+  await within(await screen.findByRole('list', { name: 'Conversation' })).findByText(/^Pipe H-Z2 \(header, DN\d+\) in zone Z2/)
   await act(async () => finish({ text: 'Voltage drop is {value} against {limit}.' }))
   await waitFor(() => expect(turnCards()[0].textContent).toContain('Voltage drop is 2.16% against 2%.'))
   const cards = turnCards()
   expect(cards).toHaveLength(2)
   expect(cards[0].textContent).toContain('why did FA-01 fail?')
   expect(cards[1].textContent).toContain('show H-Z2')
-  expect(cards[1].textContent).toContain('Showing H-Z2.')
+  expect(cards[1].textContent).toContain('Pipe H-Z2 (header')
   expect(cards[1].textContent).not.toContain('Voltage drop')
 })
 
@@ -558,9 +561,33 @@ test('Live: each question is its own card, in the order it was asked', async () 
   await waitFor(() => expect(turnCards()).toHaveLength(2))
   const cards = turnCards()
   expect(cards[0].textContent).toContain('Show FA-01')
-  expect(cards[0].textContent).toContain('Showing FA-01.')
+  expect(cards[0].textContent).toMatch(/(Cable|Busway) FA-01: /)
   expect(cards[1].textContent).toContain('Show H-Z2')
-  expect(cards[1].textContent).toContain('Showing H-Z2.')
+  expect(cards[1].textContent).toContain('Pipe H-Z2 (header')
+})
+
+test('Live: a tool that fails tells Gemini so instead of ending the session, and the card says it could not run', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  const focus = useUi.getState().focus
+  useUi.setState({
+    focus: () => {
+      throw new Error('boom')
+    },
+  })
+  try {
+    await live.emit({ type: 'heard', text: 'Show FA-01' })
+    // The SDK ends the whole conversation if this handler throws, so it must answer instead.
+    const response = await act(async () => live.call({ name: 'focus_element', args: { element_id: 'FA-01' } }))
+    expect(response).toEqual({ error: 'unavailable' })
+  } finally {
+    useUi.setState({ focus })
+  }
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(convo.getByText('That check could not run.')).toBeInTheDocument()
+  expect(screen.getByText('Listening (Gemini Live)')).toBeInTheDocument()
 })
 
 test('Live: a tool call that arrives before any transcript still gets a card, and the words fill in when they come', async () => {
@@ -616,6 +643,19 @@ test('push-to-talk writes up the turn too: the transcript, the engine check and 
   expect(convo.getByText('Explain finding R05 · FA-01')).toBeInTheDocument()
   expect(convo.getByText('Opened R05 · FA-01 in the finding drawer')).toBeInTheDocument()
   expect(convo.getByText(/^Switched to r1 \(.*\), where this check failed$/)).toBeInTheDocument()
+})
+
+test('push-to-talk "what is the power of rack R1-01": the server only showed it, the card has the engine\'s record of the rack', async () => {
+  await pushToTalk({
+    transcript: 'What is the power of rack R1-01?',
+    answer: 'Showing R1-01.',
+    tool_results: [{ name: 'focus_element', args: { element_id: 'R1-01' }, result: { focused: 'R1-01' } }],
+  })
+  const convo = await conversation()
+  expect(await convo.findByText('Details of R1-01')).toBeInTheDocument()
+  expect(convo.getByText(/^Rack R1-01 \(row R1\): [\d,.]+ kW, liquid fraction [\d.]+, fed by /)).toBeInTheDocument()
+  expect(convo.queryByText('Showing R1-01.')).not.toBeInTheDocument()
+  expect(convo.getByText('Showing R1-01 on the 3D hall and the SLD')).toBeInTheDocument()
 })
 
 test('push-to-talk with no engine check behind the reply says so', async () => {

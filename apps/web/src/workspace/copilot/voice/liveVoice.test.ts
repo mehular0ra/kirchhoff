@@ -19,6 +19,13 @@ test('LIVE_MODEL is the Gemini Live native-audio model', () => {
   expect(LIVE_MODEL).toBe('gemini-live-2.5-flash-native-audio')
 })
 
+test('focus_element is described as the way to ask about a rack or any other element, not only to show it', () => {
+  const focus = TOOL_DECLARATIONS.find((d) => d.name === 'focus_element')!
+  expect(focus.description).toMatch(/rack/i)
+  expect(focus.description).toMatch(/power/i)
+  expect(focus.description).toMatch(/details/i)
+})
+
 test('TOOL_DECLARATIONS exposes exactly the three co-pilot tools', () => {
   expect(TOOL_DECLARATIONS.map((d) => d.name)).toEqual(['what_if', 'explain_finding', 'focus_element'])
 })

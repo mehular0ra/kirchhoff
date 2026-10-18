@@ -90,6 +90,7 @@ function TurnCard({ turn }: { turn: Turn }) {
 
 export function ConversationLog() {
   const turns = useConversation((s) => s.turns)
+  const elsewhere = useConversation((s) => Object.keys(s.saved).length > 0)
   const clear = useConversation((s) => s.clear)
   const listRef = useRef<HTMLOListElement>(null)
   // Keep the newest question in view inside the list, without scrolling the whole side panel.
@@ -113,7 +114,10 @@ export function ConversationLog() {
       </div>
       <p className="text-[11px] text-muted-foreground">The engine writes every answer. Voice only chooses which check to run.</p>
       {turns.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Ask by typing or by voice. Each question appears here with the engine check behind its answer and what changed on screen.</p>
+        <>
+          <p className="text-xs text-muted-foreground">Ask by typing or by voice. Each question appears here with the engine check behind its answer and what changed on screen.</p>
+          {elsewhere && <p className="text-[11px] text-muted-foreground">Questions you asked in other projects are kept with them.</p>}
+        </>
       ) : (
         <ol ref={listRef} aria-label="Conversation" aria-live="polite" className="flex max-h-80 flex-col gap-2 overflow-y-auto">
           {turns.map((t) => (

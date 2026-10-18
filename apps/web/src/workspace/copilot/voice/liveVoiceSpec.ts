@@ -27,7 +27,10 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'focus_element',
-    description: 'Show an element (e.g. "FA-01", "H-Z2", "CDU-4") on the canvas.',
+    description:
+      'Show an element on the canvas and return its details from the design model: a rack (e.g. "R1-01": power in kW, ' +
+      'liquid fraction, feeds), a board or transformer (rating), a feeder (e.g. "FA-01": ends and length), a CDU or pipe ' +
+      '(zone, capacity), and the checks on it. Use it for any question about what a rack or other element is.',
     parameters: Schema.object({ properties: { element_id: Schema.string() } }),
   },
 ]

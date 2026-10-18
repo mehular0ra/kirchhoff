@@ -64,7 +64,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services {
 export function resetStores(): void {
   useBundleStore.setState({ entries: {} })
   useUi.getState().resetWorkspaceUi()
-  useConversation.setState({ project: null, turns: [] })
+  useConversation.setState({ project: null, turns: [], saved: {} })
 }
 
 /** Renders `ui` at `route` (matched by `path`) inside router, services and tooltip providers. */

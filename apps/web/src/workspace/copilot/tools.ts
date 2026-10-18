@@ -7,7 +7,7 @@ import { fillPlaceholders, fmtKeyValue, fmtNum, fmtQty } from '@/lib/format'
 import { canvasesFor, type Canvas } from '@/lib/model'
 import { findingsFor, parentRevision, revisionLabel, revisionRef } from '@/lib/select'
 import { statusRank } from '@/lib/status'
-import type { DesignModel, Finding, Revision, WhatIfParam } from '@/lib/types'
+import type { DesignModel, EquipmentKind, Finding, Revision, WhatIfParam } from '@/lib/types'
 import type { ApiClient } from '@/services/apiClient'
 import type { ViewRevSource } from '@/store/ui'
 import { readFix } from '../finding/fixView'
@@ -95,6 +95,108 @@ function worstFindingFor(findings: Finding[], element: string, rule?: string): F
 }
 
 const isProblem = (f: Finding | null): f is Finding => !!f && (f.status === 'fail' || f.status === 'warn')
+
+/** A spoken or typed id is read the way it was meant: "r1 - 01" is R1-01. */
+export const elementId = (raw: unknown): string => String(raw ?? '').trim().toUpperCase().replace(/\s*-\s*/g, '-')
+
+const EQUIPMENT_NAME: Record<EquipmentKind, string> = {
+  mv_board: 'MV board',
+  transformer: 'Transformer',
+  lv_board: 'LV board',
+  ups: 'UPS',
+  critical_board: 'Critical board',
+  sts: 'STS',
+  busway: 'Busway',
+  rack_group: 'Rack group',
+}
+const LINK_NAME = { cable: 'Cable', busway: 'Busway', internal: 'Internal link' } as const
+
+interface ElementDetails {
+  text: string
+  data: Record<string, unknown>
+}
+
+/** What the engine's model records about one element: a rack's power and feeds, a board's rating, a feeder's ends, a CDU's capacity. */
+export function describeElement(model: DesignModel | null, id: string): ElementDetails | null {
+  if (!model) return null
+  const rack = model.racks.find((r) => r.id === id)
+  if (rack)
+    return {
+      text: `Rack ${rack.id} (row ${rack.row}): ${fmtQty(rack.kw, 'kW')}, liquid fraction ${fmtNum(rack.liquid_fraction)}, fed by ${rack.feeds.join(' and ')}.`,
+      data: { kind: 'rack', row: rack.row, kw: rack.kw, liquid_fraction: rack.liquid_fraction, feeds: rack.feeds },
+    }
+  const eq = model.equipment.find((e) => e.id === id)
+  if (eq) {
+    const bits = [eq.rating != null ? fmtQty(eq.rating, eq.unit) : null, eq.system ? `system ${eq.system}` : null, eq.room ? `room ${eq.room}` : null].filter(Boolean)
+    return {
+      text: `${EQUIPMENT_NAME[eq.kind]} ${eq.id}${bits.length > 0 ? `: ${bits.join(', ')}` : ''}.`,
+      data: { kind: eq.kind, rating: eq.rating ?? null, unit: eq.unit ?? null, system: eq.system ?? null, room: eq.room ?? null, catalogue_id: eq.catalogue_id ?? null },
+    }
+  }
+  const link = model.connections.find((c) => c.id === id)
+  if (link)
+    return {
+      text: `${LINK_NAME[link.kind]} ${link.id}: ${link.src} to ${link.dst}${link.length_m != null ? `, ${fmtQty(link.length_m, 'm')}` : ''}.`,
+      data: { kind: link.kind, from: link.src, to: link.dst, length_m: link.length_m ?? null, catalogue_id: link.catalogue_id ?? null },
+    }
+  const node = model.cooling_nodes.find((n) => n.id === id)
+  if (node)
+    return {
+      text: `${node.kind === 'cdu' ? 'CDU' : 'Manifold'} ${node.id} in zone ${node.zone}${node.capacity_kw != null ? `: capacity ${fmtQty(node.capacity_kw, 'kW')}` : ''}.`,
+      data: { kind: node.kind, zone: node.zone, capacity_kw: node.capacity_kw ?? null },
+    }
+  const pipe = model.pipes.find((p) => p.id === id)
+  if (pipe)
+    return {
+      text: `Pipe ${pipe.id} (${pipe.kind}, DN${pipe.dn}) in zone ${pipe.zone}${pipe.flow_lps != null ? `, flow ${fmtQty(pipe.flow_lps, 'L/s')}` : ''}.`,
+      data: { kind: 'pipe', pipe_kind: pipe.kind, zone: pipe.zone, dn: pipe.dn, flow_lps: pipe.flow_lps ?? null },
+    }
+  const members = model.cooling_nodes.filter((n) => n.zone === id).map((n) => n.id)
+  const pipes = model.pipes.filter((p) => p.zone === id).length
+  if (members.length + pipes > 0)
+    return {
+      text: `Zone ${id} holds ${members.join(', ')}${members.length > 0 ? ' and ' : ''}${pipes} ${pipes === 1 ? 'pipe' : 'pipes'}.`,
+      data: { kind: 'zone', members, pipes },
+    }
+  return null
+}
+
+/**
+ * The engine's answer to "what is this element?", the same for typed, Live and push-to-talk questions: its record in the
+ * model and the checks on it, or, when it is not there, what the design does have. Only engine records are spoken or shown,
+ * never the language model's words (spec §6.3).
+ */
+export function lookUpElement(model: DesignModel | null, findings: Finding[], id: string, drawn: boolean): { summary: string; data: Record<string, unknown> } {
+  const info = describeElement(model, id)
+  const checks = checksOn(findings, id)
+  if (!info && !checks) {
+    const racks = model?.racks ?? []
+    const have = racks.length > 0 ? ` It has ${racks.length} racks (${racks[0].id} to ${racks[racks.length - 1].id}); ask about a rack, a feeder, a board or a CDU by its id.` : ''
+    const summary = `${id} is not in this design.${have}`
+    return { summary, data: { element_id: id, drawn: false, error: 'not_found', racks: racks.length, text: summary } }
+  }
+  const lead = info ? info.text : `${id} is not drawn on the 3D hall or the SLD.`
+  const summary = `${lead}${checks ? ` ${checks.text}` : ''}`
+  return { summary, data: { element_id: id, drawn, ...info?.data, ...(checks ? { checks: checks.data } : {}), text: summary } }
+}
+
+/** The checks that name this element in the revision on screen: counts, and the failing ones with their values. */
+function checksOn(findings: Finding[], id: string): { text: string; data: Record<string, unknown> } | null {
+  const mine = findings.filter((f) => f.element_id.toUpperCase() === id)
+  const count = (status: Finding['status']) => mine.filter((f) => f.status === status).length
+  const fail = mine.filter((f) => f.status === 'fail')
+  const warn = mine.filter((f) => f.status === 'warn')
+  const pass = count('pass')
+  if (fail.length + warn.length + pass === 0) return null
+  const counts = [fail.length && `${fail.length} fail`, warn.length && `${warn.length} warn`, pass && `${pass} pass`].filter(Boolean).join(', ')
+  const vs = (f: Finding) => `${f.rule_id} ${fmtQty(f.value ?? null, f.unit)} vs ${fmtQty(f.limit ?? null, f.unit)}`
+  const detail = (label: string, list: Finding[]) => (list.length > 0 ? ` ${label}: ${list.slice(0, 3).map(vs).join('; ')}.` : '')
+  const row = (f: Finding) => ({ rule: f.rule_id, value: f.value, limit: f.limit, unit: f.unit })
+  return {
+    text: `Checks on it: ${counts}.${detail('Failing', fail)}${detail('Warnings', warn)}`,
+    data: { pass, warn: warn.length, fail: fail.length, failing: fail.map(row), warnings: warn.map(row) },
+  }
+}
 
 /** The finding asked about in one revision: by id first, else the worst one for the element (and rule). */
 function findingIn(findings: Finding[], id: string, element: string, rule?: string): Finding | null {
@@ -198,15 +300,10 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     }
   }
   if (name === 'focus_element') {
-    const id = String(args.element_id ?? '').toUpperCase()
-    if (!ctx.focus(id))
-      return {
-        summary: `${id} is not drawn on the 3D hall or the SLD; its checks are in the Matrix.`,
-        data: { element_id: id, drawn: false },
-        check: `Show ${id}`,
-        actions: focusActions(ctx.view.model, id, false),
-      }
-    return { summary: `Showing ${id}.`, data: { element_id: id }, check: `Show ${id}`, actions: focusActions(ctx.view.model, id, true) }
+    const id = elementId(args.element_id)
+    const drawn = ctx.focus(id)
+    const { summary, data } = lookUpElement(ctx.view.model, ctx.view.findings, id, drawn)
+    return { summary, data, check: `Details of ${id}`, actions: focusActions(ctx.view.model, id, drawn) }
   }
   return { summary: `Unknown tool ${name}.`, data: { error: 'unknown_tool' }, check: name, actions: [] }
 }

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useConversation } from '@/store/conversation'
 import { ConversationLog } from './ConversationLog'
 
-beforeEach(() => act(() => useConversation.getState().clear()))
+beforeEach(() => act(() => useConversation.setState({ project: null, turns: [], saved: {} })))
 
 const store = () => useConversation.getState()
 
@@ -11,6 +11,20 @@ test('with no questions yet it says how to start and shows no list', () => {
   render(<ConversationLog />)
   expect(screen.getByText(/Ask by typing or by voice/)).toBeInTheDocument()
   expect(screen.queryByRole('list', { name: 'Conversation' })).not.toBeInTheDocument()
+})
+
+test('an empty hall says where the questions asked in other halls are', () => {
+  store().enter('hall-a')
+  store().start('typed', 'why FA-01', 'answered')
+  store().enter('hall-b')
+  render(<ConversationLog />)
+  expect(screen.getByText(/Ask by typing or by voice/)).toBeInTheDocument()
+  expect(screen.getByText('Questions you asked in other projects are kept with them.')).toBeInTheDocument()
+})
+
+test('with no history anywhere there is no pointer to other halls', () => {
+  render(<ConversationLog />)
+  expect(screen.queryByText(/kept with them/)).not.toBeInTheDocument()
 })
 
 test('a typed question shows what was asked, which engine check answered, the answer, and what changed on screen', () => {
