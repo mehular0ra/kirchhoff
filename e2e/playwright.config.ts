@@ -43,12 +43,13 @@ export default defineConfig({
           {
             name: 'footage',
             testDir: './shots',
-            testMatch: /footage(-live)?\.spec\.ts$/,
+            testMatch: /footage(-guided)?(-live)?\.spec\.ts$/,
             use: {
               ...devices['Desktop Chrome'],
-              viewport: { width: 1920, height: 1080 },
+              // FOOTAGE_VIEWPORT=1280x720 records the app at a smaller window: its UI is then larger in the frame, and the clip is upscaled to 1920 x 1080 when it is converted
+              viewport: { width: Number((process.env.FOOTAGE_VIEWPORT ?? '1920x1080').split('x')[0]), height: Number((process.env.FOOTAGE_VIEWPORT ?? '1920x1080').split('x')[1]) },
               deviceScaleFactor: 1,
-              video: { mode: 'on' as const, size: { width: 1920, height: 1080 } },
+              video: { mode: 'on' as const, size: { width: Number((process.env.FOOTAGE_VIEWPORT ?? '1920x1080').split('x')[0]), height: Number((process.env.FOOTAGE_VIEWPORT ?? '1920x1080').split('x')[1]) } },
               screenshot: 'off' as const,
               trace: 'off' as const,
             },
