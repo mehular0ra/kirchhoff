@@ -39,7 +39,7 @@ metrics:
 links:
   # Slide 14: full URLs. A QR code is generated for each one that is filled.
   github_repo: "https://github.com/mehular0ra/kirchhoff"
-  demo_video: "https://youtu.be/lSz7jH-CUuM"
+  demo_video: "https://youtu.be/CR2-C-gjID4"
 
 spec_verified:
   # On-slide "(spec)" markers flag numbers taken from the design spec that have not
