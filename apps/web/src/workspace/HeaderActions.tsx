@@ -8,27 +8,55 @@ import { AutonomySwitch } from './gates/AutonomySwitch'
 import { useWorkspace } from './WorkspaceContext'
 
 /**
- * Shows or hides the agents lane and the co-pilot, so the canvas can have the whole width. A hidden panel stays mounted
- * (its conversation and voice session keep going); "Reset panel layout" appears only once the layout is not the usual one.
+ * Shows or hides the agents lane: at the left end of the top bar, on the side of the panel it controls. A hidden panel
+ * stays mounted.
  */
-function PaneToggles() {
-  const { lanesOpen, copilotOpen, lanesW, copilotW, toggleLanes, toggleCopilot, reset } = useLayout()
+export function LanesToggle() {
+  const lanesOpen = useLayout((s) => s.lanesOpen)
+  const toggleLanes = useLayout((s) => s.toggleLanes)
+  return (
+    <Button
+      variant="outline"
+      size="icon-sm"
+      data-pane-toggle="lanes"
+      aria-label="Agents lane"
+      aria-pressed={lanesOpen}
+      title={lanesOpen ? 'Hide the agents lane' : 'Show the agents lane'}
+      onClick={toggleLanes}
+    >
+      {lanesOpen ? <PanelLeftClose aria-hidden /> : <PanelLeftOpen aria-hidden />}
+    </Button>
+  )
+}
+
+/**
+ * Shows or hides the co-pilot (at the right end of the top bar, on its own side) and, once the layout is not the usual
+ * one, resets it. Hiding the co-pilot stops a voice session; the panel stays mounted, so its conversation is kept.
+ */
+function CopilotToggle() {
+  const { lanesOpen, copilotOpen, lanesW, copilotW, toggleCopilot, reset } = useLayout()
   const changed = !lanesOpen || !copilotOpen || lanesW !== LANES_W.def || copilotW !== COPILOT_W.def
   return (
     <div role="group" aria-label="Panels" className="flex items-center gap-1">
+      {changed && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Reset panel layout"
+          title="Reset panel layout"
+          onClick={() => {
+            reset()
+            // the button goes away with the reset: hand the keyboard focus to a control that stays
+            document.querySelector<HTMLElement>('[data-pane-toggle="lanes"]')?.focus()
+          }}
+        >
+          <RotateCcw aria-hidden />
+        </Button>
+      )}
       <Button
         variant="outline"
         size="icon-sm"
-        aria-label="Agents lane"
-        aria-pressed={lanesOpen}
-        title={lanesOpen ? 'Hide the agents lane' : 'Show the agents lane'}
-        onClick={toggleLanes}
-      >
-        {lanesOpen ? <PanelLeftClose aria-hidden /> : <PanelLeftOpen aria-hidden />}
-      </Button>
-      <Button
-        variant="outline"
-        size="icon-sm"
+        data-pane-toggle="copilot"
         aria-label="Co-pilot"
         aria-pressed={copilotOpen}
         title={copilotOpen ? 'Hide the co-pilot (this also stops voice)' : 'Show the co-pilot'}
@@ -36,11 +64,6 @@ function PaneToggles() {
       >
         {copilotOpen ? <PanelRightClose aria-hidden /> : <PanelRightOpen aria-hidden />}
       </Button>
-      {changed && (
-        <Button variant="ghost" size="icon-sm" aria-label="Reset panel layout" title="Reset panel layout" onClick={reset}>
-          <RotateCcw aria-hidden />
-        </Button>
-      )}
     </div>
   )
 }
@@ -60,7 +83,6 @@ export function HeaderActions() {
   const signed = !!latest && !!approvalFor(bundle, latest.id)
   return (
     <>
-      <PaneToggles />
       <AutonomySwitch value={run?.autonomy ?? autonomy} onChange={setAutonomy} locked={!!run} />
       {latest && signed ? (
         <Button asChild size="sm" variant="outline" data-tour="sign-off" className="text-emerald-700">
@@ -79,6 +101,7 @@ export function HeaderActions() {
           <Stamp aria-hidden /> Request sign-off
         </Button>
       )}
+      <CopilotToggle />
     </>
   )
 }

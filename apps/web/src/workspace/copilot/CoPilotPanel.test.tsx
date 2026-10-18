@@ -717,6 +717,36 @@ describe('a Live card is never left open', () => {
     expect(useConversation.getState().turns[0]).toMatchObject({ phase: 'unchecked', note: 'Voice was stopped before there was an answer.' })
   })
 
+  test('hiding the co-pilot while Live is still connecting stops it as soon as it is up', async () => {
+    const user = userEvent.setup()
+    const stop = vi.fn(async () => undefined)
+    let connected: () => void = () => undefined
+    renderPanel(
+      fakeServices({
+        startLiveVoice: () => new Promise((resolve) => (connected = () => resolve({ stop }))),
+      }),
+      realHallA(),
+    )
+    await user.click(screen.getByRole('button', { name: 'Start voice' }))
+    act(() => useLayout.getState().toggleCopilot()) // hidden before the connection is made
+    expect(stop).not.toHaveBeenCalled()
+    await act(async () => connected())
+    await waitFor(() => expect(stop).toHaveBeenCalled())
+    act(() => useLayout.getState().reset())
+  })
+
+  test('clearing the conversation while a question is open does not lose the rest of that turn', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'show R1-01' })
+    act(() => useConversation.getState().clear())
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    const [card] = useConversation.getState().turns
+    expect(card.steps[0]?.check).toBe('Details of R1-01') // a new card took the answer; it is not dropped
+  })
+
   test('hiding the co-pilot stops the voice conversation, so the microphone is never left on out of sight', async () => {
     const user = userEvent.setup()
     const live = liveHarness()

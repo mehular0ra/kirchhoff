@@ -102,7 +102,8 @@ export function CoPilotPanel() {
   /** The card of the question being asked or answered, if there is one that is not long over. */
   const currentLiveTurn = () => {
     const t = liveTurn.current
-    return t && Date.now() - t.last <= LIVE_TURN_IDLE_MS ? t : null
+    // Not one that was cleared away from the history meanwhile: the next words or tool call open a new card.
+    return t && Date.now() - t.last <= LIVE_TURN_IDLE_MS && conv().turns.some((x) => x.id === t.id) ? t : null
   }
   /** Closes the open card: with an engine answer it is answered, without one it says no engine check ran. */
   const endLiveTurn = (note: string) => {
@@ -230,9 +231,10 @@ export function CoPilotPanel() {
   // stops it, and leaving the page closes the card of a question still open.
   const copilotOpen = useLayout((s) => s.copilotOpen)
   useEffect(() => {
+    // Also when it comes up later: a session that was still connecting when the panel was hidden is stopped on arrival.
     if (!copilotOpen && voice.mode === 'live') void stopVoice()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [copilotOpen])
+  }, [copilotOpen, voice.mode])
   useEffect(() => () => endLiveTurn(STOPPED_NOTE), [])
   // Live's activity is only shown while Live is on (starting it again begins from idle).
   const live = LIVE_STATUS[voice.mode === 'live' ? activity : 'idle']

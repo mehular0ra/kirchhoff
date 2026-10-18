@@ -24,6 +24,9 @@ interface Stored {
 }
 
 interface LayoutState extends Stored {
+  /** The co-pilot's width as drawn (a small window may show it narrower than saved): the finding drawer docks against it. Not saved. */
+  copilotUsed: number
+  setCopilotUsed(px: number): void
   setLanesW(px: number): void
   setCopilotW(px: number): void
   toggleLanes(): void
@@ -45,12 +48,14 @@ function restore(): Stored {
 
 export const useLayout = create<LayoutState>()((set) => ({
   ...restore(),
+  copilotUsed: restore().copilotW,
+  setCopilotUsed: (px) => set({ copilotUsed: px }),
   setLanesW: (px) => set({ lanesW: clamp(px, LANES_W) }),
-  setCopilotW: (px) => set({ copilotW: clamp(px, COPILOT_W) }),
+  setCopilotW: (px) => set({ copilotW: clamp(px, COPILOT_W), copilotUsed: clamp(px, COPILOT_W) }),
   toggleLanes: () => set((s) => ({ lanesOpen: !s.lanesOpen })),
   toggleCopilot: () => set((s) => ({ copilotOpen: !s.copilotOpen })),
   openAll: () => set({ lanesOpen: true, copilotOpen: true }),
-  reset: () => set(DEFAULTS),
+  reset: () => set({ ...DEFAULTS, copilotUsed: DEFAULTS.copilotW }),
 }))
 
 useLayout.subscribe((s) =>

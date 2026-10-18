@@ -92,6 +92,8 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
   // A saved width that no longer fits a smaller window is shown at the width that does, so the canvas keeps its minimum.
   const lanesShown = Math.min(lanesW, lanesMax)
   const copilotShown = Math.min(copilotW, copilotMax)
+  const setCopilotUsed = useLayout((s) => s.setCopilotUsed)
+  useEffect(() => setCopilotUsed(copilotShown), [copilotShown, setCopilotUsed])
   const columns = [
     lanesOpen ? `${lanesShown}px ${SPLITTER_PX}px` : '0px 0px',
     'minmax(22rem,1fr)',

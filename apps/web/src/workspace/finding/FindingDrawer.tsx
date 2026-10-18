@@ -55,7 +55,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
   const docked = useDocked()
   // Beside the co-pilot at whatever width the visitor has dragged it to, or at the screen edge when it is hidden.
   const copilotOpen = useLayout((s) => s.copilotOpen)
-  const copilotW = useLayout((s) => s.copilotW)
+  const copilotW = useLayout((s) => s.copilotUsed)
   const view = useWorkspace()
   const { api } = useServices()
   const findingId = useUi((s) => s.findingId)

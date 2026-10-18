@@ -107,7 +107,31 @@ describe('on a window too small for the saved widths', () => {
     expect(gridOf().style.gridTemplateColumns).toBe('160px 6px minmax(22rem,1fr) 6px 260px')
     const lanes = screen.getByRole('separator', { name: 'Resize the agents lane' })
     expect(Number(lanes.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(Number(lanes.getAttribute('aria-valuemax')))
+    // the finding drawer docks against the co-pilot as drawn, not as saved
+    expect(useLayout.getState().copilotUsed).toBe(260)
   })
+})
+
+test('the agents lane toggle sits at the left of the top bar and the co-pilot toggle at the right, each beside its own panel', async () => {
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  const lanes = screen.getByRole('button', { name: 'Agents lane' })
+  const copilot = screen.getByRole('button', { name: 'Co-pilot' })
+  const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
+  expect(lanes.compareDocumentPosition(crumbs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(crumbs.compareDocumentPosition(copilot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
+test('Reset layout hands the keyboard focus on instead of dropping it when the button goes away', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  act(() => useLayout.getState().setLanesW(400))
+  const reset = await screen.findByRole('button', { name: 'Reset panel layout' })
+  reset.focus()
+  await user.keyboard('{Enter}')
+  expect(screen.queryByRole('button', { name: 'Reset panel layout' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Agents lane' })).toHaveFocus()
 })
 
 test('Reset layout appears once the layout is changed, and puts everything back', async () => {

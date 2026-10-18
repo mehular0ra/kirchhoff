@@ -295,6 +295,12 @@ describe('beside the co-pilot', () => {
     expect(screen.getByRole('dialog').style.right).toBe('400px')
   })
 
+  test('it docks against the co-pilot as drawn, when a small window shows it narrower than saved', () => {
+    useLayout.setState({ copilotW: 600, copilotUsed: 350 })
+    renderBesideCoPilot(true)
+    expect(screen.getByRole('dialog').style.right).toBe('350px')
+  })
+
   test('with the co-pilot hidden it opens at the screen edge, still without dimming the page', () => {
     useLayout.getState().toggleCopilot()
     renderBesideCoPilot(true)

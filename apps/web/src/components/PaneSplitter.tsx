@@ -39,12 +39,18 @@ export function PaneSplitter({ label, value, min, max, grow, onChange, onReset, 
     }
   }
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return // a right-click opens a menu that swallows the release: it never starts a drag
     drag.current = { x: e.clientX, width: value }
     e.currentTarget.setPointerCapture?.(e.pointerId)
   }
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current
-    if (d) onChange(clamp(d.width + grow * (e.clientX - d.x)))
+    if (!d) return
+    if (e.buttons === 0) {
+      drag.current = null // the release never arrived: the drag is over
+      return
+    }
+    onChange(clamp(d.width + grow * (e.clientX - d.x)))
   }
   const onPointerEnd = (e: PointerEvent<HTMLDivElement>) => {
     drag.current = null
@@ -66,6 +72,7 @@ export function PaneSplitter({ label, value, min, max, grow, onChange, onReset, 
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
+      onLostPointerCapture={() => (drag.current = null)}
       onDoubleClick={onReset}
       className={cn(
         'group relative z-10 flex w-1.5 shrink-0 cursor-col-resize touch-none select-none items-stretch justify-center outline-none',

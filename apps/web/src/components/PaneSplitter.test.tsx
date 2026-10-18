@@ -65,36 +65,60 @@ test('Enter or a double click puts it back to the usual width', async () => {
 test('dragging with the pointer follows it until it is released', () => {
   const { bar, onChange } = setup()
   fireEvent.pointerDown(bar, { pointerId: 1, clientX: 100 })
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 140 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 140 })
   expect(onChange).toHaveBeenLastCalledWith(296)
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 60 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 60 })
   expect(onChange).toHaveBeenLastCalledWith(216)
   fireEvent.pointerUp(bar, { pointerId: 1, clientX: 60 })
   onChange.mockClear()
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 300 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 300 })
   expect(onChange).not.toHaveBeenCalled()
 })
 
 test('dragging a right-hand panel to the left makes it wider, and to the right narrower', () => {
   const { bar, onChange } = setup({ label: 'Resize the co-pilot', value: 320, min: 260, max: 600, grow: -1 })
   fireEvent.pointerDown(bar, { pointerId: 1, clientX: 500 })
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 460 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 460 })
   expect(onChange).toHaveBeenLastCalledWith(360)
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 530 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 530 })
   expect(onChange).toHaveBeenLastCalledWith(290)
 })
 
 test('a drag is held between the smallest and largest width', () => {
   const { bar, onChange } = setup()
   fireEvent.pointerDown(bar, { pointerId: 1, clientX: 100 })
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 2000 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 2000 })
   expect(onChange).toHaveBeenLastCalledWith(480)
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: -2000 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: -2000 })
   expect(onChange).toHaveBeenLastCalledWith(160)
+})
+
+test('a right-click does not start a drag, so the panel does not follow the mouse afterwards', () => {
+  const { bar, onChange } = setup()
+  fireEvent.pointerDown(bar, { pointerId: 1, button: 2, buttons: 2, clientX: 100 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 0, clientX: 160 })
+  expect(onChange).not.toHaveBeenCalled()
+})
+
+test('a drag ends when a move arrives with no button held (the release was swallowed, e.g. by a menu)', () => {
+  const { bar, onChange } = setup()
+  fireEvent.pointerDown(bar, { pointerId: 1, button: 0, buttons: 1, clientX: 100 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 120 })
+  expect(onChange).toHaveBeenCalledTimes(1)
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 0, clientX: 200 })
+  expect(onChange).toHaveBeenCalledTimes(1)
+})
+
+test('losing the pointer capture ends the drag', () => {
+  const { bar, onChange } = setup()
+  fireEvent.pointerDown(bar, { pointerId: 1, button: 0, buttons: 1, clientX: 100 })
+  fireEvent.lostPointerCapture(bar, { pointerId: 1 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 140 })
+  expect(onChange).not.toHaveBeenCalled()
 })
 
 test('moving over it without pressing does nothing', () => {
   const { bar, onChange } = setup()
-  fireEvent.pointerMove(bar, { pointerId: 1, clientX: 140 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 140 })
   expect(onChange).not.toHaveBeenCalled()
 })
