@@ -1,9 +1,10 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes, useNavigate } from 'react-router'
 import { vi } from 'vitest'
 import vindhya from '@/test/fixtures/vindhya-lv.json'
 import { fakeServices, renderWithProviders, STATIC_FILES } from '@/test/render'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { WorkspacePage } from './WorkspacePage'
 
@@ -18,6 +19,145 @@ test('workspace renders lanes with status text and counters from the static bund
   expect(within(lanes).getByText('Drawing read · DXF agrees')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /Deccan AI Campus · Hall A/ })).toBeInTheDocument()
   expect(screen.getByText('Recorded design')).toBeInTheDocument()
+})
+
+// ---- The side panels can be resized and hidden.
+
+const gridOf = () => screen.getByRole('separator', { name: 'Resize the agents lane' }).parentElement as HTMLElement
+
+beforeEach(() => {
+  localStorage.clear()
+  useLayout.getState().reset()
+})
+
+test('the agents lane and the co-pilot each have a draggable edge, with the canvas between them', async () => {
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  const lanes = screen.getByRole('separator', { name: 'Resize the agents lane' })
+  const copilot = screen.getByRole('separator', { name: 'Resize the co-pilot' })
+  expect(lanes).toHaveAttribute('aria-valuenow', '256')
+  expect(copilot).toHaveAttribute('aria-valuenow', '320')
+  expect(gridOf().style.gridTemplateColumns).toBe('256px 6px minmax(22rem,1fr) 6px 320px')
+})
+
+test('the arrow keys on an edge change that panel\'s width, and the canvas takes the difference', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  screen.getByRole('separator', { name: 'Resize the agents lane' }).focus()
+  await user.keyboard('{ArrowRight}{ArrowRight}')
+  expect(useLayout.getState().lanesW).toBe(288)
+  screen.getByRole('separator', { name: 'Resize the co-pilot' }).focus()
+  await user.keyboard('{ArrowLeft}')
+  expect(useLayout.getState().copilotW).toBe(336)
+  expect(gridOf().style.gridTemplateColumns).toBe('288px 6px minmax(22rem,1fr) 6px 336px')
+})
+
+test('a double click on an edge puts that panel back to its usual width', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  act(() => useLayout.getState().setCopilotW(500))
+  await user.dblClick(screen.getByRole('separator', { name: 'Resize the co-pilot' }))
+  expect(useLayout.getState().copilotW).toBe(320)
+})
+
+test('the top bar hides and shows the agents lane and the co-pilot, and the canvas stays', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  const lanes = screen.getByRole('button', { name: 'Agents lane', pressed: true })
+  const copilot = screen.getByRole('button', { name: 'Co-pilot', pressed: true })
+  await user.click(copilot)
+  expect(screen.queryByRole('complementary', { name: 'Co-pilot' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('separator', { name: 'Resize the co-pilot' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Co-pilot', pressed: false })).toBeInTheDocument()
+  expect(gridOf().style.gridTemplateColumns).toBe('256px 6px minmax(22rem,1fr) 0px 0px')
+  await user.click(lanes)
+  expect(screen.queryByRole('navigation', { name: 'Agent lanes' })).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Canvas' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Agents lane', pressed: false }))
+  await user.click(screen.getByRole('button', { name: 'Co-pilot', pressed: false }))
+  expect(await screen.findByRole('navigation', { name: 'Agent lanes' })).toBeInTheDocument()
+  expect(screen.getByRole('complementary', { name: 'Co-pilot' })).toBeInTheDocument()
+})
+
+test('a hidden co-pilot stays mounted: what was half typed in it is still there when it comes back', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'half a quest')
+  await user.click(screen.getByRole('button', { name: 'Co-pilot', pressed: true }))
+  await user.click(screen.getByRole('button', { name: 'Co-pilot', pressed: false }))
+  // component state (not the global store) survives only if hiding did not unmount the panel
+  expect(screen.getByRole('textbox', { name: 'Ask the co-pilot' })).toHaveValue('half a quest')
+})
+
+describe('on a window too small for the saved widths', () => {
+  const clientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+  afterEach(() => {
+    if (clientWidth) Object.defineProperty(HTMLElement.prototype, 'clientWidth', clientWidth)
+  })
+
+  test('the panels give way so the canvas keeps its minimum, and the separators report the widths in use', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 700 })
+    open()
+    await screen.findByRole('navigation', { name: 'Agent lanes' })
+    // 700 px: the canvas keeps 352, so the lane may be 160 at most and the co-pilot 260 at most
+    expect(gridOf().style.gridTemplateColumns).toBe('160px 6px minmax(22rem,1fr) 6px 260px')
+    const lanes = screen.getByRole('separator', { name: 'Resize the agents lane' })
+    expect(Number(lanes.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(Number(lanes.getAttribute('aria-valuemax')))
+    // the finding drawer docks against the co-pilot as drawn, not as saved
+    expect(useLayout.getState().copilotUsed).toBe(260)
+  })
+})
+
+test('the agents lane toggle sits at the left of the top bar and the co-pilot toggle at the right, each beside its own panel', async () => {
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  const lanes = screen.getByRole('button', { name: 'Agents lane' })
+  const copilot = screen.getByRole('button', { name: 'Co-pilot' })
+  const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
+  expect(lanes.compareDocumentPosition(crumbs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(crumbs.compareDocumentPosition(copilot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
+test('Reset layout hands the keyboard focus on instead of dropping it when the button goes away', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  act(() => useLayout.getState().setLanesW(400))
+  const reset = await screen.findByRole('button', { name: 'Reset panel layout' })
+  reset.focus()
+  await user.keyboard('{Enter}')
+  expect(screen.queryByRole('button', { name: 'Reset panel layout' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Agents lane' })).toHaveFocus()
+})
+
+test('Reset layout appears once the layout is changed, and puts everything back', async () => {
+  const user = userEvent.setup()
+  open()
+  await screen.findByRole('navigation', { name: 'Agent lanes' })
+  expect(screen.queryByRole('button', { name: 'Reset panel layout' })).not.toBeInTheDocument()
+  act(() => {
+    useLayout.getState().setLanesW(400)
+    useLayout.getState().toggleCopilot()
+  })
+  await user.click(await screen.findByRole('button', { name: 'Reset panel layout' }))
+  expect(useLayout.getState()).toMatchObject({ lanesW: 256, copilotOpen: true })
+  expect(screen.queryByRole('button', { name: 'Reset panel layout' })).not.toBeInTheDocument()
+})
+
+test('a what-if laid over the canvas says so above it, and its button goes back to the approved design', async () => {
+  const user = userEvent.setup()
+  open()
+  const canvas = await screen.findByRole('region', { name: 'Canvas' })
+  act(() => useUi.getState().setWhatIf({ result: { param: 'rack_kw', value: 200, findings: [], impact_chain: [] } as never, origin: 'engine' }))
+  const back = await within(canvas).findByRole('button', { name: 'Back to r2 (signed)' })
+  expect(within(canvas).getByRole('status')).toHaveTextContent('What-if on screen: Racks → 200 kW')
+  await user.click(back)
+  expect(useUi.getState().whatIf).toBeNull()
+  expect(within(canvas).queryByRole('button', { name: /^Back to/ })).not.toBeInTheDocument()
 })
 
 test('revision timeline shows fail counts, the signer and switches revisions', async () => {

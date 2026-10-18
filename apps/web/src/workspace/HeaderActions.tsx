@@ -1,10 +1,72 @@
-import { Stamp } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RotateCcw, Stamp } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { approvalFor, latestRevision } from '@/lib/select'
+import { COPILOT_W, LANES_W, useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { AutonomySwitch } from './gates/AutonomySwitch'
 import { useWorkspace } from './WorkspaceContext'
+
+/**
+ * Shows or hides the agents lane: at the left end of the top bar, on the side of the panel it controls. A hidden panel
+ * stays mounted.
+ */
+export function LanesToggle() {
+  const lanesOpen = useLayout((s) => s.lanesOpen)
+  const toggleLanes = useLayout((s) => s.toggleLanes)
+  return (
+    <Button
+      variant="outline"
+      size="icon-sm"
+      data-pane-toggle="lanes"
+      aria-label="Agents lane"
+      aria-pressed={lanesOpen}
+      title={lanesOpen ? 'Hide the agents lane' : 'Show the agents lane'}
+      onClick={toggleLanes}
+    >
+      {lanesOpen ? <PanelLeftClose aria-hidden /> : <PanelLeftOpen aria-hidden />}
+    </Button>
+  )
+}
+
+/**
+ * Shows or hides the co-pilot (at the right end of the top bar, on its own side) and, once the layout is not the usual
+ * one, resets it. Hiding the co-pilot stops a voice session; the panel stays mounted, so its conversation is kept.
+ */
+function CopilotToggle() {
+  const { lanesOpen, copilotOpen, lanesW, copilotW, toggleCopilot, reset } = useLayout()
+  const changed = !lanesOpen || !copilotOpen || lanesW !== LANES_W.def || copilotW !== COPILOT_W.def
+  return (
+    <div role="group" aria-label="Panels" className="flex items-center gap-1">
+      {changed && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Reset panel layout"
+          title="Reset panel layout"
+          onClick={() => {
+            reset()
+            // the button goes away with the reset: hand the keyboard focus to a control that stays
+            document.querySelector<HTMLElement>('[data-pane-toggle="lanes"]')?.focus()
+          }}
+        >
+          <RotateCcw aria-hidden />
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        size="icon-sm"
+        data-pane-toggle="copilot"
+        aria-label="Co-pilot"
+        aria-pressed={copilotOpen}
+        title={copilotOpen ? 'Hide the co-pilot (this also stops voice)' : 'Show the co-pilot'}
+        onClick={toggleCopilot}
+      >
+        {copilotOpen ? <PanelRightClose aria-hidden /> : <PanelRightOpen aria-hidden />}
+      </Button>
+    </div>
+  )
+}
 
 /**
  * Header right side: [Ask|Auto] and [Request sign-off] (spec §12 workspace header). A latest revision
@@ -39,6 +101,7 @@ export function HeaderActions() {
           <Stamp aria-hidden /> Request sign-off
         </Button>
       )}
+      <CopilotToggle />
     </>
   )
 }

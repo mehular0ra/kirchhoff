@@ -24,6 +24,8 @@ export function WhatIfPanel() {
   const { run, revRef, loading, error, clear } = useWhatIf()
   const [param, setParam] = useState<WhatIfParam>('rack_kw')
   const [value, setValue] = useState('')
+  /** Why Run did nothing (no value, or not a number); the engine's own errors come from useWhatIf. */
+  const [hint, setHint] = useState<string | null>(null)
   // The chips run on the head revision unless one was picked in the revision bar (#37): its seed what-ifs.
   const chips = chipsFor(view.bundle.what_ifs.filter((w) => w.revision_ref === revRef))
   // "Show all" belongs to one what-if result; a new result starts collapsed again.
@@ -69,14 +71,22 @@ export function WhatIfPanel() {
         className="flex items-center gap-1.5"
         onSubmit={(e) => {
           e.preventDefault()
-          const v = Number(value)
-          if (value.trim() && Number.isFinite(v)) void run(param, v)
+          // The grey number in the box is only a hint, so Run with nothing typed says what to enter instead of doing nothing.
+          const raw = value.trim()
+          if (!raw) return setHint(`Enter a value for ${paramLabel(param)}, for example ${WHAT_IF_PRESETS.find((c) => c.param === param)?.value ?? 1}.`)
+          const v = Number(raw)
+          if (!Number.isFinite(v)) return setHint(`“${raw}” is not a number.`)
+          setHint(null)
+          void run(param, v)
         }}
       >
         <select
           aria-label="What-if parameter"
           value={param}
-          onChange={(e) => setParam(e.target.value as WhatIfParam)}
+          onChange={(e) => {
+            setParam(e.target.value as WhatIfParam)
+            setHint(null)
+          }}
           className="h-7 rounded border bg-transparent px-1 text-xs"
         >
           {PARAMS.map((p) => (
@@ -90,17 +100,26 @@ export function WhatIfPanel() {
           inputMode="decimal"
           placeholder={String(WHAT_IF_PRESETS.find((c) => c.param === param)?.value ?? '')}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value)
+            setHint(null)
+          }}
           className="h-7 w-20 text-xs"
         />
         <Button size="xs" type="submit" disabled={loading}>
           {loading ? <LoaderCircle aria-hidden className="animate-spin" /> : null} Run
         </Button>
       </form>
-      {error && (
+      {loading && (
+        <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <LoaderCircle aria-hidden className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" />
+          Running the engine… the first run can take a few seconds.
+        </p>
+      )}
+      {(hint ?? error) && (
         <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-700">
           <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
-          <span>{error}</span>
+          <span>{hint ?? error}</span>
         </p>
       )}
       {active && (

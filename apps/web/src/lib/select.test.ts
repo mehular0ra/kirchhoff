@@ -13,9 +13,17 @@ import {
   findingsFor,
   latestRevision,
   relatedElementIds,
+  revisionLabel,
   revisionRef,
   statusByElement,
 } from './select'
+
+test('a revision is named by its short id and status, also for a live run whose ids carry the run id', () => {
+  expect(revisionLabel({ id: 'r2', status: 'signed' })).toBe('r2 (signed)')
+  expect(revisionLabel({ id: 'd99bb3b19525-r2', status: 'checked' })).toBe('r2 (checked)')
+  // only a run id prefix is dropped, never part of a real name
+  expect(revisionLabel({ id: 'hall-b-r2', status: 'draft' })).toBe('hall-b-r2 (draft)')
+})
 
 test('normalised fixture bundle exposes revisions in order and findings per revision', () => {
   const b = fixtureBundle()

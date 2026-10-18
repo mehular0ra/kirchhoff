@@ -13,6 +13,7 @@ from kirchhoff.engine.whatif import PARAM_BOUNDS
 from kirchhoff.runs.deps import Deps
 from kirchhoff.runs.revisions import with_citation_boxes
 
+from . import copilot_log
 from .errors import err
 
 VOICE_MIME = {"audio/webm", "audio/ogg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/mpeg"}
@@ -85,6 +86,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
             return None, err(422, "bad_revision_ref")
 
     @router.post("/api/what-if")
+    @copilot_log.audited("what_if", copilot_log.what_if_fields)
     def what_if(body: WhatIfBody, uid: str = Depends(current_uid)):
         loaded, error = load(uid, body.revision_ref)
         if error:
@@ -120,6 +122,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         return res.model_dump(mode="json")
 
     @router.post("/api/explain")
+    @copilot_log.audited("explain", copilot_log.explain_fields)
     def explain(body: ExplainBody, uid: str = Depends(current_uid)):
         loaded, error = load(uid, body.revision_ref)
         if error:
@@ -131,6 +134,7 @@ def make_router(deps: Deps, current_uid) -> APIRouter:
         return {"text": explain_text(deps, model, finding)}
 
     @router.post("/api/voice")
+    @copilot_log.audited_async("voice", copilot_log.voice_fields)
     async def voice(request: Request, uid: str = Depends(current_uid)):
         # Fix round 1/2, Important #1: FastAPI/Starlette parse the whole multipart body before a route's own
         # File(...)/Form(...) dependencies run, with no cap by default -- on Cloud Run the temp filesystem is

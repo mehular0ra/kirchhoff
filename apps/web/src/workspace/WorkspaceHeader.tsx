@@ -12,6 +12,7 @@ import {
 import { useWorld } from '@/data/useWorld'
 import { buildLanes, signedRevision } from '@/lib/select'
 import type { ReactNode } from 'react'
+import { LanesToggle } from './HeaderActions'
 import { useWorkspace } from './WorkspaceContext'
 
 const SOURCE_LABEL = { static: 'Recorded design', live: 'Live run', replay: 'Replay' } as const
@@ -26,6 +27,7 @@ export function WorkspaceHeader({ actions }: { actions?: ReactNode }) {
   const signed = signedRevision(bundle)
   return (
     <div className="flex h-11 min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-b px-4 text-sm">
+      <LanesToggle />
       <nav aria-label="Breadcrumb" className="flex min-w-40 items-center gap-1 overflow-hidden text-muted-foreground">
         <Link to="/app" className="shrink-0 hover:text-foreground">
           Kirchhoff

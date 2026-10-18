@@ -13,6 +13,11 @@ const ELEMENT = /\b([A-Z]{1,3}\d?-[A-Z]?\d{1,2}(?:-\d{2})?|[A-Z]\d|BOQ|HALL)\b/i
 const RULE = /\b(R\d{2}b?)\b/i
 // Paraphrases of "why" (N1): "What caused FA-01 to fail?", "what is wrong with H-Z2", "any issue on FA-01".
 const PROBLEM = /\b(fail\w*|wrong|caus\w*|issues?|problems?)\b/i
+// Questions about what an element is: "details of R1-01", "what is the power of rack R1-01", "how long is FA-01".
+const DETAILS = /\b(details?|describe|tell me|info(?:rmation)?|what(?:'s| is| are)|how (?:much|many|long|big)|power|load|rating|rated|capacity|feeds?|fed|length)\b/i
+
+// Questions about the whole design: "an overview", "explain the entire workflow of this hall".
+const OVERVIEW = /\b(overview|whole (?:design|hall)|entire|workflow|summary|summari[sz]e|everything|the design)\b/i
 
 export function parseIntent(text: string): Intent | null {
   const t = text.trim()
@@ -27,14 +32,29 @@ export function parseIntent(text: string): Intent | null {
     if (tx) return { tool: 'what_if', param: 'tx_loading_cap_pct', value: Number(tx[1]) }
     return null
   }
-  const el = t.match(ELEMENT)?.[1]?.toUpperCase()
+  // A spoken id arrives with spaces ("r1 - 01", "R 05", "R 04 b"): read it as R1-01, R05, R04b.
+  const spoken = t.replace(/\bR\s*(\d{2})(?:\s?(b)\b)?/gi, 'R$1$2').replace(/\s*-\s*/g, '-')
+  const el = spoken.match(ELEMENT)?.[1]?.toUpperCase()
+  // A rule id on its own (R05) names a check on the design, not an element: explain it, or say what it is. This comes
+  // before the whole-design words, so "why does R05 fail in the design" is about R05.
+  const ruleOnly = spoken.match(RULE)?.[1]
+  if (!el && ruleOnly) {
+    const rule = ruleOnly.toUpperCase().replace('B', 'b')
+    if (/\b(why|explain)\b/i.test(t) || PROBLEM.test(t)) return { tool: 'explain_finding', element: '', rule }
+    if (/^(show|rule|focus|find)\b/i.test(t) || DETAILS.test(t)) return { tool: 'focus_element', element: rule }
+  }
+  // "this hall" is a question about the whole design, not about R06's check target HALL.
+  if ((!el || el === 'HALL') && OVERVIEW.test(t)) return { tool: 'focus_element', element: 'DESIGN' }
   // An explain question either starts with why/explain or names an element together with a problem word.
   if (el && (/^(why|explain)\b/i.test(t) || PROBLEM.test(t))) {
     const rule = t.match(RULE)?.[1]
     return { tool: 'explain_finding', element: el, rule: rule ? rule.toUpperCase().replace('B', 'b') : undefined }
   }
-  if (/^(show|focus|where|zoom|find)\b/i.test(t) && el) return { tool: 'focus_element', element: el }
+  // Showing an element, or asking what it is (its power, rating, feeds, length, capacity): both answer from the model.
+  if (el && (/^(show|focus|where|zoom|find)\b/i.test(t) || DETAILS.test(t))) return { tool: 'focus_element', element: el }
+  // A question about the whole design: the overview.
+  if (OVERVIEW.test(t)) return { tool: 'focus_element', element: 'DESIGN' }
   return null
 }
 
-export const INTENT_HELP = 'Try: “what if racks go to 200 kW”, “why FA-01”, “show H-Z2”.'
+export const INTENT_HELP = 'Try: “what if racks go to 200 kW”, “why FA-01”, “show H-Z2”, “details of R1-01”.'

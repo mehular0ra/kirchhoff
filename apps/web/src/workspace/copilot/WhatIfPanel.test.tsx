@@ -67,6 +67,41 @@ test('other chips call POST /api/what-if with the seed revision ref', async () =
   expect(useUi.getState().whatIf?.origin).toBe('engine')
 })
 
+test('Run with nothing typed says what to enter, with an example, and asks the engine nothing', async () => {
+  const user = userEvent.setup()
+  const api = fakeApi({ whatIf: vi.fn() })
+  renderPanel(fakeServices({ api }))
+  await user.click(screen.getByRole('button', { name: 'Run' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a value for Racks, for example 200.')
+  expect(api.whatIf).not.toHaveBeenCalled()
+  // typing clears the note
+  await user.type(screen.getByLabelText('What-if value'), '1')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('Run with something that is not a number says so', async () => {
+  const user = userEvent.setup()
+  const api = fakeApi({ whatIf: vi.fn() })
+  renderPanel(fakeServices({ api }))
+  await user.type(screen.getByLabelText('What-if value'), 'lots')
+  await user.click(screen.getByRole('button', { name: 'Run' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('“lots” is not a number.')
+  expect(api.whatIf).not.toHaveBeenCalled()
+})
+
+test('while the engine is working the panel says so, and the Run button is busy', async () => {
+  const user = userEvent.setup()
+  let finish: (r: unknown) => void = () => undefined
+  const api = fakeApi({ whatIf: vi.fn(() => new Promise((resolve) => (finish = resolve))) as never })
+  renderPanel(fakeServices({ api }))
+  await user.type(screen.getByLabelText('What-if value'), '180')
+  await user.click(screen.getByRole('button', { name: 'Run' }))
+  expect(await screen.findByRole('status')).toHaveTextContent('Running the engine')
+  expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled()
+  await act(async () => finish({ ...fixtureBundle().what_ifs[0], value: 180 }))
+  expect(screen.queryByRole('status')).not.toBeInTheDocument()
+})
+
 test('an unreachable engine explains that precomputed chips still work', async () => {
   const user = userEvent.setup()
   renderPanel()

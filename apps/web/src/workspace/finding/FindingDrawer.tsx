@@ -9,6 +9,7 @@ import { fillPlaceholders, fmtInput, fmtKeyValue, tidyTokens } from '@/lib/forma
 import { canvasesFor } from '@/lib/model'
 import { ruleName } from '@/lib/status'
 import { useServices } from '@/services/services'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
 import { readFix, type FixView } from './fixView'
@@ -29,7 +30,32 @@ function FixCard({ title, fix, tone }: { title: string; fix: FixView; tone: stri
   )
 }
 
+/** Wide enough for the drawer to open beside the co-pilot column instead of over it. */
+const DOCK_QUERY = '(min-width: 1200px)'
+
+/**
+ * Whether the drawer docks beside the co-pilot. A drawer that covers the co-pilot hides its conversation, its status and
+ * its Stop button at the very moment it opens because of a question asked there; on narrower screens there is no room
+ * beside it, so it stays a modal over the right edge.
+ */
+function useDocked(): boolean {
+  const [docked, setDocked] = useState(() => window.matchMedia?.(DOCK_QUERY).matches ?? false)
+  useEffect(() => {
+    const mq = window.matchMedia?.(DOCK_QUERY)
+    if (!mq) return
+    const update = () => setDocked(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+  return docked
+}
+
 export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
+  const docked = useDocked()
+  // Beside the co-pilot at whatever width the visitor has dragged it to, or at the screen edge when it is hidden.
+  const copilotOpen = useLayout((s) => s.copilotOpen)
+  const copilotW = useLayout((s) => s.copilotUsed)
   const view = useWorkspace()
   const { api } = useServices()
   const findingId = useUi((s) => s.findingId)
@@ -44,8 +70,15 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
   const fix = readFix(f?.fix ?? null, f?.rule_id)
   const rejected = readFix(f?.rejected_fix ?? null, f?.rule_id)
   return (
-    <Sheet open={!!f} onOpenChange={(o) => !o && close()}>
-      <SheetContent side="right" className="w-[28rem] overflow-y-auto sm:max-w-[28rem]">
+    <Sheet open={!!f} onOpenChange={(o) => !o && close()} modal={!docked}>
+      <SheetContent
+        side="right"
+        overlay={!docked}
+        className="w-[28rem] overflow-y-auto sm:max-w-[28rem]"
+        style={docked ? { right: copilotOpen ? copilotW : 0 } : undefined}
+        // Beside the co-pilot, working in it (typing, the mic buttons, reading the conversation) must not close the finding.
+        onInteractOutside={docked ? (e) => e.target instanceof Element && e.target.closest('[aria-label="Co-pilot"]') && e.preventDefault() : undefined}
+      >
         {f && (
           <>
             <SheetHeader>

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { readJson, writeJson } from '@/lib/storage'
+import { useLayout } from '@/store/layout'
 import { TOUR_STEPS } from './tourSteps'
 
 interface Persisted {
@@ -26,7 +27,11 @@ export const useTour = create<TourStore>()((set, get) => {
   }
   return {
     ...initial(),
-    start: () => save({ active: true, step: 0, done: get().done }),
+    // The steps point into the agents lane and the co-pilot: a panel the visitor hid is shown again first.
+    start: () => {
+      useLayout.getState().openAll()
+      save({ active: true, step: 0, done: get().done })
+    },
     next: () => {
       const s = get()
       if (s.step >= TOUR_STEPS.length - 1) save({ active: false, step: 0, done: true })
@@ -40,3 +45,6 @@ export const useTour = create<TourStore>()((set, get) => {
     reload: () => set(initial()),
   }
 })
+
+// A tour resumed after a reload points into the panels too.
+if (useTour.getState().active) useLayout.getState().openAll()
