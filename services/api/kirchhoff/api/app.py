@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI
 from kirchhoff.runs.deps import Deps
 from kirchhoff.store import Store
 
-from . import asset_routes, copilot_routes, files_routes, inbox_routes, runs_routes, workspace_routes
+from . import asset_routes, copilot_log, copilot_routes, files_routes, inbox_routes, runs_routes, workspace_routes
 from .auth import firebase_verify, make_current_uid
 
 VERSION = os.environ.get("K_REVISION", "dev")
@@ -38,6 +38,7 @@ def create_app(store: Store | None = None, verify_token: Callable[[str], str] | 
         from .deps import build_production_deps
         deps = build_production_deps(store)
     store = deps.store
+    copilot_log.configure()  # records the co-pilot's calls only when KIRCHHOFF_LOG_DIR is set
     current_uid = make_current_uid(verify_token or firebase_verify)
     app = FastAPI(title="Kirchhoff API", lifespan=_lifespan)
 
