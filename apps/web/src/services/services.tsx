@@ -17,6 +17,12 @@ export interface LiveVoiceCall {
  * never in an event: the written answer is the engine's.
  */
 export type LiveVoiceEvent = { type: 'heard'; text: string } | { type: 'speaking' } | { type: 'turn_complete' }
+/** One finished Live turn, both sides in full (the model's own words included): for the debug log only, never for the screen. */
+export interface LiveTurnRecord {
+  heard: string
+  said: string
+  interrupted: boolean
+}
 export interface LiveVoiceHandle {
   stop(): Promise<void>
 }
@@ -24,6 +30,8 @@ export type StartLiveVoice = (opts: {
   onToolCall: (call: LiveVoiceCall) => Promise<Record<string, unknown>>
   /** Optional: the transcript and turn boundaries, for the conversation history. */
   onEvent?: (e: LiveVoiceEvent) => void
+  /** Optional: each finished turn in full, for the debug log. */
+  onDebug?: (turn: LiveTurnRecord) => void
 }) => Promise<LiveVoiceHandle>
 
 export interface Services {

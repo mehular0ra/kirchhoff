@@ -1,9 +1,10 @@
 // The co-pilot's history: one card per question, oldest first. Each card keeps together what was asked (typed, or the
 // transcript of what was said), which engine check answered, the engine's answer, and what changed on screen because
 // of it, so a spoken question is never an answer from nowhere. When no engine check ran, the card says so.
-import { Check, CircleX, Cpu, Keyboard, LoaderCircle, Mic, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, CircleX, Cpu, Download, Keyboard, LoaderCircle, Mic, Trash2, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { exportDebugLog } from '@/lib/debugLog'
 import { useConversation, type Turn, type TurnVia } from '@/store/conversation'
 
 const VIA: Record<TurnVia, { label: string; Icon: typeof Mic }> = {
@@ -92,6 +93,17 @@ export function ConversationLog() {
   const turns = useConversation((s) => s.turns)
   const elsewhere = useConversation((s) => Object.keys(s.saved).length > 0)
   const clear = useConversation((s) => s.clear)
+  /** Saves the debug log (every entry, plus the conversation as shown) as one JSON file; the engine's own words and Gemini's. */
+  const download = () => {
+    const { project, turns: shown, saved } = useConversation.getState()
+    const text = exportDebugLog({ project, conversation: { turns: shown, saved } })
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kirchhoff-debug-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
   const listRef = useRef<HTMLOListElement>(null)
   // Keep the newest question in view inside the list, without scrolling the whole side panel.
   useEffect(() => {
@@ -103,14 +115,17 @@ export function ConversationLog() {
     <section aria-label="Conversation history" className="flex flex-col gap-1.5 border-b p-3">
       <div className="flex items-center gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Conversation</h3>
-        {turns.length > 0 && (
-          <>
-            <span className="text-[11px] text-muted-foreground">{`${turns.length} ${turns.length === 1 ? 'question' : 'questions'}`}</span>
-            <Button size="icon-xs" variant="ghost" className="ml-auto" aria-label="Clear conversation" onClick={clear}>
+        {turns.length > 0 && <span className="text-[11px] text-muted-foreground">{`${turns.length} ${turns.length === 1 ? 'question' : 'questions'}`}</span>}
+        <span className="ml-auto flex items-center gap-0.5">
+          <Button size="icon-xs" variant="ghost" aria-label="Download debug log" title="Download the debug log: what was asked, heard and said, and what the engine answered" onClick={download}>
+            <Download aria-hidden />
+          </Button>
+          {turns.length > 0 && (
+            <Button size="icon-xs" variant="ghost" aria-label="Clear conversation" onClick={clear}>
               <Trash2 aria-hidden />
             </Button>
-          </>
-        )}
+          )}
+        </span>
       </div>
       <p className="text-[11px] text-muted-foreground">The engine writes every answer. Voice only chooses which check to run.</p>
       {turns.length === 0 ? (

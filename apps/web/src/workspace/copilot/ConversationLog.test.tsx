@@ -1,11 +1,68 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { clearDebugLog, debugEntries, logDebug } from '@/lib/debugLog'
 import { useConversation } from '@/store/conversation'
 import { ConversationLog } from './ConversationLog'
 
 beforeEach(() => act(() => useConversation.setState({ project: null, turns: [], saved: {} })))
 
 const store = () => useConversation.getState()
+
+describe('the debug log download', () => {
+  let saved: { blob: Blob; name: string } | null
+  beforeEach(() => {
+    saved = null
+    clearDebugLog()
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      saved = { blob: b, name: '' }
+      return 'blob:debug'
+    })
+    URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      if (saved) saved.name = this.download
+    })
+  })
+
+  const text = (b: Blob) =>
+    new Promise<string>((resolve) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result))
+      r.readAsText(b)
+    })
+
+  test('one button downloads the whole record as a JSON file', async () => {
+    const user = userEvent.setup()
+    store().enter('hall-b')
+    const id = store().start('typed', 'show R1-01', 'answered')
+    store().addStep(id, { check: 'Details of R1-01', answer: 'Rack R1-01 (row R1): 132 kW', actions: [] })
+    logDebug('live_turn', { heard: 'What is the power of rack R1-01?', said: 'It has 132 kW.' })
+    render(<ConversationLog />)
+    await user.click(screen.getByRole('button', { name: 'Download debug log' }))
+    expect(saved?.name).toMatch(/^kirchhoff-debug-.*\.json$/)
+    const doc = JSON.parse(await text(saved!.blob))
+    expect(doc).toMatchObject({ app: 'kirchhoff', project: 'hall-b' })
+    expect(doc.conversation.turns[0]).toMatchObject({ asked: 'show R1-01' })
+    expect(doc.entries[0]).toMatchObject({ kind: 'live_turn', said: 'It has 132 kW.' })
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:debug')
+  })
+
+  test('it can be downloaded even before anything was asked on this page, if an earlier page left a record', async () => {
+    const user = userEvent.setup()
+    logDebug('typed', { text: 'earlier' })
+    render(<ConversationLog />)
+    await user.click(screen.getByRole('button', { name: 'Download debug log' }))
+    expect(JSON.parse(await text(saved!.blob)).entries).toHaveLength(1)
+  })
+
+  test('Clear conversation does not throw the debug record away', async () => {
+    const user = userEvent.setup()
+    store().start('typed', 'a', 'working')
+    logDebug('typed', { text: 'a' })
+    render(<ConversationLog />)
+    await user.click(screen.getByRole('button', { name: 'Clear conversation' }))
+    expect(debugEntries()).toHaveLength(1)
+  })
+})
 
 test('with no questions yet it says how to start and shows no list', () => {
   render(<ConversationLog />)

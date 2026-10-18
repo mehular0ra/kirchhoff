@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useChecklist } from '@/onboarding/checklist/checklistStore'
 import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiClient'
-import { ServicesProvider, type LiveVoiceCall, type LiveVoiceEvent, type Services } from '@/services/services'
+import { clearDebugLog, debugEntries } from '@/lib/debugLog'
+import { ServicesProvider, type LiveTurnRecord, type LiveVoiceCall, type LiveVoiceEvent, type Services } from '@/services/services'
 import { useConversation } from '@/store/conversation'
 import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle, type WhatIfResult } from '@/lib/types'
@@ -434,15 +435,22 @@ const turnCards = () => screen.queryAllByRole('listitem').filter((li) => li.hasA
 function liveHarness(api = fakeApi()) {
   let onToolCall: (c: LiveVoiceCall) => Promise<Record<string, unknown>> = async () => ({})
   let onEvent: (e: LiveVoiceEvent) => void = () => undefined
+  let onDebug: (t: LiveTurnRecord) => void = () => undefined
   const services = fakeServices({
     api,
     startLiveVoice: async (o) => {
       onToolCall = o.onToolCall
       onEvent = o.onEvent ?? onEvent
+      onDebug = o.onDebug ?? onDebug
       return { stop: async () => undefined }
     },
   })
-  return { services, call: (c: LiveVoiceCall) => onToolCall(c), emit: (e: LiveVoiceEvent) => act(() => onEvent(e)) }
+  return {
+    services,
+    call: (c: LiveVoiceCall) => onToolCall(c),
+    emit: (e: LiveVoiceEvent) => act(() => onEvent(e)),
+    debug: (t: LiveTurnRecord) => act(() => onDebug(t)),
+  }
 }
 
 async function startLive(user: ReturnType<typeof userEvent.setup>) {
@@ -663,6 +671,87 @@ test('push-to-talk with no engine check behind the reply says so', async () => {
   const convo = await conversation()
   expect(await convo.findByText('No engine check ran')).toBeInTheDocument()
   expect(convo.getByText('No tool answers that question.')).toBeInTheDocument()
+})
+
+// ---- The debug log: what was typed, heard, said and answered, kept for debugging (lib/debugLog.ts).
+
+describe('the debug log', () => {
+  beforeEach(() => clearDebugLog())
+  const kinds = () => debugEntries().map((e) => e.kind)
+
+  test('a typed question is logged with the engine check that ran and the answer it gave', async () => {
+    const user = userEvent.setup()
+    renderPanel(fakeServices(), realHallA())
+    await ask(user, 'show H-Z2')
+    await (await conversation()).findByText(/^Pipe H-Z2/)
+    expect(kinds()).toEqual(['typed', 'tool_result'])
+    expect(debugEntries()[0]).toMatchObject({ text: 'show H-Z2', tool: 'focus_element' })
+    expect(debugEntries()[1]).toMatchObject({ via: 'typed', check: 'Details of H-Z2' })
+    expect(String(debugEntries()[1].answer)).toMatch(/^Pipe H-Z2/)
+  })
+
+  test('a typed question that is not understood is logged too', async () => {
+    const user = userEvent.setup()
+    renderPanel(fakeServices(), realHallA())
+    await ask(user, 'hello')
+    expect(debugEntries()).toEqual([expect.objectContaining({ kind: 'typed', text: 'hello', tool: null })])
+  })
+
+  test('a Live tool call is logged with its arguments, and the engine data it sent back to Gemini', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    expect(kinds()).toEqual(['tool_call', 'tool_response'])
+    expect(debugEntries()[0]).toMatchObject({ via: 'live', name: 'focus_element', args: { element_id: 'R1-01' } })
+    expect(debugEntries()[1]).toMatchObject({ via: 'live', name: 'focus_element', data: { kw: expect.any(Number), kind: 'rack' } })
+  })
+
+  test('a Live turn is logged with both sides in full, Gemini\'s words included, and they stay off the screen', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.debug({ heard: 'What is the power of rack R1-01?', said: 'I am unable to retrieve that.', interrupted: false })
+    expect(debugEntries()).toEqual([
+      expect.objectContaining({ kind: 'live_turn', heard: 'What is the power of rack R1-01?', said: 'I am unable to retrieve that.', interrupted: false }),
+    ])
+    expect(screen.queryByText(/unable to retrieve/)).not.toBeInTheDocument()
+  })
+
+  test('a failing Live tool is logged as an error', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const focus = useUi.getState().focus
+    useUi.setState({
+      focus: () => {
+        throw new Error('boom')
+      },
+    })
+    try {
+      await live.emit({ type: 'heard', text: 'Show FA-01' }) // a render, so the panel picks up the swapped focus
+      await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
+    } finally {
+      useUi.setState({ focus })
+    }
+    expect(kinds()).toEqual(['tool_call', 'tool_error'])
+    expect(debugEntries()[1]).toMatchObject({ via: 'live', name: 'focus_element', error: expect.stringContaining('boom') })
+  })
+
+  test('push-to-talk is logged with what was heard, the tools the server ran, and the answer', async () => {
+    await pushToTalk({
+      transcript: 'Show R1-01',
+      answer: 'Showing R1-01.',
+      tool_results: [{ name: 'focus_element', args: { element_id: 'R1-01' }, result: { focused: 'R1-01' } }],
+    })
+    await (await conversation()).findByText(/^Rack R1-01/)
+    expect(debugEntries()).toEqual([
+      expect.objectContaining({ kind: 'ptt', transcript: 'Show R1-01', answer: 'Showing R1-01.', tools: [{ name: 'focus_element', args: { element_id: 'R1-01' } }] }),
+    ])
+  })
 })
 
 test('the conversation is filed under the project it was had in', () => {

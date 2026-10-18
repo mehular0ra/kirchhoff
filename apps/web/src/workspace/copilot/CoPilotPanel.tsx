@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Revision, WhatIfParam, WhatIfResult } from '@/lib/types'
+import { logDebug } from '@/lib/debugLog'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import type { VoiceResponse } from '@/services/apiClient'
 import { useServices, type LiveVoiceCall, type LiveVoiceEvent } from '@/services/services'
@@ -71,6 +72,7 @@ export function CoPilotPanel() {
     const id = conv().start('typed', q, 'working')
     completeItem('ask_copilot')
     const intent = parseIntent(q)
+    logDebug('typed', { text: q, tool: intent?.tool ?? null })
     if (!intent) {
       conv().setPhase(id, 'unchecked', INTENT_HELP)
       return
@@ -83,9 +85,11 @@ export function CoPilotPanel() {
           : { element_id: intent.element }
     try {
       const out = await executeTool(intent.tool, args, ctxRef.current)
+      logDebug('tool_result', { via: 'typed', name: intent.tool, check: out.check, answer: out.summary })
       conv().addStep(id, { check: out.check, answer: out.summary, actions: out.actions })
       conv().setPhase(id, 'answered')
-    } catch {
+    } catch (err) {
+      logDebug('tool_error', { via: 'typed', name: intent.tool, error: String(err) })
       conv().setPhase(id, 'failed', 'That check could not run.')
     }
   }
@@ -139,13 +143,16 @@ export function CoPilotPanel() {
     open.last = Date.now()
     conv().setPhase(open.id, 'working')
     setActivity('checking')
+    logDebug('tool_call', { via: 'live', name: call.name, args: call.args })
     try {
       const out = await executeTool(call.name, call.args, ctxRef.current)
+      logDebug('tool_response', { via: 'live', name: call.name, check: out.check, answer: out.summary, data: out.data })
       conv().addStep(open.id, { check: out.check, answer: out.summary, actions: out.actions })
       conv().setPhase(open.id, 'answered')
       setActivity('replying')
       return out.data
-    } catch {
+    } catch (err) {
+      logDebug('tool_error', { via: 'live', name: call.name, error: String(err) })
       conv().setPhase(open.id, 'failed', 'That check could not run.')
       setActivity('idle')
       // Answer Gemini instead of throwing: the SDK ends the whole conversation when this handler throws.
@@ -195,6 +202,7 @@ export function CoPilotPanel() {
     // A what-if answer names the revision it ran on, like the typed one: "On r2 (signed): …".
     const onlyElements = res.tool_results.length > 0 && res.tool_results.every((t) => t.name === 'focus_element')
     const answer = whatIfOn ? `On ${revisionLabel(whatIfOn)}: ${res.answer}` : onlyElements ? details.join(' ') : res.answer
+    logDebug('ptt', { transcript: res.transcript, answer: res.answer, tools: res.tool_results.map((t) => ({ name: t.name, args: t.args })) })
     const id = conv().start('ptt', res.transcript || null, 'working')
     if (checks.length > 0) {
       conv().addStep(id, { check: checks.join(' + '), answer, actions })
@@ -205,7 +213,7 @@ export function CoPilotPanel() {
     speak(answer)
   }
 
-  const voice = useVoice({ revisionRef: whatIfRef, onToolCall, onPushToTalk, onLiveEvent })
+  const voice = useVoice({ revisionRef: whatIfRef, onToolCall, onPushToTalk, onLiveEvent, onLiveDebug: (t) => logDebug('live_turn', { ...t }) })
   const pttMode = voice.mode === 'ptt' || voice.mode === 'recording' || voice.mode === 'thinking'
   const micAvailable = canRecord()
   const stopVoice = async () => {

@@ -8,7 +8,7 @@ import { LIVE_MODEL, LIVE_SYSTEM_INSTRUCTION, TOOL_DECLARATIONS } from './liveVo
 
 export { LIVE_MODEL, LIVE_SYSTEM_INSTRUCTION, TOOL_DECLARATIONS }
 
-export const startLiveVoice: StartLiveVoice = async ({ onToolCall, onEvent }) => {
+export const startLiveVoice: StartLiveVoice = async ({ onToolCall, onEvent, onDebug }) => {
   const ai = getAI(app, { backend: new AgentPlatformBackend('us-central1') })
   const model = getLiveGenerativeModel(ai, {
     model: LIVE_MODEL,
@@ -20,7 +20,7 @@ export const startLiveVoice: StartLiveVoice = async ({ onToolCall, onEvent }) =>
   })
   const session = await model.connect()
   // startAudioConversation reads session.receive() itself, so the panel's view of it is tee'd off before it starts.
-  if (onEvent) teeReceive(session, makeLiveObserver(onEvent))
+  if (onEvent || onDebug) teeReceive(session, makeLiveObserver(onEvent ?? (() => undefined), onDebug))
   const controller = await startAudioConversation(session, {
     functionCallingHandler: async (calls) => {
       const call = calls[0]
