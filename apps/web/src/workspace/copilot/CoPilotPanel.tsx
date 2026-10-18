@@ -33,6 +33,8 @@ const REPEAT_WINDOW_MS = 90_000
 const MAX_REPEATS = 3
 /** Words arriving this soon after a card ended without any belong to that card. */
 const LATE_WORDS_MS = 10_000
+/** Once late words have arrived, the next piece of them is accepted within this long. */
+const LATE_PIECE_MS = 3_000
 
 /** What a Live conversation is doing right now, for the status line next to the mic. */
 type LiveActivity = 'idle' | 'hearing' | 'checking' | 'replying'
@@ -107,6 +109,7 @@ export function CoPilotPanel() {
   const liveTurn = useRef<{ id: number; last: number } | null>(null)
   const lastCall = useRef<{ key: string; at: number } | null>(null)
   const repeats = useRef(0)
+  const stopping = useRef(false)
   /** The card that ended without any words, and until when words arriving late still belong to it. */
   const lateWords = useRef<{ id: number; until: number } | null>(null)
   const [activity, setActivity] = useState<LiveActivity>('idle')
@@ -134,6 +137,7 @@ export function CoPilotPanel() {
     if (e.type === 'heard') {
       const open = currentLiveTurn()
       let newQuestion = true // false when these words only complete a card that already has its tool call
+      let lateMerged = false
       if (open) {
         newQuestion = (conv().turns.find((x) => x.id === open.id)?.steps.length ?? 0) === 0
         conv().hear(open.id, e.text)
@@ -146,10 +150,12 @@ export function CoPilotPanel() {
         endLiveTurn(NO_TOOL_NOTE) // a card whose turn end never came is closed before the next one opens
         const card = late && nowMs() <= late.until ? conv().turns.find((x) => x.id === late.id && x.phase !== 'failed') : undefined
         if (card) {
+          // The turn is already over: the words complete the card, which is not re-opened (nothing would close it again),
+          // so the next question starts its own. Further pieces of these words are still accepted for a moment.
           newQuestion = false
+          lateMerged = true
           conv().hear(card.id, e.text)
-          conv().setEnded(card.id, false)
-          liveTurn.current = { id: card.id, last: nowMs() }
+          lateWords.current = { id: card.id, until: nowMs() + LATE_PIECE_MS }
         } else {
           liveTurn.current = { id: conv().start('live', e.text, 'hearing'), last: nowMs() }
         }
@@ -159,7 +165,7 @@ export function CoPilotPanel() {
         lastCall.current = null
         repeats.current = 0
       }
-      setActivity('hearing')
+      setActivity(lateMerged ? 'idle' : 'hearing')
     } else if (e.type === 'speaking') {
       const open = currentLiveTurn()
       const turn = open && conv().turns.find((x) => x.id === open.id)
@@ -180,7 +186,8 @@ export function CoPilotPanel() {
     if (prev && prev.key === key && nowMs() - prev.at < REPEAT_WINDOW_MS) {
       repeats.current += 1
       logDebug('tool_repeat', { name: call.name, args: call.args, count: repeats.current })
-      if (repeats.current >= MAX_REPEATS) {
+      if (repeats.current >= MAX_REPEATS && !stopping.current) {
+        stopping.current = true // more repeats while the shutdown is under way add neither a card nor a second stop
         const id = conv().start('live', null, 'failed')
         conv().setPhase(id, 'failed', REPEATING_NOTE)
         conv().setEnded(id, true)
@@ -209,6 +216,7 @@ export function CoPilotPanel() {
       setActivity('replying')
       return out.data
     } catch (err) {
+      lastCall.current = null // a call that failed was not answered: Gemini's retry must run
       logDebug('tool_error', { via: 'live', name: call.name, error: String(err) })
       conv().setPhase(open.id, 'failed', 'That check could not run.')
       setActivity('idle')
@@ -312,6 +320,7 @@ export function CoPilotPanel() {
       lastCall.current = null
       repeats.current = 0
       lateWords.current = null
+      stopping.current = false
     }
   }, [voice.mode])
   // Live's activity is only shown while Live is on (starting it again begins from idle).

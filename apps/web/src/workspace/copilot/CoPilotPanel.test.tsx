@@ -695,6 +695,49 @@ describe('Live: a model that repeats itself', () => {
     expect(again).toMatchObject({ already_answered: true })
   })
 
+  test('more repeats while it is already stopping add no second card and no second stop', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    live.stop.mockImplementation(() => new Promise(() => undefined)) // a shutdown that takes a while
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    for (let i = 0; i < 7; i++) await callWhy(live)
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    expect(live.stop).toHaveBeenCalledTimes(1)
+    expect(useConversation.getState().turns.filter((t) => t.phase === 'failed')).toHaveLength(1)
+  })
+
+  test('a call that failed is not counted as answered: Gemini\'s retry runs', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'show FA-01' })
+    const focus = useUi.getState().focus
+    useUi.setState({
+      focus: () => {
+        throw new Error('boom')
+      },
+    })
+    await act(async () => void 0) // a render, so the panel picks up the swapped focus
+    let first: Record<string, unknown> = {}
+    try {
+      await act(async () => {
+        first = await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })
+      })
+    } finally {
+      act(() => useUi.setState({ focus })) // the real focus again, no new words in between
+    }
+    expect(first).toEqual({ error: 'unavailable' })
+    let retry: Record<string, unknown> = {}
+    await act(async () => {
+      retry = await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })
+    })
+    expect(retry).not.toHaveProperty('already_answered')
+    expect(retry).toMatchObject({ element_id: 'FA-01' })
+  })
+
   test('after three repeats the voice conversation is stopped, and the history says why', async () => {
     const user = userEvent.setup()
     const live = liveHarness()
@@ -718,6 +761,46 @@ test('Live starts with facts about the design from the engine, so a general ques
 
 describe('Live: late words', () => {
   afterEach(() => vi.restoreAllMocks())
+
+  test('complete a card that is already finished: it is not re-opened, so the next question starts its own card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'what is the power ' }) // the words arrive in pieces, late
+    await live.emit({ type: 'heard', text: 'of R1-01' })
+    expect(useConversation.getState().turns).toHaveLength(1)
+    expect(useConversation.getState().turns[0]).toMatchObject({ asked: 'what is the power of R1-01', ended: true })
+    expect(screen.getByText('Listening (Gemini Live)')).toBeInTheDocument() // not stuck on "Hearing you…"
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 5_000)
+    await live.emit({ type: 'heard', text: 'what about R05' }) // the next question
+    const turns = useConversation.getState().turns
+    expect(turns).toHaveLength(2)
+    expect(turns[0].asked).toBe('what is the power of R1-01') // not "…of R1-01what about R05"
+    expect(turns[1].asked).toBe('what about R05')
+  })
+
+  test('the same question again right after late words is a new question with its own answer, or a caught repeat, not a mix', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await act(async () => void (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })))
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 5_000)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    expect(useConversation.getState().turns).toHaveLength(2)
+    let again: Record<string, unknown> = {}
+    await act(async () => {
+      again = await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+    })
+    expect(again).not.toHaveProperty('already_answered') // words were heard this time: a real second question
+  })
 
   test('belong to the card made without words only for a few seconds: the next question is a new card', async () => {
     const user = userEvent.setup()
