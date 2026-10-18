@@ -26,7 +26,7 @@ const NODES: [number, number][] = [
 const STEPS = [
   { t: 'Agents design', d: 'Gemini agents read the tender with verified citations and design power and cooling together.', Icon: Bot, chip: 'bg-blue-600 text-white' },
   { t: 'Physics checks', d: 'A deterministic rule pack checks every number; the AI cannot mark its own homework.', Icon: ShieldCheck, chip: 'bg-amber-400 text-zinc-950' },
-  { t: 'An engineer signs', d: 'You decide at each gate, sign the revision, and PRs and the CRM update follow.', Icon: PenLine, chip: 'bg-emerald-700 text-white' },
+  { t: 'An engineer signs', d: 'You decide at each gate, sign the revision, and the purchase requisitions and the CRM update follow.', Icon: PenLine, chip: 'bg-emerald-700 text-white' },
 ] as const
 
 /** The three areas of the screenshot, left to right, each with the icon its card carries. */
@@ -78,8 +78,8 @@ const GOOGLE_STACK = [
 const FEATURES = [
   { t: 'Reads the tender and quotes it back', d: 'A requirement counts only if its quote is found on the tender page. Where the documents contradict each other, it asks you instead of guessing.', Icon: FileSearch },
   { t: 'Designs power and cooling together', d: 'Layout, power, cooling and procurement agents share one model of the hall, so a pipe routed over a live feeder is caught as a clash.', Icon: Layers },
-  { t: 'Answers what if', d: 'Change a rack load or a limit, by typing or by voice, and see which checks fail and which feeders and pipes are affected.', Icon: MessageCircleQuestion },
-  { t: 'Plans around your supply chain', d: 'Lead times and stock come from the ERP. A part that cannot arrive in time is swapped for one in stock, and the swap is shown on the option card.', Icon: Truck },
+  { t: 'Answers what if', d: 'Change a rack load or a limit and see which checks fail and which feeders and pipes are affected.', Icon: MessageCircleQuestion },
+  { t: 'Plans around lead times', d: 'In this demo, lead times and stock come from a simulated ERP. A part that cannot arrive in time is swapped for one in stock, and the swap is shown on the option card.', Icon: Truck },
   { t: 'Hands off once signed', d: 'The signed revision gets a hash. Purchase requisitions go to the ERP, the calc report is filed and the CRM stage moves. In this demo those systems are sandboxes.', Icon: Stamp },
 ] as const
 

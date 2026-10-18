@@ -117,7 +117,7 @@ export function WhatIfPanel() {
         </p>
       )}
       {(hint ?? error) && (
-        <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-700">
+        <p role="alert" className="flex items-start gap-1.5 text-xs text-amber-800">
           <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
           <span>{hint ?? error}</span>
         </p>
@@ -125,7 +125,7 @@ export function WhatIfPanel() {
       {active && (
         <div className="flex flex-col gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs" aria-live="polite">
           <div className="flex items-center gap-2">
-            <span className="whitespace-nowrap font-medium text-amber-700">{chipLabel(active.result)}</span>
+            <span className="whitespace-nowrap font-medium text-amber-800">{chipLabel(active.result)}</span>
             {/* The overlay is always drawn on the revision it was computed for (M13, #37), so this names that one. */}
             <span className="text-muted-foreground">
               {revisionLabel(view.rev)} · not saved · {active.origin === 'precomputed' ? 'precomputed by the engine' : 'engine, just now'}

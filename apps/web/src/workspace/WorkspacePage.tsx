@@ -126,7 +126,7 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
         <RunBar replay={data.replay} controls={data.controls} />
         {data.status === 'error' && data.error && (
           // M2: a live listener that fails after the first snapshot is no longer silent.
-          <p role="alert" className="flex items-center gap-1.5 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700">
+          <p role="alert" className="flex items-center gap-1.5 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-800">
             <TriangleAlert aria-hidden className="size-3.5 shrink-0" /> Live updates stopped ({data.error}). Reload to reconnect; what is shown is the last state received.
           </p>
         )}
