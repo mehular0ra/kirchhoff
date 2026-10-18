@@ -101,7 +101,7 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
   ].join(' ')
   return (
     <div ref={gridRef} className="grid min-h-0 overflow-x-auto" style={{ gridTemplateColumns: columns }}>
-      <aside hidden={!lanesOpen} style={{ gridColumn: 1 }} className={`${lanesOpen ? 'flex' : ''} min-h-0 min-w-0 flex-col overflow-hidden`}>
+      <aside hidden={!lanesOpen} style={{ gridColumn: 1 }} className={`${lanesOpen ? 'flex' : ''} min-h-0 min-w-0 flex-col overflow-hidden border-r border-[var(--glass-edge)] bg-[var(--glass)] backdrop-blur-md`}>
         <div className="min-h-0 flex-1">
           <AgentLanes />
         </div>
@@ -126,7 +126,7 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
         <RunBar replay={data.replay} controls={data.controls} />
         {data.status === 'error' && data.error && (
           // M2: a live listener that fails after the first snapshot is no longer silent.
-          <p role="alert" className="flex items-center gap-1.5 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700">
+          <p role="alert" className="flex items-center gap-1.5 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-800">
             <TriangleAlert aria-hidden className="size-3.5 shrink-0" /> Live updates stopped ({data.error}). Reload to reconnect; what is shown is the last state received.
           </p>
         )}
@@ -148,7 +148,7 @@ function WorkspacePanes({ data, panes }: { data: ProjectData; panes: Record<Canv
           className="[grid-column:4]"
         />
       )}
-      <aside aria-label="Co-pilot" hidden={!copilotOpen} style={{ gridColumn: 5 }} className="min-h-0 min-w-0 overflow-y-auto">
+      <aside aria-label="Co-pilot" hidden={!copilotOpen} style={{ gridColumn: 5 }} className="min-h-0 min-w-0 overflow-y-auto border-l border-[var(--glass-edge)] bg-[var(--glass)] backdrop-blur-md">
         <CoPilotPanel />
       </aside>
     </div>

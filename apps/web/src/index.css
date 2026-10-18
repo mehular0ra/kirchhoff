@@ -27,12 +27,31 @@
   --brand: #2563eb;
   --brand-foreground: #ffffff;
   --destructive: #e11d48;
-  --border: #e5e7eb;
-  --input: #d9dce1;
+  --border: #cdd6e4; /* a blue-grey hairline (was #e5e7eb, 1.2:1 on white): cards, panels, tables and tabs read as boxes */
+  --input: #a9b5ca; /* form controls: a stronger edge than a card */
   --ring: #2563eb;
+
+  /* Glass direction (light only). A cool "blueprint" canvas carries soft blue (cooling) and amber (power) washes; panels over it are
+     frosted white. --wash-* are the strongest the backdrop gets, so the contrast test (theme.contrast.test.ts) checks text on glass
+     against them. Text on glass stays at foreground, muted-foreground and brand-text (no new text colours, only surfaces). */
+  --canvas: #edf2fb;
+  --wash-blue: #bfd3f8;
+  --wash-amber: #efe4d3;
+  --glass: rgb(255 255 255 / 0.66);
+  --glass-strong: rgb(255 255 255 / 0.86);
+  --glass-edge: rgb(30 58 138 / 0.18);
+  --glass-hi: rgb(255 255 255 / 0.95);
+  --brand-text: #1d4ed8;
+  --trace-blue: #1d4ed8;
+  --trace-amber: #b45309;
 }
 
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-edge: var(--glass-edge);
+  --color-brand-text: var(--brand-text);
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
   --radius-sm: calc(var(--radius) - 4px);
@@ -120,4 +139,40 @@ html[data-present="1"] [data-dev] {
   --xy-controls-button-color: #3f3f46;
   --xy-controls-button-color-hover: #0b0d10;
   --xy-controls-button-border-color: #e5e7eb;
+}
+
+/* Glass: frosted white over the blueprint canvas, a blue-tinted hairline, an inner top highlight and a soft blue shadow.
+   Static (no animation) and only on panels that do not sit over the WebGL canvas, so it costs nothing at runtime. */
+@utility glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 10px 30px -14px rgb(30 58 138 / 0.35), 0 1px 2px rgb(15 23 42 / 0.06);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+}
+@utility glass-strong {
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 14px 36px -16px rgb(30 58 138 / 0.4), 0 1px 2px rgb(15 23 42 / 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+}
+/* No backdrop-filter (old browsers, some print/pdf paths): an opaque near-white surface keeps the same contrast. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-strong {
+    background: #f8fafd;
+  }
+}
+
+/* The page backdrop: canvas colour, a blue wash (cooling) top left, an amber wash (power) top right, an indigo haze below, and a faint
+   dot grid like engineering paper. The strongest wash is --wash-blue / --wash-amber, which the contrast test uses. */
+@utility blueprint {
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 12% 0%, rgb(37 99 235 / 0.22), transparent 62%),
+    radial-gradient(ellipse 60% 50% at 95% 8%, rgb(245 158 11 / 0.16), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 70% 100%, rgb(99 102 241 / 0.12), transparent 60%),
+    radial-gradient(rgb(30 58 138 / 0.16) 1px, transparent 1.2px);
+  background-size: auto, auto, auto, 24px 24px;
 }

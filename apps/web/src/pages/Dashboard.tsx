@@ -30,7 +30,7 @@ function ProjectCard({ p, nowMs, recordedRun }: { p: Project; nowMs: number; rec
   return (
     <article
       data-tour={p.id === 'hall-b' ? 'hall-b' : undefined}
-      className="group relative flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-xs transition-[border-color,box-shadow] hover:border-zinc-300 hover:shadow-sm"
+      className="glass group relative flex flex-col gap-2 rounded-xl p-4 transition-[background-color,box-shadow] hover:bg-white/90 hover:shadow-[inset_0_1px_0_var(--glass-hi),0_16px_36px_-14px_rgb(30_58_138/0.45)]"
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-medium text-foreground">
@@ -80,7 +80,7 @@ function InboxEntry() {
     <Link
       to="/app/inbox"
       data-tour="inbox"
-      className="flex items-center gap-2 self-start rounded-lg border bg-card px-3 py-2 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] hover:border-zinc-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-blue-600"
+      className="glass-strong flex items-center gap-2 self-start rounded-xl px-3 py-2 text-sm text-foreground transition-[background-color,box-shadow] hover:bg-white focus-visible:outline-2 focus-visible:outline-blue-600"
     >
       <Inbox aria-hidden className="size-4 text-blue-700" />
       {data ? `Bids inbox · ${unreadCount(data, read)} new` : 'Bids inbox'}
@@ -132,7 +132,7 @@ export function Dashboard() {
       </section>
       <aside data-dashboard-side className="flex flex-col gap-6">
         <Checklist docked />
-        <section aria-labelledby="activity-h">
+        <section aria-labelledby="activity-h" className="glass rounded-xl p-3">
           <h2 id="activity-h" className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Activity
           </h2>
@@ -145,7 +145,7 @@ export function Dashboard() {
             ))}
           </ol>
         </section>
-        <section aria-labelledby="team-h">
+        <section aria-labelledby="team-h" className="glass rounded-xl p-3">
           <h2 id="team-h" className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Team
           </h2>

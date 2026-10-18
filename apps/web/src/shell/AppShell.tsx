@@ -24,7 +24,7 @@ export function AppShell() {
   const openHelp = useCallback(() => setHelp(true), [])
   useShortcuts(openHelp)
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="blueprint flex h-dvh flex-col">
       <a
         href="#main"
         className="sr-only z-[80] rounded bg-foreground px-3 py-1.5 text-sm text-background focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
@@ -32,8 +32,9 @@ export function AppShell() {
         Skip to content
       </a>
       <DemoBanner />
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b px-4 sm:gap-6">
-        <Link to="/app" className="flex items-center gap-2 font-semibold tracking-tight">
+      <header className="z-20 flex h-11 shrink-0 items-center gap-3 border-b border-[var(--glass-edge)] bg-[var(--glass-strong)] px-4 shadow-[0_8px_24px_-16px_rgb(30_58_138/0.4)] backdrop-blur-xl backdrop-saturate-150 sm:gap-6">
+        {/* The logo goes back to the landing page; "Projects" in the nav is the way to the dashboard. */}
+        <Link to="/" title="Back to the Kirchhoff landing page" className="flex items-center gap-2 rounded font-semibold tracking-tight">
           <KirchhoffMark />
           Kirchhoff
         </Link>
@@ -44,7 +45,10 @@ export function AppShell() {
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
-                cn('rounded px-2 py-1 whitespace-nowrap text-muted-foreground hover:text-foreground', isActive && 'bg-accent text-foreground')
+                cn(
+                  'rounded px-2 py-1 whitespace-nowrap text-muted-foreground hover:bg-white/70 hover:text-foreground',
+                  isActive && 'bg-brand/10 font-medium text-brand-text hover:bg-brand/10 hover:text-brand-text',
+                )
               }
               aria-label={n.short ? n.label : undefined}
             >

@@ -39,8 +39,8 @@ export function Checklist({ docked = false }: { docked?: boolean }) {
       className={cn(
         'text-sm',
         docked
-          ? 'rounded-lg border bg-card shadow-xs'
-          : 'shrink-0 border-t bg-card md:fixed md:bottom-14 md:left-3 md:z-40 md:w-64 md:rounded-lg md:border md:bg-popover md:shadow-xl',
+          ? 'glass-strong rounded-xl'
+          : 'shrink-0 border-t bg-card md:fixed md:bottom-14 md:left-3 md:z-40 md:w-64 md:rounded-xl md:border md:border-[var(--glass-edge)] md:bg-[var(--glass-strong)] md:shadow-xl md:backdrop-blur-xl',
       )}
     >
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2">

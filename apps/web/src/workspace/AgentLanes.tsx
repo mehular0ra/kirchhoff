@@ -29,7 +29,7 @@ import { useWorkspace } from './WorkspaceContext'
 const LANE_STATUS: Record<LaneStatus, { label: string; icon: LucideIcon; cls: string }> = {
   idle: { label: 'Waiting', icon: CircleDot, cls: 'text-muted-foreground' },
   running: { label: 'Working', icon: LoaderCircle, cls: 'text-blue-700' },
-  waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-700' },
+  waiting: { label: 'At gate', icon: Hand, cls: 'text-amber-800' },
   done: { label: 'Done', icon: CircleCheck, cls: 'text-emerald-700' },
   failed: { label: 'Failed', icon: CircleX, cls: 'text-rose-700' },
 }

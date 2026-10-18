@@ -1,9 +1,10 @@
 // 3D hall (spec §12): instanced racks, tube busways/feeders/pipes on their tiers, columns,
 // keep-out volume, CDU bays; coloured by finding status with icon+text labels; click → finding.
-import { Edges, Grid, Instance, Instances, OrbitControls } from '@react-three/drei'
+import { Edges, Grid, Instance, Instances, Line, OrbitControls } from '@react-three/drei'
+import { boundaryLoop, boundaryWalls } from './hallBoundary'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { EmptyState } from '@/components/Labels'
 import { CHAIN_COLORS } from '@/lib/agents'
@@ -14,6 +15,7 @@ import { useUi } from '@/store/ui'
 import { Legend } from '../Legend'
 import { legendKeys } from '../legendKeys'
 import { useWorkspace, type WorkspaceView } from '../WorkspaceContext'
+import { centreHall, openingCamera } from './hallCamera'
 import { buildLabels, layoutLabels, type LayoutItem, type SceneLabel } from './hallLabels'
 import { buildHallScene, midpoint, resample, type HallScene, type SceneBox, type SceneTube, type V3 } from './hallScene'
 import { useTubeGeometry } from './useTubeGeometry'
@@ -32,7 +34,7 @@ const BASE = {
   cdu: '#8bb8f2',
 } as const
 // The stage behind the transparent canvas: a soft top-lit studio wash (white to cool grey).
-const STAGE = 'radial-gradient(120% 90% at 50% 15%, #ffffff 0%, #f4f6f9 55%, #e8ecf1 100%)'
+const STAGE = 'radial-gradient(120% 90% at 50% 12%, #ffffff 0%, #eef3fb 50%, #d9e4f6 100%)'
 const SCENE = {
   floor: '#eceff3',
   gridCell: '#d9dee5',
@@ -44,6 +46,8 @@ const SCENE = {
   bayEdge: '#0284c7',
   rackOutline: '#334155',
   cduEdge: '#1e40af',
+  boundary: '#1e3a8a', // the hall's outline on the floor and the edges of its low perimeter walls
+  wall: '#bcd0f2',
 } as const
 const DIM = '#cfd5dd'
 const RESOLVED = '#10b981'
@@ -262,6 +266,29 @@ function HallLabelOverlay({ labels, els, leaders }: { labels: SceneLabel[]; els:
   )
 }
 
+/**
+ * The opening view: steps the camera back on a narrow stage so the hall boundary is not cropped, then pans it so the hall is centred in the frame (equal margins
+ * above and below, left and right). Once: the pan needs the orbit controls' target, which register a frame after mount, so it runs when they appear and never
+ * again, and it never fights the person's orbit.
+ */
+function FitHall({ scene }: { scene: HallScene }) {
+  const { camera, size, controls } = useThree()
+  const fitted = useRef(false)
+  const { w, d } = scene.hall
+  useLayoutEffect(() => {
+    if (fitted.current || !(camera instanceof THREE.PerspectiveCamera)) return
+    const aspect = size.width / Math.max(1, size.height)
+    camera.position.set(...openingCamera(w, d, aspect))
+    camera.updateProjectionMatrix()
+    const ctrl = controls as unknown as { target: THREE.Vector3; update(): void } | null
+    if (!ctrl) return
+    centreHall(camera, ctrl.target, w, d)
+    ctrl.update()
+    fitted.current = true
+  }, [camera, controls, size.width, size.height, w, d])
+  return null
+}
+
 function CameraRig({ scene, focusAt, coldOpenAt }: { scene: HallScene; focusAt: V3 | null; coldOpenAt: V3 | null }) {
   const { camera, controls } = useThree()
   const reduce = useReducedMotion()
@@ -365,6 +392,15 @@ function HallScene3D({
         <meshBasicMaterial color={SCENE.floor} />
       </mesh>
       <Grid position={[0, 0.01, 0]} args={[scene.hall.w, scene.hall.d]} cellSize={1.2} sectionSize={12} cellColor={SCENE.gridCell} sectionColor={SCENE.gridSection} fadeDistance={160} />
+      {/* The hall boundary: a bold outline on the floor and four low translucent perimeter walls, so the edge of the hall reads at a glance. */}
+      <Line points={boundaryLoop(scene.hall.w, scene.hall.d)} color={SCENE.boundary} lineWidth={2.5} />
+      {boundaryWalls(scene.hall.w, scene.hall.d).map((w) => (
+        <mesh key={w.id} position={w.center}>
+          <boxGeometry args={w.size} />
+          <meshStandardMaterial color={SCENE.wall} transparent opacity={0.45} depthWrite={false} />
+          <Edges color={SCENE.boundary} />
+        </mesh>
+      ))}
       {scene.rooms.map((r) => (
         <mesh key={r.id} position={pos(r.center)}>
           <boxGeometry args={size(r.size)} />
@@ -435,6 +471,7 @@ function HallScene3D({
       ))}
       <LabelLayout labels={labels} els={labelEls} leaders={leaders} pos={pos} />
       <OrbitControls makeDefault target={[0, 1.5, 0]} maxPolarAngle={Math.PI / 2.1} />
+      <FitHall scene={scene} />
       <CameraRig scene={scene} focusAt={focusAt} coldOpenAt={coldOpenAt} />
     </>
   )
@@ -517,8 +554,9 @@ export default function HallView() {
   if (!scene) return <EmptyState title="No revision yet">The 3D hall is built from the first checked revision.</EmptyState>
   if (!webgl) return <EmptyState tone="error" title="3D needs WebGL">Your browser has WebGL disabled; the SLD and Matrix tabs show the same design.</EmptyState>
   return (
-    <div className="relative h-full w-full" role="figure" aria-label="3D hall" style={{ background: STAGE }}>
-      <Canvas flat camera={{ position: [scene.hall.w * 0.45, scene.hall.w * 0.5, scene.hall.d * 1.15], fov: 40, near: 0.1, far: 500 }} dpr={[1, 2]}>
+    <div className="relative h-full w-full ring-1 ring-inset ring-[var(--glass-edge)]" role="figure" aria-label="3D hall" style={{ background: STAGE }}>
+      {/* The opening view frames the whole hall, so its boundary is in the picture (it used to crop to the equipment). */}
+      <Canvas flat camera={{ position: [scene.hall.w * 0.62, scene.hall.w * 0.68, scene.hall.d * 1.5], fov: 40, near: 0.1, far: 500 }} dpr={[1, 2]}>
         <HallScene3D scene={scene} labels={labels} labelEls={labelEls} leaders={leaders} />
       </Canvas>
       <HallLabelOverlay labels={labels} els={labelEls} leaders={leaders} />

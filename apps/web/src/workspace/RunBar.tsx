@@ -115,7 +115,7 @@ function LiveBar() {
       )
     // M2: a stale ?run= link, a reset workspace or another visitor's run never appears.
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700">
+      <div role="alert" className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-3 py-1.5 text-xs text-amber-800">
         <span className="inline-flex items-center gap-1.5">
           <CircleX aria-hidden className="size-3.5" /> This run is not in your workspace: it may have been reset, or belong to another visitor.
         </span>

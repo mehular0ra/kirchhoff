@@ -65,7 +65,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
       </div>
       <ul className="grid grid-cols-2 gap-2 text-xs">
         {INPUTS.map((i) => (
-          <li key={i.name} className="flex items-center gap-2 rounded border bg-card px-2 py-1.5">
+          <li key={i.name} className="glass flex items-center gap-2 rounded-lg px-2.5 py-2">
             <FileText aria-hidden className="size-4 text-muted-foreground" />
             <span className="text-foreground">{i.name}</span>
             <span className="ml-auto truncate font-mono text-muted-foreground">{i.file}</span>
@@ -81,7 +81,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
         }}
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
-        className={`flex flex-col items-center gap-1 rounded-lg border border-dashed p-6 text-center text-sm ${over ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-300'}`}
+        className={`flex flex-col items-center gap-1 rounded-xl border-2 border-dashed p-6 text-center text-sm backdrop-blur-md ${over ? 'border-blue-600 bg-blue-500/15' : 'border-blue-300 bg-[var(--glass)]'}`}
       >
         <Upload aria-hidden className="size-5 text-muted-foreground" />
         Drop the tender PDF and drawing here to start
@@ -93,7 +93,7 @@ export function StartRunPanel({ project, onStarted }: { project: Project | null;
           {busy ? <LoaderCircle aria-hidden className="animate-spin" /> : <Zap aria-hidden />} Start live run
         </Button>
         {recorded === true && (
-          <Button asChild variant="ghost">
+          <Button asChild variant="glass">
             <Link to="/app/p/hall-a?replay=1">
               <CirclePlay aria-hidden /> Replay a recorded run
             </Link>
