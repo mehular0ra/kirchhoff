@@ -1,7 +1,8 @@
 // A local record of what happened in the co-pilot, for debugging a conversation afterwards: what was typed, heard and
 // said, which engine checks ran and what they returned. Gemini's own words are kept here (they are the only place they
-// can be saved, because only the browser hears them) but never shown on screen: the written answer is the engine's
-// (spec §6.3). It stays in this browser's localStorage until the visitor downloads or clears it.
+// can be saved, because only the browser hears them) but not shown on screen unless the visitor switches on "Show what
+// Gemini said" (default off): the written answer is the engine's (spec §6.3). It stays in this browser's localStorage
+// until the visitor downloads or clears it.
 import { readJson, writeJson } from '@/lib/storage'
 
 const KEY = 'debuglog'
