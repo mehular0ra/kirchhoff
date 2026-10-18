@@ -46,7 +46,7 @@ const BEATS: Beat[] = [
       await ready(page)
       await page.getByRole('textbox', { name: 'Ask the co-pilot' }).fill('Show me H-Z2')
       await page.getByRole('button', { name: 'Send' }).click()
-      await text(page, 'Showing H-Z2.')
+      await text(page, /^Pipe H-Z2 \(header, DN\d+\) in zone Z2/) // the engine's record of the pipe, then its checks
       await text(page, /Tender §6\.3\.4/)
       await hold(page, 5_000) // the fly-in and the clause chip
     },

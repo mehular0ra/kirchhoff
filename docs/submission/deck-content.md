@@ -64,7 +64,7 @@ Kirchhoff turns weeks of scarce senior-engineer work into one reviewed, signed d
 
 Meet Priya, our persona: lead electrical engineer at a data-centre EPC contractor, with a small team and several hall packages due this month. Today she drafts. With Kirchhoff she reviews.
 
-Here is the flow. Gemini agents read the tender, cite every requirement, and flag where the client contradicts itself. They lay out 48 racks of 132 kW in a 60 × 36 m hall, then design the 2N power chain and the liquid-cooling loop together. Procurement reads the ERP, and when a transformer can't ship in time, the engine swaps it for one that can. A deterministic checker, with no LLM in the verdict path, runs the clause-cited rule pack. The agents fix what fails, and the engineer signs. Approval raises purchase requisitions in the ERP and moves the deal in the CRM.
+Here is the flow. It starts in the bids inbox, where an agent reads the tender email and decides whether to pursue. Gemini agents then read the tender, cite every requirement, and flag where the client contradicts itself. They lay out 48 racks of 132 kW in a 60 × 36 m hall, then design the 2N power chain and the liquid-cooling loop together. Procurement reads the ERP, and when a transformer can't ship in time, the engine swaps it for one that can. A deterministic checker, with no LLM in the verdict path, runs the clause-cited rule pack. The agents fix what fails, and the engineer signs. Approval raises purchase requisitions in the ERP and moves the deal in the CRM.
 
 This maps onto the theme. Knowledge: every number links to its tender sentence and its clause. Collaboration: humans and agents share one workspace. Decisions: costed options and what-ifs come before you commit. Workflow: the path runs from tender PDF to signed revision to purchase requisitions to the CRM update. In short, one senior engineer supervises a team of design agents.
 
@@ -116,25 +116,26 @@ Comparison grid on a light background. Use ✓ for "shown" and a grey "not shown
 
 **On-slide copy**
 
-- Tender intake with verified quotes
+- Bids inbox and verified tender intake
 - Power and liquid cooling, one model
 - Clause-cited checker: R01–R15, R04b
 - ERP lead-time-aware redesign
 - What-if impact chains
-- Live voice co-pilot
+- Voice and text co-pilot, engine answers
 - Review and sign-off with revision hash
 - ERP and CRM handoff
 - Grid and Solar asset packs
 
 **Speaker notes**
 
+- **Bids inbox.** A tender starts as an email in a simulated mailbox. The inbox agent reads the mail and its attachments, pulls out the client, site, load and bid date, and shows the source of each quote (the email body or the PDF page). A fit verdict (Pursue, Clarify or Decline) then comes from deterministic rules from the firm's appetite, the engine and the ERP, with no AI in the verdict, and Pursue creates or advances the deal in the CRM sandbox. The mailbox, ERP, CRM and documents are simulated in this demo; real Gmail, ERP and document connectors are on the roadmap.
 - **Intake.** Gemini reads the tender PDF natively. A requirement is accepted only if pdfplumber finds its quote on the cited page. Intake also flags contradictions, such as §4.2 "2N" against Appendix B "block or distributed redundancy acceptable". Gemini reads the drawing, and the engine cross-checks it against the DXF.
 - **Gates and autonomy.** Each run passes three gates: plan, option and review (spec). In Ask mode the engineer decides at every gate. In Auto, the tender's main clauses decide, but the review gate always waits for a human.
 - **Design.** Layout places racks. Power offers three costed topologies: 2N, distributed redundant and block redundant (spec). Cooling sizes CDUs, hydraulic zones and pipes. In the sample hall, the 2N transformers run at 47.97% normal and 95.95% in N-1, against R01's limits of 80% normal and 100% N-1 (spec, tender §4.3). The design uses 9 CDUs of 1.2 MW.
 - **Checker.** The checker runs the R01–R15 and R04b rule pack. Each finding shows its rule, clause chip, tender chip, formula, and a value-against-limit bar. The engine offers a fix only after re-running the full rule pack on it, and the owning agent then chooses on cost and margin.
 - **Lead-time redesign.** The ERP shows the 2.5 MVA transformer with 0 in stock and a 98-week lead time, against the tender's 26-week limit. The engine swaps to a 3.15 MVA unit, with 6 in stock, and re-checks the fault level.
 - **What-if.** Change rack kW, liquid fraction, the ΔV limit or the loading cap. The engine reruns every rule without saving and draws the impact chain across both disciplines.
-- **Voice.** Gemini Live can call `what_if`, `explain_finding` and `focus_element`. If Live can't connect, push-to-talk takes over.
+- **Co-pilot.** Type or speak. Each question becomes a card in the Conversation panel, with the engine check behind the answer and what changed on screen, and the conversation is kept per project. Gemini Live can call `what_if`, `explain_finding` and `focus_element`; it only chooses which check to run, and the engine writes every answer. Gemini's spoken words stay off screen unless the visitor switches them on. If Live can't connect, push-to-talk takes over.
 - **Review.** The review page shows the diff, the assumptions ledger (including what we don't check), and the findings summary. Approval stamps name, role, time and revision hash.
 - **Handoff.** Approval raises purchase requisitions in the ERP sandbox, re-checks that SLD, BOQ and PR lines agree (R12), and moves the CRM opportunity. Exports cover a PDF calc report and a BOQ CSV.
 - **Asset packs.** The Grid pack covers a 132 kV line. The Solar pack lays out a PV field. Both reuse the same shell and checker.
@@ -142,7 +143,7 @@ Comparison grid on a light background. Use ✓ for "shown" and a grey "not shown
 **Visual**
 
 Grid of 3 × 3 tiles, each with an icon, the label and a small crop:
-[SHOT: Intake lane, "✓ quote verified" cards] · [SHOT: 3D hall, busways and pipes on their tiers] · [SHOT: compliance matrix] · [SHOT: option card showing the R15 swap] · [SHOT: impact chain lit in two colours] · [SHOT: co-pilot voice button with on-screen transcript] · [SHOT: review stamp with hash] · [SHOT: Integrations page] · [SHOT: Solar field layout]
+[SHOT: Bids inbox, Hall B tender: the extracted fields each marked "quote verified" and the Pursue verdict] · [SHOT: 3D hall, busways and pipes on their tiers] · [SHOT: compliance matrix] · [SHOT: option card showing the R15 swap] · [SHOT: impact chain lit in two colours] · [SHOT: co-pilot after one question: the Conversation panel card with its engine check, and the hall it moved] · [SHOT: review stamp with hash] · [SHOT: Integrations page] · [SHOT: Solar field layout]
 
 Footer (small print): "All companies, people and data shown are fictional. IEC-based, illustrative values, not for construction."
 
@@ -345,7 +346,7 @@ Two columns: "Run cost" on the left and "How we charge" on the right. Add a smal
 These come from the live product at kirchhoff.web.app. Every company and person in the demo world is fictional.
 
 1. The projects dashboard for Meridian Power Engineering, a fictional EPC firm, with data-hall, grid and solar projects in different states.
-2. Agent lanes during a live Hall B run. The footage is time-compressed and carries an elapsed-time clock.
+2. Agent lanes during a live Hall B run, 2 minutes 48 seconds in, in Ask mode. Power and Cooling are still working, and the elapsed-time clock is running.
 3. The finding drawer for R11. Header H-Z2 runs above feeder FB-03 at y ≈ 24 m, breaking tender §6.3.4. The engine offers two verified fixes: a local drop (+$420, 1 pipe changed) or a reroute (−$910, 2 pipes changed).
 4. Option cards after the R15 swap. The 2.5 MVA unit has 0 in stock and a 98-week lead time, so the engine picks the 3.15 MVA unit, with 6 in stock, which runs at 38.07% normal and 76.15% in N-1. The fault level moves from 60.45 to 65.42 kA and is re-checked.
 5. The what-if at 200 kW per rack. R01 fails at 113.6%, R02 at 2,343 A, and R08 at 2,560 kW against 2,400 kW; R03, R05, R07 and R09 also fail. That is 60 findings in 18 impact chains.
@@ -355,7 +356,7 @@ These come from the live product at kirchhoff.web.app. Every company and person 
 
 A 3 × 2 grid, one caption under each:
 1. [SHOT: Projects dashboard. Hall A "Signed", Hall B "Not started", Grid and Solar cards; fictional-data banner visible.]
-2. [SHOT: Workspace during the Hall B live run (Auto mode, t=150 s). Power and Cooling lanes both Working; elapsed-time clock; the 3D hall drawn from the first revision with its two findings.]
+2. [SHOT: Workspace during the Hall B live run (Ask mode, elapsed 02:48). "Live run · 2 agents working"; Power and Cooling lanes both Working; elapsed-time clock; the 3D hall drawn from the first revision with its two findings.]
 3. [SHOT: 3D hall, R11 finding drawer open. H-Z2 red where it crosses FB-03; §6.3.4 clause chip; both fix options with cost deltas.]
 4. [SHOT: Options tab, 2N card Selected, with its swap line "TX-2500 → TX-3150 (R15, line transformer)", loading 38.07% / 76.15% and max lead time 14 weeks. The card does not show the stock count or the 98 wk against 26 wk comparison.]
 5. [SHOT: What-if at 200 kW per rack. Impact chain lit rack → busway → board → transformer (power colour) and rack → zone → CDU (cooling colour); counters "60 findings · 18 impact chains".]
@@ -401,7 +402,7 @@ Footer (small print): "IEC-based, illustrative values, not for construction."
 **On-slide copy**
 
 **Now:** AI data hall, plus thin Grid (132 kV line) and Solar packs on the same engine.
-**Next:** real SAP and Salesforce connectors, Revit/IFC round-trip, PLM, 800 VDC architectures, on-prem Gemma.
+**Next:** real Gmail, SAP and Salesforce connectors, client replies kept in the project, Revit/IFC round-trip, PLM, 800 VDC architectures, on-prem Gemma.
 **Smart engineering:** one thread from tender to procurement.
 
 **Speaker notes**
@@ -410,7 +411,7 @@ Footer (small print): "IEC-based, illustrative values, not for construction."
 - **Grid.** A 132 kV double-circuit line of about 18 km (spec) to the campus substation. It compares three ACSR conductors (spec) on ampacity, voltage regulation and I²R losses, and computes the fault level at the connection.
 - **Solar.** A ground-mount field next to the hall. The engine recommends string option STR-28: 327 tables, about 5,036 kWp, DC/AC ratio 1.26. Its clear-sky yield is about 2,639 kWh/kWp, a clear-sky figure only, with no weather losses.
 
-**Roadmap.** We cut these from the hackathon build, and they come next: real ERP and CRM connectors, Revit/IFC round-trip, PLM integration, 800 VDC architectures, auto-layout from messy drawings, Gemma on-prem, live multi-user presence, and drawing render review.
+**Roadmap.** We cut these from the hackathon build, and they come next: real mailbox, ERP and CRM connectors, client replies and change requests captured from the mail thread into the same project (the demo video simulates that step and says so), payment and completion tracking, Revit/IFC round-trip, PLM integration, 800 VDC architectures, auto-layout from messy drawings, Gemma on-prem, live multi-user presence, and drawing render review.
 
 **Smart engineering (Hitachi-relevant).** Hitachi's Smart Engineering track asks for solutions that "connect engineering data across the product lifecycle, automate the processing of legacy documents and requirements, and speed up design with AI agents".¹⁵ Kirchhoff already links tender clauses to design, checks, purchase requisitions and CRM in one audited thread. Hitachi Energy is designing an 800 VDC grid-to-rack system with NVIDIA.¹⁶ An 800 VDC topology pack and the Grid pack extend that thread from the substation to the rack.
 
@@ -429,12 +430,12 @@ Footer (small print): "IEC-based, illustrative values, not for construction. Dem
 **On-slide copy**
 
 - GitHub Public Repository: [TBD: https://github.com/<org>/kirchhoff]
-- Demo Video Link (3 Minutes): [TBD: video URL] (runs 2:45)
+- Demo Video Link (3 Minutes): [TBD: video URL] (runs 3:40)
 - Final Product Link: https://kirchhoff.web.app (no login: "Enter the demo workspace" opens the guided tour)
 
 **Speaker notes**
 
-The live URL opens on a landing page with one primary button. The welcome screen offers a short guided tour. To see a live run, open Hall B and choose "Run it live", or replay a recorded run. The repository README has the architecture, the trust model and the local quick start.
+The live URL opens on a landing page with one primary button. The welcome screen offers a short guided tour. The Bids inbox in the top bar shows six sample emails, triaged. To see a live run, open Hall B and choose "Run it live", or replay a recorded run. The repository README has the architecture, the trust model and the local quick start.
 
 **Visual**
 
