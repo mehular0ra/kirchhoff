@@ -94,5 +94,9 @@ class GcsBlobStore:
         kw = {}
         if getattr(creds, "service_account_email", None):  # Cloud Run: sign through IAM signBlob
             kw = {"service_account_email": creds.service_account_email, "access_token": creds.token}
+        elif not hasattr(creds, "sign_bytes"):
+            # A developer's own `gcloud auth application-default login` holds a token, not a private key, so it cannot
+            # sign. /api/files then serves the bytes itself (as for in-process blobs) instead of answering 500.
+            raise SigningUnavailable("these credentials cannot sign URLs")
         return self._b().blob(path).generate_signed_url(version="v4", expiration=timedelta(seconds=ttl_s),
                                                         method="GET", **kw)
