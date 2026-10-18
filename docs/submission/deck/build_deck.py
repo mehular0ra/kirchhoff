@@ -194,7 +194,6 @@ TBD_KEYS = {
     (10, "notes"): ["metrics.tokens_and_usd_per_run"],
     (12, "notes"): ["metrics.upload_to_clean_median", "metrics.intake_accuracy"],
     (14, "copy"): ["links.github_repo", "links.demo_video"],
-    (15, "copy"): ["team.jayadratha_role_background", "team.mehul_role_background"],
     (15, "notes"): ["team.notes_bios"],
 }
 # On-slide "(spec)" markers in order of appearance, mapped to fill.yaml spec_verified keys.
@@ -911,11 +910,11 @@ def s01_team(slide, sec: Section, ctx: Ctx, deck: Deck):
     lines = sec.copy_lines()
     vals = {}
     for ln in lines:
-        m = re.match(r"^([abc])\. ([^:]+): (.+)$", ln)
+        m = re.match(r"^([abcd])\. ([^:]+): (.+)$", ln)
         if m:
             vals[m.group(1)] = (m.group(2), m.group(3))
-    if set(vals) != {"a", "b", "c"}:
-        raise SystemExit("slide 1: expected a./b./c. lines")
+    if set(vals) not in ({"a", "b", "c"}, {"a", "b", "c", "d"}):
+        raise SystemExit("slide 1: expected a./b./c. (and optionally d.) lines")
 
     sh = shape_with_text(slide, "Team Details")
     sh.left, sh.top, sh.width, sh.height = I(0.16), I(3.06), I(6.0), I(2.16)
@@ -924,6 +923,11 @@ def s01_team(slide, sec: Section, ctx: Ctx, deck: Deck):
     paras = txBody.findall(qn("a:p"))
     # Keep the heading paragraph and the template's a./b./c. auto-numbered items; drop the empty lines.
     heading, items = paras[0], paras[2:5]
+    if "d" in vals:  # a fourth item (team members, theme and problem statement): clone the last template item
+        import copy
+        extra = copy.deepcopy(items[2])
+        items[2].addnext(extra)
+        items = items + [extra]
     for p in (paras[1], paras[5]):
         txBody.remove(p)
     for r in heading.findall(".//" + qn("a:rPr")) + heading.findall(qn("a:endParaRPr")):
@@ -932,7 +936,7 @@ def s01_team(slide, sec: Section, ctx: Ctx, deck: Deck):
     spc.set("val", "500")
     heading.find(qn("a:pPr")).find(qn("a:spcAft")).clear()
     heading.find(qn("a:pPr")).find(qn("a:spcAft")).append(spc)
-    for key, p in zip("abc", items):
+    for key, p in zip("abcd", items):
         pPr = p.find(qn("a:pPr"))
         pPr.set("marL", str(int(0.5 * 914400)))
         pPr.set("indent", str(int(-0.27 * 914400)))
@@ -955,8 +959,8 @@ def s01_team(slide, sec: Section, ctx: Ctx, deck: Deck):
             r = para.add_run()
             r.text = run.text
             r.font.size = Pt(12.5)
-            r.font.name = SANS[600] if key in "ab" else SANS[400]
-            r.font.color.rgb = rgb(INK if key in "ab" else INK2)
+            r.font.name = SANS[600] if key in "abd" else SANS[400]
+            r.font.color.rgb = rgb(INK if key in "abd" else INK2)
             r._r.get_or_add_rPr().set("lang", "en-GB")
 
     # Wordmark and tagline lockup beside the team block.
@@ -970,7 +974,8 @@ def s01_team(slide, sec: Section, ctx: Ctx, deck: Deck):
         box(slide, 6.75, y + 0.085, 0.09, 0.09, fill=dots[i], shape=MSO_SHAPE.OVAL, name="tagline dot")
         text(slide, 6.95, y, 2.7, 0.27, Para(sentence.strip(), weight=500), size=13, color=INK2,
              name="tagline", anchor="m")
-    footer(slide, sec.quoted("Footer"), ctx)
+    if "Footer:" in sec.visual:  # no footer when the problem statement carries no source number
+        footer(slide, sec.quoted("Footer"), ctx)
 
 
 def s03_brief(slide, sec: Section, ctx: Ctx, deck: Deck):
@@ -1657,8 +1662,8 @@ def s15_team(slide, sec: Section, ctx: Ctx, deck: Deck):
     w, gap = (CW - 0.3) / 2, 0.3
     ch = 2.1
     for i, person in enumerate(people):
-        m = re.match(r"^(?P<name>[^,.]+)[,.]\s*(?P<rest>.*)$", person)
-        name, rest = m.group("name").strip(), m.group("rest").strip()
+        parts = [x.strip() for x in person.split(" | ")]
+        name, points = parts[0], parts[1:]
         x = L + i * (w + gap)
         card(slide, x, TOP, w, ch, name="person card")
         d = 1.5
@@ -1678,8 +1683,8 @@ def s15_team(slide, sec: Section, ctx: Ctx, deck: Deck):
         tx = px + d + 0.3
         text(slide, tx, TOP + 0.42, x + w - tx - 0.2, 0.42, Para(name, weight=600), size=18, color=INK,
              anchor="m", name="person name")
-        text(slide, tx, TOP + 0.9, x + w - tx - 0.2, 1.0, Para(rest[0].upper() + rest[1:] if rest[0] != "[" else rest),
-             ctx, size=11, color=INK2, name="person role")
+        text(slide, tx, TOP + 0.9, x + w - tx - 0.2, 1.1, [Para(pt, bullet=True, after=3) for pt in points],
+             ctx, size=11, color=INK2, name="person points")
     text(slide, L, TOP + ch + 0.35, CW, 0.4, Para(closing, weight=500), ctx, size=16, color=INK, name="closing")
     theme = re.search(r'small strip: "(.+?)"', sec.visual).group(1)
     label, value = theme.split(": ", 1)

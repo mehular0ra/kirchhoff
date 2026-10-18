@@ -17,12 +17,13 @@ Draft for the 16-slide submission template, in the template's order and with its
 **On-slide copy**
 
 a. Team name: Ordinal
-b. Team leader name: Jayadratha Gayen (with Mehul Arora)
-c. Problem Statement: AI data halls need power and liquid cooling designed together, around equipment that can actually ship, by senior engineers in short supply. And only 6% of engineers trust AI results without checking.¹
+b. Team members: Jayadratha Gayen, Mehul Arora
+c. Theme: Future of Work & Enterprise Productivity
+d. Problem Statement: MEP Engineering Design Platform for AI data centers
 
 **Speaker notes**
 
-We are Ordinal: Jayadratha Gayen, who leads, and Mehul Arora. Our product is Kirchhoff.
+We are Ordinal: Jayadratha Gayen and Mehul Arora. Our product is Kirchhoff.
 
 The problem has three parts. First, AI halls couple two disciplines that are usually designed apart: the electrical chain and the liquid-cooling loop. Racks now run far denser than older halls; Vertiv's own reference designs span 20 to 142 kW per rack.² Our sample hall runs 132 kW per rack. Second, the supply chain now shapes the design. Transformer lead times are long enough that Hitachi's standardisation push talks about getting them down to "as little as 12 months".³ A design that specifies equipment nobody can deliver is a design you redo. Third, the people who do this work are scarce, and Hitachi's HMAX Energy launch names workforce shortages directly.⁴
 
@@ -30,7 +31,7 @@ AI can draft, but engineers don't trust it, and they are right not to. Only 6% t
 
 **Visual**
 
-Template title slide. Put the Kirchhoff wordmark and the line "AI designs. Physics checks. An engineer signs." beside the team block. Footer: ¹ Omni Calculator, AI adoption in engineering.
+Template title slide. Put the Kirchhoff wordmark and the line "AI designs. Physics checks. An engineer signs." beside the team block. No footer (the problem statement carries no source number).
 
 ---
 
@@ -448,8 +449,8 @@ Three rows, each with an icon and a QR code (GitHub, video, live app). Put the U
 **On-slide copy**
 
 **Team Ordinal**
-- Jayadratha Gayen, team leader. [TBD: role and one-line background]
-- Mehul Arora. [TBD: role and one-line background]
+- Jayadratha Gayen | Electrical engineer @ IIEST Shibpur, Vikram Solar | ML Researcher - University of Illinois, IIIT Hyderabad
+- Mehul Arora | Cofounder - Ordinal | ML Researcher - University of Illinois, IIIT Hyderabad
 
 Built in JAPAC, for engineering teams everywhere.
 
