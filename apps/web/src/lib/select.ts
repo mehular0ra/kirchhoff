@@ -84,10 +84,16 @@ export function whatIfRevision(b: Bundle, onScreen: Revision | null, picked: boo
   return (picked && onScreen) || latestRevision(b)
 }
 
-/** "r2 (signed)": how an answer names the revision it ran on (#37), from the bundle's id and status only. */
+/**
+ * "r2 (signed)": how an answer names the revision it ran on (#37), from the bundle's id and status only. A live run's
+ * revision ids carry the run's own id ("d99bb3b19525-r2"); the label leaves that off.
+ */
 export function revisionLabel(rev: Pick<Revision, 'id' | 'status'>): string {
-  return `${rev.id} (${rev.status})`
+  return `${shortRevisionId(rev.id)} (${rev.status})`
 }
+
+/** "d99bb3b19525-r2" → "r2": a live run's revision id without the run id in front of it. */
+export const shortRevisionId = (id: string): string => id.replace(/^[0-9a-f]{12}-/, '')
 
 /** Input values (not results) compared with a relative tolerance, so 0.9 matches a serialised 0.9000000000000001. */
 export function sameInput(a: number, b: number): boolean {

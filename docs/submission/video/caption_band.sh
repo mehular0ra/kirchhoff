@@ -70,7 +70,7 @@ ENCODE=(-map 0:v -map 1:a -c:v libx264 -preset "$PRESET" -crf "$CRF" -pix_fmt yu
 
 if [ "$SRT" = "-" ]; then
   # No captions: nothing to put in a band, so the picture stays full-frame (the old behaviour).
-  ffmpeg -y -loglevel error -i "$PICTURE" -i "$AUDIO" "${ENCODE[@]}" "$OUT"
+  ffmpeg -y -loglevel error -i "$PICTURE" -i "$AUDIO" -vf setsar=1 "${ENCODE[@]}" "$OUT"
   echo "Muxed without captions: $OUT"
   exit 0
 fi

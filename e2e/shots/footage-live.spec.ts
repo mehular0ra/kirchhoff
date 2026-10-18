@@ -13,11 +13,21 @@ import { expect, test } from '../tests/fixtures'
  * This starts a real agent run on the deployed site (Gemini), so it is opt-in. Run it after the UI freeze and after the
  * golden capture, on the final deploy. Pauses are added where a viewer needs time to read. Nothing is typed by hand
  * except the review comment the live spec also uses.
+ *
+ * E2E_FOOTAGE_SIGN   unset or 1: the run is SIGNED, which writes purchase requisitions and a CRM stage move into the SHARED ERP/CRM sandbox that every
+ *                    visitor sees on the Integrations page until the next seed. 0: the run stops at the review gate (nothing signed, no sign-off marks;
+ *                    cut it with FOOTAGE_SKIP_MISSING=1, see footage_cut.sh). Any other value is refused, so "false" or "no" cannot sign by accident.
+ *                    Both modes write live-run-full.webm and live-run-marks.json: copy a SIGNED take (it cost a write into the shared sandbox) aside before
+ *                    a rehearsal with E2E_FOOTAGE_SIGN=0, which would overwrite it.
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OUT = process.env.FOOTAGE_OUT ?? path.join(HERE, '..', 'out', 'footage')
 mkdirSync(OUT, { recursive: true })
 test.skip(process.env.E2E_LIVE !== '1', 'starts a real Hall B run (Gemini): set E2E_LIVE=1')
+const FOOTAGE_SIGN = process.env.E2E_FOOTAGE_SIGN ?? '1'
+if (!['0', '1'].includes(FOOTAGE_SIGN)) {
+  throw new Error(`E2E_FOOTAGE_SIGN must be 0 or 1 (got ${JSON.stringify(process.env.E2E_FOOTAGE_SIGN)}): any other value could sign a run into the shared sandbox by mistake`)
+}
 
 test('live run: one recording with marks', async ({ page }) => {
   test.setTimeout(20 * 60_000)
@@ -62,11 +72,47 @@ test('live run: one recording with marks', async ({ page }) => {
   await pause(9_000) // read the three cards and the R15 swap
   mark('option_hold_end')
   await select.click()
+  mark('option_selected')
+  // The Options tab stays selected after the gate, and the 3D hall is drawn from the first checked revision: go back to it, so the
+  // routing, the two findings and the fix loop are on screen in 3D (the beat-8 picture). This is a cosmetic beat: if it cannot be done it is
+  // skipped (with a warning, and without its marks), so it can never lose the run, which is only saved at the end.
+  try {
+    await page.getByRole('tab', { name: '3D Hall' }).click({ timeout: 30_000 })
+    // In an Ask-mode run the hall stays empty ("No revision yet") until a revision is picked: when r1 exists, show it (the two failing findings in 3D).
+    const r1 = page.getByRole('button', { name: /-r1/ }).first()
+    await expect(r1).toBeVisible({ timeout: 5 * 60_000 })
+    await r1.click({ timeout: 30_000 })
+    mark('r1_shown')
+    await pause(5_000)
+  } catch (e) {
+    console.warn('footage-live: the 3D-hall interlude (r1) was skipped:', String(e).split('\n')[0])
+  }
 
   // The Checker and the fix loop, then the review gate.
   const review = page.locator('[data-tour="sign-off"]', { hasText: 'Review and sign' })
   await expect(review).toBeVisible({ timeout: 8 * 60_000 })
   mark('review_gate')
+  try {
+    await page.getByRole('button', { name: /-r2/ }).first().click({ timeout: 30_000 }) // the fixed revision, all checks passing
+    mark('r2_shown')
+    await pause(4_000)
+    mark('r2_held')
+  } catch (e) {
+    console.warn('footage-live: the r2 view was skipped:', String(e).split('\n')[0])
+  }
+  if (FOOTAGE_SIGN === '0') {
+    // Stop here: nothing is signed, so no purchase requisitions reach the shared ERP sandbox and no CRM stage moves (a signed run
+    // stays visible to everyone on the Integrations page until the next seed). The marks and the recording are still written;
+    // footage_cut.sh (FOOTAGE_SKIP_MISSING=1) skips the clip that needs the sign-off.
+    await pause(3_000)
+    mark('end')
+    await expect(page.getByText('all companies, people and data are fictional').first()).toBeVisible()
+    writeFileSync(path.join(OUT, 'live-run-marks.json'), JSON.stringify({ run_id: runId, signed: false, marks_s: marks }, null, 2))
+    const unsigned = page.video()
+    await page.close()
+    await unsigned?.saveAs(path.join(OUT, 'live-run-full.webm'))
+    return
+  }
   await pause(2_000)
   await review.click()
   await expect(page).toHaveURL(/\/app\/p\/hall-b\/review\//)

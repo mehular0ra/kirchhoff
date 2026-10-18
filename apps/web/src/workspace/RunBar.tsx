@@ -146,10 +146,26 @@ function LiveBar() {
         <Clock aria-hidden className="size-3.5" /> Elapsed <Num>{fmtElapsed(end - run.started_at)}</Num>
       </span>
       <span className="text-muted-foreground">Autonomy: {run.autonomy === 'ask' ? 'Ask' : 'Auto'}</span>
+      {run.status === 'done' && (
+        <>
+          {/* The agents run once per run, in order; what-ifs below only check the design (spec §6.5). Redesigning means a new run. */}
+          <span className="text-muted-foreground">What-ifs only re-check this design; they do not redesign it.</span>
+          <Button asChild size="xs" variant="outline" className="ml-auto">
+            <Link to="/app/p/hall-b">
+              <RotateCcw aria-hidden /> Run Hall B again
+            </Link>
+          </Button>
+        </>
+      )}
       {run.status === 'failed' && (
-        <Button size="xs" variant="outline" className="ml-auto" onClick={() => void api.resume(run.id).catch(() => undefined)}>
-          <RotateCcw aria-hidden /> Resume
-        </Button>
+        <>
+          <Button size="xs" variant="outline" className="ml-auto" onClick={() => void api.resume(run.id).catch(() => undefined)}>
+            <RotateCcw aria-hidden /> Resume
+          </Button>
+          <Button asChild size="xs" variant="outline">
+            <Link to="/app/p/hall-b">Start a new run</Link>
+          </Button>
+        </>
       )}
       {run.status === 'expired' && (
         <Button asChild size="xs" variant="outline" className="ml-auto">

@@ -1,5 +1,6 @@
 import { ChevronDown, Circle, CircleCheck } from 'lucide-react'
 import { useLayoutEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { create } from 'zustand'
 import { cn } from 'cn'
 import { CHECKLIST, useChecklist } from './checklistStore'
@@ -50,18 +51,36 @@ export function Checklist({ docked = false }: { docked?: boolean }) {
         <ChevronDown aria-hidden className={cn('ml-auto size-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <ul className="flex flex-col gap-1 px-3 pb-3">
-          {CHECKLIST.map((c) => (
-            <li key={c.id} className={cn('flex items-center gap-2 text-xs', done[c.id] ? 'text-muted-foreground line-through' : 'text-foreground')}>
-              {done[c.id] ? (
-                <CircleCheck aria-label="done" className="size-3.5 shrink-0 text-emerald-700" />
-              ) : (
-                <Circle aria-label="to do" className="size-3.5 shrink-0 text-muted-foreground" />
-              )}
-              {c.label}
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="px-3 pb-1 text-[11px] text-muted-foreground">Each task ticks itself when you do it.</p>
+          <ul className="flex flex-col gap-1.5 px-3 pb-3">
+            {CHECKLIST.map((c) => (
+              <li key={c.id} className="flex flex-col gap-0.5 text-xs">
+                <span className={cn('flex items-center gap-2', done[c.id] ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                  {done[c.id] ? (
+                    <CircleCheck aria-label="done" className="size-3.5 shrink-0 text-emerald-700" />
+                  ) : (
+                    <Circle aria-label="to do" className="size-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  {c.label}
+                </span>
+                {!done[c.id] && (
+                  <span className="pl-[1.375rem] text-[11px] text-muted-foreground">
+                    {c.how}
+                    {c.go && (
+                      <>
+                        {' '}
+                        <Link to={c.go.to} className="underline underline-offset-2">
+                          {c.go.label}
+                        </Link>
+                      </>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </aside>
   )

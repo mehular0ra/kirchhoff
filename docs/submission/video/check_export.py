@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """check_export.py: the gate for the final video export (issue #25). Standard library plus ffmpeg/ffprobe only.
 
-    check_export.py <final.mp4> --clean <assembled_video.mp4> [--srt captions.srt]
+    check_export.py <final.mp4> --clean <assembled_video.mp4> [--srt captions.srt] [--max-seconds 239]
     check_export.py --self-test
 
 <final.mp4>   what caption_band.sh produced (assemble.sh runs this gate on it automatically)
 --clean       the caption-free assembled picture the final was made from (.assemble_tmp/assembled_video.mp4)
---srt         the captions (default: captions.srt next to this script)
+--srt         the captions. WITHOUT it the format and 16:9 checks still run and the band checks are reported as SKIPPED (they need the
+              cue times), so an export without captions is never waved through unchecked
+--max-seconds the runtime ceiling (default 180, the v1 plan; the v2 cut uses 239: assemble.sh passes it, and run alone you must too)
 
 Exit code 0 = every check passed, 1 = a check failed, 2 = it could not run (missing tool or file).
 
 What it proves, from the final file's own frames (nothing is read from the build's bookkeeping):
   format    1920x1080, square pixels, 16:9, h264 yuv420p, the same frame rate as the clean picture, one audio track, shorter
-            than 3:00, audio as long as the picture, as long as the clean picture
+            than the ceiling (--max-seconds; default 180 s, 239 s for the v2 cut), audio as long as the picture, as long as the clean picture
   picture   the 90 % picture (1728x972 at x=96,y=0) is the clean picture scaled the same way: SSIM against it, and no run of
             frames where it differs (a caption or a tag drawn over the app would show up here)
   gutters   the 96 px strips left and right of the picture are black
@@ -114,8 +116,9 @@ def text_box(data, w, h, level=BRIGHT):
 
 
 # ---------------------------------------------------------------------------------------------------- the checks
-def check_format(final, clean):
-    f, c = probe(final), probe(clean)
+def check_format(final, clean, max_seconds=MAX_SECONDS, probe_fn=None):
+    probe_fn = probe_fn or probe
+    f, c = probe_fn(final), probe_fn(clean)
     fv = next((s for s in f["streams"] if s["codec_type"] == "video"), None)
     cv = next((s for s in c["streams"] if s["codec_type"] == "video"), None)
     fa = [s for s in f["streams"] if s["codec_type"] == "audio"]
@@ -124,8 +127,9 @@ def check_format(final, clean):
     problems = []
     if (fv["width"], fv["height"]) != (OUT_W, OUT_H):
         problems.append(f"size {fv['width']}x{fv['height']} (need {OUT_W}x{OUT_H})")
-    if fv.get("sample_aspect_ratio", "1:1") not in ("1:1", "0:1") or fv.get("display_aspect_ratio", "16:9") != "16:9":
-        problems.append(f"SAR {fv.get('sample_aspect_ratio')} DAR {fv.get('display_aspect_ratio')} (need 1:1 and 16:9)")
+    sar, dar = fv.get("sample_aspect_ratio"), fv.get("display_aspect_ratio")      # ffprobe omits them when unset: that is a failure, not a pass
+    if sar != "1:1" or dar != "16:9":
+        problems.append(f"SAR {sar or 'missing'} DAR {dar or 'missing'} (need 1:1 and 16:9)")
     if fv["codec_name"] != "h264" or fv.get("pix_fmt") != "yuv420p":
         problems.append(f"{fv['codec_name']} {fv.get('pix_fmt')} (need h264 yuv420p)")
     if fv["r_frame_rate"] != cv["r_frame_rate"]:
@@ -133,8 +137,8 @@ def check_format(final, clean):
     if len(fa) != 1:
         problems.append(f"{len(fa)} audio tracks (need 1)")
     d, dc = float(f["format"]["duration"]), float(c["format"]["duration"])
-    if not d < MAX_SECONDS:
-        problems.append(f"runtime {d:.1f}s is not under {MAX_SECONDS:.0f}s")
+    if not d < max_seconds:
+        problems.append(f"runtime {d:.1f}s is not under {max_seconds:.0f}s")
     if abs(d - dc) > 0.15:
         problems.append(f"runtime {d:.2f}s differs from the clean picture's {dc:.2f}s")
     if fa and abs(float(fa[0].get("duration", d)) - d) > 0.15:
@@ -212,11 +216,14 @@ def check_gaps(final, cues):
     return True, f"the band is empty in {min(len(mids), 12)} sampled gaps"
 
 
-def run_checks(final, clean, srt):
+def run_checks(final, clean, srt=None, max_seconds=MAX_SECONDS):
     final, clean = Path(final), Path(clean)
+    results = [("format", *check_format(final, clean, max_seconds))]
+    if srt is None:
+        skipped = "SKIPPED: no captions file given, the band checks need the cue times"
+        return results + [(name, True, skipped) for name in ("picture", "gutters", "captions", "gaps")]
     cues = parse_srt(srt)
     duration = float(probe(final)["format"]["duration"])
-    results = [("format", *check_format(final, clean))]
     if results[0][1]:
         results += [("picture", *check_picture(final, clean)), ("gutters", *check_gutters(final, cues, duration)),
                     ("captions", *check_captions(final, cues)), ("gaps", *check_gaps(final, cues))]
@@ -224,11 +231,13 @@ def run_checks(final, clean, srt):
 
 
 def report(results):
-    failed = 0
+    failed, skipped = 0, 0
     for name, ok, detail in results:
+        skip = ok and detail.startswith("SKIPPED")
         failed += 0 if ok else 1
-        print(f"{'PASS' if ok else 'FAIL'}  {name:9} {detail}")
-    print(f"-- {len(results) - failed} passed, {failed} failed")
+        skipped += 1 if skip else 0
+        print(f"{'SKIP' if skip else 'PASS' if ok else 'FAIL'}  {name:9} {detail}")
+    print(f"-- {len(results) - failed - skipped} passed, {failed} failed, {skipped} skipped")
     return failed
 
 
@@ -298,6 +307,26 @@ def self_test():
             failed = report(run_checks(t / video, t / "clean.mp4", t / srt))
             if (failed == 0) != expect_pass:
                 failures.append(label)
+        print("\n== follow-up 1 (#44 review): an export WITHOUT captions still gets the format and 16:9 checks")
+        r = subprocess.run([shutil.which("bash"), str(HERE / "caption_band.sh"), "clean.mp4", "audio.m4a", "-", "nocap.mp4"], cwd=tmp, env=env, capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"caption_band.sh failed for nocap.mp4: {r.stderr.strip()[-300:]}", file=sys.stderr)
+            return 2
+        res = run_checks(t / "nocap.mp4", t / "clean.mp4", None)
+        report(res)
+        if not (res[0][1] and res[0][0] == "format" and all(d.startswith("SKIPPED") for _, _, d in res[1:])):
+            failures.append("no-captions export is not format-checked")
+        wrong = run_checks(t / "nocap.mp4", t / "clean.mp4", None, max_seconds=4.0)      # 5 s video against a 4 s ceiling: the runtime ceiling is enforced without captions too
+        if wrong[0][1]:
+            failures.append("the runtime ceiling is not enforced without captions")
+        print("\n== follow-up 2 (#44 review): a missing display aspect ratio fails the format check (no default to 16:9)")
+        base = probe(t / "good.mp4")
+        fake = lambda missing: (lambda p: {**base, "streams": [({k: v for k, v in s.items() if not (missing and k == "display_aspect_ratio")} if s["codec_type"] == "video" else s) for s in base["streams"]]})
+        ok_dar, _ = check_format(t / "good.mp4", t / "clean.mp4", probe_fn=fake(False))
+        bad_dar, why = check_format(t / "good.mp4", t / "clean.mp4", probe_fn=fake(True))
+        print(f"{'PASS' if ok_dar and not bad_dar else 'FAIL'}  dar      with DAR present: {ok_dar}; with DAR removed: {bad_dar} ({why[:60]})")
+        if not (ok_dar and not bad_dar):
+            failures.append("missing DAR is not a failure")
         print("\n== pass-to-pass: the band layout must not change the audio or the length")
         same_audio = decoded_audio("good.mp4") == decoded_audio("old.mp4")
         durs = [float(probe(t / p)["format"]["duration"]) for p in ("good.mp4", "old.mp4")]
@@ -315,7 +344,8 @@ def main():
     ap = argparse.ArgumentParser(description="Gate for the final Kirchhoff video export.")
     ap.add_argument("final", nargs="?")
     ap.add_argument("--clean")
-    ap.add_argument("--srt", default=str(HERE / "captions.srt"))
+    ap.add_argument("--srt", default=None)
+    ap.add_argument("--max-seconds", type=float, default=MAX_SECONDS)
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     try:
@@ -323,11 +353,11 @@ def main():
             return self_test()
         if not a.final or not a.clean:
             ap.error("need <final.mp4> and --clean <assembled_video.mp4> (or --self-test)")
-        for p in (a.final, a.clean, a.srt):
+        for p in [a.final, a.clean] + ([a.srt] if a.srt else []):
             if not Path(p).is_file():
                 print(f"not found: {p}", file=sys.stderr)
                 return 2
-        return 1 if report(run_checks(a.final, a.clean, a.srt)) else 0
+        return 1 if report(run_checks(a.final, a.clean, a.srt, a.max_seconds)) else 0
     except ToolError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2

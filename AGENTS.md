@@ -1,6 +1,6 @@
 # Kirchhoff — guide for contributors and coding agents
 
-Kirchhoff by Ordinal: Gemini agents design power and liquid cooling for an AI data-centre hall, a deterministic checker verifies every number against a clause-cited rule pack, and an engineer signs. Built for the Google Cloud × Hack2skill AI Builder Cup 2026. **The official submission deadline is Sun 18 Oct 2026 (aibuildercup.com publishes no time or timezone); our internal deadline is Sat 17 Oct 2026, 20:00 IST.**
+Kirchhoff by Ordinal: Gemini agents design power and liquid cooling for an AI data-centre hall, a deterministic checker verifies every number against a clause-cited rule pack, and an engineer signs. Built for the Google Cloud × Hack2skill AI Builder Cup 2026. **Submission closes Sun 18 Oct 2026, 23:59 IST (as the form shows); aim to submit by Sun 18 Oct, 18:00 IST.**
 
 Team Ordinal: Mehul Arora (lead) and Jayadratha.
 
@@ -8,6 +8,7 @@ Team Ordinal: Mehul Arora (lead) and Jayadratha.
 
 | What | Where |
 |---|---|
+| **Handoff: everything left until submission (start here)** | `docs/HANDOFF.md` |
 | Product spec (binding authority) | `docs/superpowers/specs/2026-10-13-kirchhoff-design.md` |
 | Cross-workstream interfaces, ownership, HTTP API, events, rulings | `docs/superpowers/plans/2026-10-13-interfaces.md` |
 | Implementation plans (one per workstream) | `docs/superpowers/plans/2026-10-13-p1-engine.md`, `…-p2-agents-api.md`, `…-p3-web.md`, `…-p4-enterprise-demo-infra.md` |
@@ -16,10 +17,11 @@ Team Ordinal: Mehul Arora (lead) and Jayadratha.
 
 ## Branches and who works where
 
-- `build`: the integration branch and the GitHub default. Only Mehul's controller session merges into it.
-- `ws1-engine`, `ws2-agents`, `ws3-web`, `ws4-infra`: workstream branches driven by Mehul's controller session through task-by-task subagents. **Do not commit to them.** They are pushed for visibility.
+- `build`: the integration branch and the GitHub default. **From 17 Oct 2026, Jayadratha may merge and push into it directly** (Mehul's decision; see `docs/HANDOFF.md` §2).
+- **Review loop before every merge:** a fresh reviewer agent reviews, you fix, repeat. Stop after 4–5 rounds or as soon as a round finds no real issues, whichever comes first. Then request a review from @mehular0ra on the PR and merge; don't block submission-critical work waiting for him.
+- `ws1-engine`, `ws2-agents`, `ws3-web`, `ws4-infra`: Mehul's old workstream branches. They are stale. **Do not commit to them**; branch from `build`.
 - `main`: frozen pre-build state. It is fast-forwarded at release.
-- **Jayadratha and his agents:** branch from `build` as `jd/<topic>`, and open a pull request into `build`. Keep each PR to one task from `docs/status/BOARD.md` or one GitHub issue. Rebase on `build` before asking for review.
+- **Jayadratha and his agents:** branch from `build` as `jd/<topic>`, and open a pull request into `build`. Keep each PR to one task from `docs/HANDOFF.md` §4 or one GitHub issue. Rebase on `build` before the review loop.
 
 ## Rules (everyone, every commit)
 
@@ -37,7 +39,7 @@ Team Ordinal: Mehul Arora (lead) and Jayadratha.
   - Status is always shown as icon plus text, never colour alone.
   - Every control is keyboard-reachable.
   - Motion is used only for progress, and `prefers-reduced-motion` is respected.
-- **Do not deploy** unless an issue assigns it to you (issue #6 assigns the runbook to Jayadratha). Mehul's session owns `infra/deploy_*.sh`, Firebase Hosting and Cloud Run. The live demo at https://kirchhoff.web.app must stay up through judging (19 Oct – 6 Nov).
+- **Deploys:** Jayadratha owns them from 17 Oct (runbook on issue #6; `infra/deploy_*.sh`, Firebase Hosting and Cloud Run). The live demo at https://kirchhoff.web.app must stay up through judging (19 Oct – 6 Nov), and the UI stays frozen.
 
 ## Local setup
 

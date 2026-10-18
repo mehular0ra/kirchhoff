@@ -4,7 +4,10 @@ import { MemoryRouter } from 'react-router'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useChecklist } from '@/onboarding/checklist/checklistStore'
 import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiClient'
-import { ServicesProvider, type LiveVoiceCall, type Services } from '@/services/services'
+import { clearDebugLog, debugEntries } from '@/lib/debugLog'
+import { ServicesProvider, type LiveTurnRecord, type LiveVoiceCall, type LiveVoiceEvent, type Services } from '@/services/services'
+import { useConversation } from '@/store/conversation'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle, type WhatIfResult } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
@@ -81,9 +84,11 @@ test('Gemini Live tool calls run in the browser and return engine data', async (
   await act(async () => {
     response = await handler!({ name: 'focus_element', args: { element_id: 'fa-01' } })
   })
-  expect(response).toEqual({ element_id: 'FA-01' })
+  // Gemini gets the engine's record of the element, not just its id, so it can answer questions about it.
+  expect(response).toMatchObject({ element_id: 'FA-01', drawn: true })
+  expect(String(response.text)).toMatch(/^(Cable|Busway) FA-01: /)
   expect(useUi.getState().focusId).toBe('FA-01')
-  expect(screen.getByText('Showing FA-01.')).toBeInTheDocument()
+  expect(screen.getByText(/^(Cable|Busway) FA-01: /)).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Stop' }))
   expect(stop).toHaveBeenCalled()
 })
@@ -225,10 +230,10 @@ test('D1: an element that never failed keeps the current revision\'s answer', as
   renderPanel(fakeServices(), realHallA())
   await user.type(screen.getByRole('textbox', { name: 'Ask the co-pilot' }), 'why FA-02{Enter}')
   const convo = await screen.findByRole('list', { name: 'Conversation' })
-  const items = await within(convo).findAllByRole('listitem')
-  expect(items).toHaveLength(2)
-  expect(items[1].textContent).toMatch(/^Co-pilot: .*FA-02/)
-  expect(items[1].textContent).not.toMatch(/In r1/)
+  const [card, ...others] = (await within(convo).findAllByRole('listitem')).filter((li) => li.hasAttribute('data-turn'))
+  expect(others).toHaveLength(0) // one question, one card
+  await waitFor(() => expect(card.textContent).toMatch(/Explain finding R\d+ · FA-02/))
+  expect(card.textContent).not.toMatch(/In r1/)
   expect(useUi.getState().viewRev).toBeNull()
 })
 
@@ -251,7 +256,8 @@ test('N1: paraphrased "why" questions that name an element and a problem route t
   expect(parseIntent('What is the cause of the H-Z2 failure')).toEqual({ tool: 'explain_finding', element: 'H-Z2', rule: undefined })
   // a problem word without an element, or an element without one, does not guess
   expect(parseIntent('what failed?')).toBeNull()
-  expect(parseIntent('tell me about FA-01')).toBeNull()
+  // asking about an element with no problem word asks what it is (its details)
+  expect(parseIntent('tell me about FA-01')).toEqual({ tool: 'focus_element', element: 'FA-01' })
   // existing routes are unchanged
   expect(parseIntent('show H-Z2')).toEqual({ tool: 'focus_element', element: 'H-Z2' })
   expect(parseIntent('what if racks go to 200 kW')).toEqual({ tool: 'what_if', param: 'rack_kw', value: 200 })
@@ -328,7 +334,7 @@ test('#37: after "why FA-01" moves the view to r1, a typed 200 kW what-if runs o
   const { head, fails } = headWhatIf200()
   expect(head.status).toBe('signed')
   const answer = await (await conversation()).findByText(new RegExp(`^On ${escape(head.id)} \\(${head.status}\\): ${fails} checks fail: `))
-  expect(answer.textContent).toMatch(/^Co-pilot: On r2 \(signed\): /)
+  expect(answer.textContent).toMatch(/^On r2 \(signed\): /)
   expect(whatIf).not.toHaveBeenCalled() // the head revision's seed what-if, from the bundle
   expect(useUi.getState().whatIf).toMatchObject({ origin: 'precomputed', result: { revision_ref: `seed:hall-a@${head.id}` } })
   expect(useUi.getState().viewRev).toBeNull() // the overlay is drawn on the revision it was computed for: back on the head
@@ -420,4 +426,696 @@ test('#37: a Gemini Live what_if call after the automatic switch runs on the hea
   expect(response).toMatchObject({ revision: head.id, revision_status: head.status })
   expect((response.failing as unknown[]).length).toBe(fails)
   expect(useUi.getState().viewRev).toBeNull()
+})
+
+// ---- The conversation history: what was asked, which engine check answered, what changed, and what Live is doing.
+
+const turnCards = () => screen.queryAllByRole('listitem').filter((li) => li.hasAttribute('data-turn'))
+
+/** A Gemini Live session the test drives by hand: the tool calls and the events the service would send. */
+function liveHarness(api = fakeApi()) {
+  let onToolCall: (c: LiveVoiceCall) => Promise<Record<string, unknown>> = async () => ({})
+  let onEvent: (e: LiveVoiceEvent) => void = () => undefined
+  let onDebug: (t: LiveTurnRecord) => void = () => undefined
+  const stop = vi.fn(async () => undefined)
+  let context: string | undefined
+  const services = fakeServices({
+    api,
+    startLiveVoice: async (o) => {
+      onToolCall = o.onToolCall
+      onEvent = o.onEvent ?? onEvent
+      onDebug = o.onDebug ?? onDebug
+      context = o.context
+      return { stop }
+    },
+  })
+  return {
+    services,
+    stop,
+    context: () => context,
+    call: (c: LiveVoiceCall) => onToolCall(c),
+    emit: (e: LiveVoiceEvent) => act(() => onEvent(e)),
+    debug: (t: LiveTurnRecord) => act(() => onDebug(t)),
+  }
+}
+
+async function startLive(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Start voice' }))
+  await screen.findByText('Listening (Gemini Live)')
+}
+
+test('a typed "why" shows its card: what was asked, the engine check, the answer and what changed on screen', async () => {
+  const user = userEvent.setup()
+  renderPanel(fakeServices(), realHallA())
+  await ask(user, 'why did FA-01 fail?')
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(await convo.findByText('Explain finding R05 · FA-01')).toBeInTheDocument()
+  expect(convo.getByText('Engine check')).toBeInTheDocument()
+  expect(convo.getByText('You · typed')).toBeInTheDocument()
+  expect(convo.getByText('why did FA-01 fail?')).toBeInTheDocument()
+  const changes = within(convo.getByRole('list', { name: 'What changed on screen' }))
+  expect(changes.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+    expect.stringMatching(/^Switched to r1 \(.*\), where this check failed$/),
+    'Opened R05 · FA-01 in the finding drawer',
+  ])
+})
+
+test('a slow answer stays under its own question and never lands under a later one', async () => {
+  const user = userEvent.setup()
+  let finish: (v: { text: string }) => void = () => undefined
+  const explain = vi.fn(() => new Promise<{ text: string }>((resolve) => (finish = resolve)))
+  renderPanel(fakeServices({ api: fakeApi({ explain }) }), realHallA())
+  await ask(user, 'why did FA-01 fail?') // waits on the language model's rewrite
+  await ask(user, 'show H-Z2') // answers at once
+  await within(await screen.findByRole('list', { name: 'Conversation' })).findByText(/^Pipe H-Z2 \(header, DN\d+\) in zone Z2/)
+  await act(async () => finish({ text: 'Voltage drop is {value} against {limit}.' }))
+  await waitFor(() => expect(turnCards()[0].textContent).toContain('Voltage drop is 2.16% against 2%.'))
+  const cards = turnCards()
+  expect(cards).toHaveLength(2)
+  expect(cards[0].textContent).toContain('why did FA-01 fail?')
+  expect(cards[1].textContent).toContain('show H-Z2')
+  expect(cards[1].textContent).toContain('Pipe H-Z2 (header')
+  expect(cards[1].textContent).not.toContain('Voltage drop')
+})
+
+test('a typed question the co-pilot does not understand says no engine check ran', async () => {
+  const user = userEvent.setup()
+  renderPanel()
+  await ask(user, 'hello')
+  expect(await screen.findByText('No engine check ran')).toBeInTheDocument()
+  expect(screen.getByText(/Try: “what if racks go to 200 kW”/)).toBeInTheDocument()
+})
+
+test('Live: the history shows what was said, the engine check behind the answer and what changed, and the status follows the turn', async () => {
+  const user = userEvent.setup()
+  let finishExplain: (v: { text: string }) => void = () => undefined
+  const explain = vi.fn(() => new Promise<{ text: string }>((resolve) => (finishExplain = resolve)))
+  const live = liveHarness(fakeApi({ explain }))
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+
+  await live.emit({ type: 'heard', text: 'Why did' })
+  await live.emit({ type: 'heard', text: ' FA-01 fail?' })
+  expect(screen.getByText('Hearing you…')).toBeInTheDocument()
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(convo.getByText('You · voice')).toBeInTheDocument()
+  expect(convo.getByText('Why did FA-01 fail?')).toBeInTheDocument()
+  expect(convo.getByText('Listening…')).toBeInTheDocument()
+
+  let done: Promise<Record<string, unknown>> = Promise.resolve({})
+  act(() => {
+    done = live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+  })
+  expect(await screen.findByText('Checking with the engine…')).toBeInTheDocument()
+  await act(async () => {
+    finishExplain({ text: 'Voltage drop is {value} against {limit}.' })
+    await done
+  })
+  expect(await convo.findByText('Explain finding R05 · FA-01')).toBeInTheDocument()
+  expect(convo.getByText(/^In r1: Voltage drop is 2\.16% against 2%\./)).toBeInTheDocument()
+  expect(convo.getByText('Opened R05 · FA-01 in the finding drawer')).toBeInTheDocument()
+  expect(useUi.getState().findingId).toBe('R05:FA-01')
+
+  await live.emit({ type: 'speaking' })
+  expect(screen.getByText('Gemini is replying…')).toBeInTheDocument()
+  await live.emit({ type: 'turn_complete' })
+  expect(screen.getByText('Listening (Gemini Live)')).toBeInTheDocument()
+  expect(convo.queryByText('No engine check ran')).not.toBeInTheDocument()
+  expect(turnCards()).toHaveLength(1)
+})
+
+test('Live: a spoken reply with no engine check behind it is flagged, and nothing opens or moves', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Why did FA-01 fail?' })
+  await live.emit({ type: 'speaking' })
+  await live.emit({ type: 'turn_complete' })
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(await convo.findByText('No engine check ran')).toBeInTheDocument()
+  expect(convo.getByText(/Nothing was verified and nothing changed on screen/)).toBeInTheDocument()
+  expect(convo.getByText(/Gemini replied by voice on its own/)).toBeInTheDocument()
+  expect(useUi.getState().findingId).toBeNull()
+  expect(useUi.getState().viewRev).toBeNull()
+})
+
+test('Live: each question is its own card, in the order it was asked', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Show FA-01' })
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
+  await live.emit({ type: 'speaking' })
+  await live.emit({ type: 'turn_complete' })
+  await live.emit({ type: 'heard', text: 'Show H-Z2' })
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'H-Z2' } })))
+  await live.emit({ type: 'turn_complete' })
+  await waitFor(() => expect(turnCards()).toHaveLength(2))
+  const cards = turnCards()
+  expect(cards[0].textContent).toContain('Show FA-01')
+  expect(cards[0].textContent).toMatch(/(Cable|Busway) FA-01: /)
+  expect(cards[1].textContent).toContain('Show H-Z2')
+  expect(cards[1].textContent).toContain('Pipe H-Z2 (header')
+})
+
+test('Live: a tool that fails tells Gemini so instead of ending the session, and the card says it could not run', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  const focus = useUi.getState().focus
+  useUi.setState({
+    focus: () => {
+      throw new Error('boom')
+    },
+  })
+  try {
+    await live.emit({ type: 'heard', text: 'Show FA-01' })
+    // The SDK ends the whole conversation if this handler throws, so it must answer instead.
+    const response = await act(async () => live.call({ name: 'focus_element', args: { element_id: 'FA-01' } }))
+    expect(response).toEqual({ error: 'unavailable' })
+  } finally {
+    useUi.setState({ focus })
+  }
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(convo.getByText('That check could not run.')).toBeInTheDocument()
+  expect(screen.getByText('Listening (Gemini Live)')).toBeInTheDocument()
+})
+
+test('Live: a tool call that arrives before any transcript still gets a card, and the words fill in when they come', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
+  const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
+  expect(convo.getByText('Listening for your words…')).toBeInTheDocument() // the turn is still going: not "not transcribed" yet
+  await live.emit({ type: 'heard', text: 'Show me FA-01' })
+  expect(convo.getByText('Show me FA-01')).toBeInTheDocument()
+  expect(convo.queryByText('Listening for your words…')).not.toBeInTheDocument()
+  expect(turnCards()).toHaveLength(1)
+})
+
+test('Live: words that arrive after the turn has ended fill the card they belong to, not a new one', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+  await live.emit({ type: 'turn_complete' })
+  expect(useConversation.getState().turns[0]).toMatchObject({ asked: null, ended: true })
+  await live.emit({ type: 'heard', text: 'what is the power of rack R1-01' })
+  const turns = useConversation.getState().turns
+  expect(turns).toHaveLength(1)
+  expect(turns[0]).toMatchObject({ asked: 'what is the power of rack R1-01', phase: 'answered' })
+  expect(turns[0].steps).toHaveLength(1)
+})
+
+describe('Live: a model that repeats itself', () => {
+  const callWhy = (live: ReturnType<typeof liveHarness>) =>
+    act(async () => (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })) as Record<string, unknown>)
+
+  test('the same tool call again with no new words in between is not run again, and Gemini is told it already answered', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    await callWhy(live)
+    let second: Record<string, unknown> = {}
+    await act(async () => {
+      second = await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+    })
+    expect(second).toMatchObject({ already_answered: true })
+    expect(String(second.note)).toMatch(/do not repeat/i)
+    expect(useConversation.getState().turns[0].steps).toHaveLength(1) // no second identical step on the card
+  })
+
+  test('new words from the visitor make the same question a new one again', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    await callWhy(live)
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'why FA-01 again' })
+    const again = await callWhy(live)
+    expect(again).not.toHaveProperty('already_answered')
+    expect(useConversation.getState().turns).toHaveLength(2)
+  })
+
+  test('a new voice session starts clean: the same question after Stop is answered, not counted as a repeat', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    await callWhy(live)
+    await user.click(screen.getByRole('button', { name: 'Stop' }))
+    await startLive(user)
+    const again = await callWhy(live) // no words yet: the transcript may come after the call
+    expect(again).not.toHaveProperty('already_answered')
+  })
+
+  test('words that arrive late do not forget the call they belong to: a repeat after them is still caught', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await callWhy(live) // the tool call comes before any words
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'why FA-01' }) // the words, late
+    let again: Record<string, unknown> = {}
+    await act(async () => {
+      again = await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+    })
+    expect(again).toMatchObject({ already_answered: true })
+  })
+
+  test('more repeats while it is already stopping add no second card and no second stop', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    live.stop.mockImplementation(() => new Promise(() => undefined)) // a shutdown that takes a while
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    for (let i = 0; i < 7; i++) await callWhy(live)
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    expect(live.stop).toHaveBeenCalledTimes(1)
+    expect(useConversation.getState().turns.filter((t) => t.phase === 'failed')).toHaveLength(1)
+  })
+
+  test('a call that failed is not counted as answered: Gemini\'s retry runs', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'show FA-01' })
+    const focus = useUi.getState().focus
+    useUi.setState({
+      focus: () => {
+        throw new Error('boom')
+      },
+    })
+    await act(async () => void 0) // a render, so the panel picks up the swapped focus
+    let first: Record<string, unknown> = {}
+    try {
+      await act(async () => {
+        first = await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })
+      })
+    } finally {
+      act(() => useUi.setState({ focus })) // the real focus again, no new words in between
+    }
+    expect(first).toEqual({ error: 'unavailable' })
+    let retry: Record<string, unknown> = {}
+    await act(async () => {
+      retry = await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })
+    })
+    expect(retry).not.toHaveProperty('already_answered')
+    expect(retry).toMatchObject({ element_id: 'FA-01' })
+  })
+
+  test('after three repeats the voice conversation is stopped, and the history says why', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    for (let i = 0; i < 4; i++) await callWhy(live) // the answer, then three repeats
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    expect(useConversation.getState().turns.at(-1)).toMatchObject({ phase: 'failed', note: 'Voice was stopped because Gemini kept repeating the same answer. Press Start voice to ask again.' })
+  })
+})
+
+test('Live starts with facts about the design from the engine, so a general question has something real to be answered from', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  expect(live.context()).toMatch(/^Design: topology \S+; \d+ racks/)
+  expect(live.context()).toMatch(/Rules: .*R05 /)
+})
+
+describe('Live: late words', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  test('complete a card that is already finished: it is not re-opened, so the next question starts its own card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'what is the power ' }) // the words arrive in pieces, late
+    await live.emit({ type: 'heard', text: 'of R1-01' })
+    expect(useConversation.getState().turns).toHaveLength(1)
+    expect(useConversation.getState().turns[0]).toMatchObject({ asked: 'what is the power of R1-01', ended: true })
+    expect(screen.getByText('Listening (Gemini Live)')).toBeInTheDocument() // not stuck on "Hearing you…"
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 5_000)
+    await live.emit({ type: 'heard', text: 'what about R05' }) // the next question
+    const turns = useConversation.getState().turns
+    expect(turns).toHaveLength(2)
+    expect(turns[0].asked).toBe('what is the power of R1-01') // not "…of R1-01what about R05"
+    expect(turns[1].asked).toBe('what about R05')
+  })
+
+  test('the same question again right after late words is a new question with its own answer, or a caught repeat, not a mix', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await act(async () => void (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })))
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 5_000)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    expect(useConversation.getState().turns).toHaveLength(2)
+    let again: Record<string, unknown> = {}
+    await act(async () => {
+      again = await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+    })
+    expect(again).not.toHaveProperty('already_answered') // words were heard this time: a real second question
+  })
+
+  test('belong to the card made without words only for a few seconds: the next question is a new card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    await live.emit({ type: 'turn_complete' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 12_000)
+    await live.emit({ type: 'heard', text: 'a different question' })
+    const turns = useConversation.getState().turns
+    expect(turns).toHaveLength(2)
+    expect(turns[0].asked).toBeNull()
+    expect(turns[1].asked).toBe('a different question')
+  })
+
+  test('are never put on the card of a stopped conversation, and do not erase its note', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    for (let i = 0; i < 4; i++) await act(async () => void (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })))
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'show H-Z2' })
+    const turns = useConversation.getState().turns
+    expect(turns.at(-1)).toMatchObject({ asked: 'show H-Z2' })
+    expect(turns.find((t) => t.phase === 'failed')?.note).toMatch(/kept repeating/)
+  })
+
+  test('a reply spoken for longer than the idle time still lands on its own card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await live.emit({ type: 'heard', text: 'give me an overview' })
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'DESIGN' } })))
+    const clock = vi.spyOn(Date, 'now')
+    clock.mockReturnValue(t0 + 15_000)
+    await live.emit({ type: 'speaking' }) // still speaking 15 s in
+    clock.mockReturnValue(t0 + 30_000)
+    await live.debug({ heard: 'give me an overview', said: 'The design has 48 racks.', interrupted: false })
+    const turns = useConversation.getState().turns
+    expect(turns).toHaveLength(1)
+    expect(turns[0]).toMatchObject({ said: 'The design has 48 racks.', phase: 'answered' })
+  })
+})
+
+describe('Live: what Gemini said', () => {
+  test('is kept on the card of the question it answered, apart from the engine answer', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'power of R1-01' })
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    await live.debug({ heard: 'power of R1-01', said: 'Rack R1-01 has a power of 132 kW.', interrupted: false })
+    await live.emit({ type: 'turn_complete' })
+    expect(useConversation.getState().turns[0]).toMatchObject({ said: 'Rack R1-01 has a power of 132 kW.' })
+    // off by default: not on the screen
+    expect(screen.queryByText(/has a power of 132 kW\./)).not.toBeInTheDocument()
+  })
+
+  test('a reply with no engine check behind it is kept too, so the history shows that something was said', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'tell me a story' })
+    await live.debug({ heard: 'tell me a story', said: 'Once upon a time.', interrupted: false })
+    await live.emit({ type: 'turn_complete' })
+    expect(useConversation.getState().turns[0]).toMatchObject({ phase: 'unchecked', said: 'Once upon a time.' })
+  })
+})
+
+test('Live: stopping the voice mid-question closes its card as unchecked', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Why did FA-01' })
+  await user.click(screen.getByRole('button', { name: 'Stop' }))
+  expect(await screen.findByText('No engine check ran')).toBeInTheDocument()
+  expect(screen.getByText('Voice was stopped before there was an answer.')).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Start voice' })).toBeInTheDocument()
+})
+
+test('Live: the model\'s own words never reach the screen, only the engine\'s text', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await live.emit({ type: 'heard', text: 'Why did FA-01 fail?' })
+  await act(async () => void (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })))
+  await live.emit({ type: 'speaking' })
+  await live.emit({ type: 'turn_complete' })
+  // The only events the service can send are heard/speaking/turn_complete: nothing in them carries the model's speech.
+  expect(screen.queryByText(/Gemini said/i)).not.toBeInTheDocument()
+  expect(turnCards()[0].textContent).toMatch(/Explain finding R05 · FA-01/)
+})
+
+test('push-to-talk writes up the turn too: the transcript, the engine check and what changed', async () => {
+  const answer = 'In r1: Voltage drop from the UPS output board to the furthest tap-off via FA-01 is 2.16% against a limit of 2%.'
+  await pushToTalk({
+    transcript: 'Why did FA-01 fail?',
+    answer,
+    tool_results: [{ name: 'explain_finding', args: { finding_id: 'R05:FA-01' }, result: { text: answer, revision: 'r1' } }],
+  })
+  const convo = await conversation()
+  expect(await convo.findByText('You · push-to-talk')).toBeInTheDocument()
+  expect(convo.getByText('Why did FA-01 fail?')).toBeInTheDocument()
+  expect(convo.getByText('Explain finding R05 · FA-01')).toBeInTheDocument()
+  expect(convo.getByText('Opened R05 · FA-01 in the finding drawer')).toBeInTheDocument()
+  expect(convo.getByText(/^Switched to r1 \(.*\), where this check failed$/)).toBeInTheDocument()
+})
+
+test('push-to-talk "what is the power of rack R1-01": the server only showed it, the card has the engine\'s record of the rack', async () => {
+  await pushToTalk({
+    transcript: 'What is the power of rack R1-01?',
+    answer: 'Showing R1-01.',
+    tool_results: [{ name: 'focus_element', args: { element_id: 'R1-01' }, result: { focused: 'R1-01' } }],
+  })
+  const convo = await conversation()
+  expect(await convo.findByText('Details of R1-01')).toBeInTheDocument()
+  expect(convo.getByText(/^Rack R1-01 \(row R1\): [\d,.]+ kW, liquid fraction [\d.]+, fed by /)).toBeInTheDocument()
+  expect(convo.queryByText('Showing R1-01.')).not.toBeInTheDocument()
+  expect(convo.getByText('Showing R1-01 on the 3D hall and the SLD')).toBeInTheDocument()
+})
+
+test('push-to-talk "explain R05": a rule id is answered as a rule, not "Nothing moved: R05 is not drawn"', async () => {
+  await pushToTalk({
+    transcript: 'Explain R05',
+    answer: 'Showing R05.',
+    tool_results: [{ name: 'focus_element', args: { element_id: 'R05' }, result: { focused: 'R05' } }],
+  })
+  const convo = await conversation()
+  expect(await convo.findByText(/^Rule R05 \(/)).toBeInTheDocument()
+  expect(convo.queryByText(/Nothing moved/)).not.toBeInTheDocument()
+  expect(convo.queryByText('What changed on screen')).not.toBeInTheDocument()
+})
+
+test('push-to-talk with no engine check behind the reply says so', async () => {
+  await pushToTalk({ transcript: 'Tell me a joke', answer: 'No tool answers that question.', tool_results: [] })
+  const convo = await conversation()
+  expect(await convo.findByText('No engine check ran')).toBeInTheDocument()
+  expect(convo.getByText('No tool answers that question.')).toBeInTheDocument()
+})
+
+// ---- The debug log: what was typed, heard, said and answered, kept for debugging (lib/debugLog.ts).
+
+describe('a Live card is never left open', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  test('a question that never got its turn end is closed when the visitor speaks again much later', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await live.emit({ type: 'heard', text: 'first question' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 25_000)
+    await live.emit({ type: 'heard', text: 'second question' })
+    const [first, second] = useConversation.getState().turns
+    expect(first).toMatchObject({ asked: 'first question', phase: 'unchecked' })
+    expect(second).toMatchObject({ asked: 'second question', phase: 'hearing' })
+  })
+
+  test('the same when the late arrival is a tool call', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const t0 = Date.now()
+    await live.emit({ type: 'heard', text: 'first question' })
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 25_000)
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    expect(useConversation.getState().turns[0].phase).toBe('unchecked')
+  })
+
+  test('leaving the page while a question is open closes its card', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    const view = renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'half a question' })
+    view.unmount()
+    expect(useConversation.getState().turns[0]).toMatchObject({ phase: 'unchecked', note: 'Voice was stopped before there was an answer.' })
+  })
+
+  test('hiding the co-pilot while Live is still connecting stops it as soon as it is up', async () => {
+    const user = userEvent.setup()
+    const stop = vi.fn(async () => undefined)
+    let connected: () => void = () => undefined
+    renderPanel(
+      fakeServices({
+        startLiveVoice: () => new Promise((resolve) => (connected = () => resolve({ stop }))),
+      }),
+      realHallA(),
+    )
+    await user.click(screen.getByRole('button', { name: 'Start voice' }))
+    act(() => useLayout.getState().toggleCopilot()) // hidden before the connection is made
+    expect(stop).not.toHaveBeenCalled()
+    await act(async () => connected())
+    await waitFor(() => expect(stop).toHaveBeenCalled())
+    act(() => useLayout.getState().reset())
+  })
+
+  test('clearing the conversation while a question is open does not lose the rest of that turn', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'show R1-01' })
+    act(() => useConversation.getState().clear())
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    const [card] = useConversation.getState().turns
+    expect(card.steps[0]?.check).toBe('Details of R1-01') // a new card took the answer; it is not dropped
+  })
+
+  test('hiding the co-pilot stops the voice conversation, so the microphone is never left on out of sight', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'a question' })
+    act(() => useLayout.getState().toggleCopilot())
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    expect(useConversation.getState().turns[0].phase).toBe('unchecked')
+    act(() => useLayout.getState().reset())
+  })
+})
+
+describe('the debug log', () => {
+  beforeEach(() => clearDebugLog())
+  const kinds = () => debugEntries().map((e) => e.kind)
+
+  test('a typed question is logged with the engine check that ran and the answer it gave', async () => {
+    const user = userEvent.setup()
+    renderPanel(fakeServices(), realHallA())
+    await ask(user, 'show H-Z2')
+    await (await conversation()).findByText(/^Pipe H-Z2/)
+    expect(kinds()).toEqual(['typed', 'tool_result'])
+    expect(debugEntries()[0]).toMatchObject({ text: 'show H-Z2', tool: 'focus_element' })
+    expect(debugEntries()[1]).toMatchObject({ via: 'typed', check: 'Details of H-Z2' })
+    expect(String(debugEntries()[1].answer)).toMatch(/^Pipe H-Z2/)
+  })
+
+  test('a typed question that is not understood is logged too', async () => {
+    const user = userEvent.setup()
+    renderPanel(fakeServices(), realHallA())
+    await ask(user, 'hello')
+    expect(debugEntries()).toEqual([expect.objectContaining({ kind: 'typed', text: 'hello', tool: null })])
+  })
+
+  test('a Live tool call is logged with its arguments, and the engine data it sent back to Gemini', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    expect(kinds()).toEqual(['tool_call', 'tool_response'])
+    expect(debugEntries()[0]).toMatchObject({ via: 'live', name: 'focus_element', args: { element_id: 'R1-01' } })
+    expect(debugEntries()[1]).toMatchObject({ via: 'live', name: 'focus_element', data: { kw: expect.any(Number), kind: 'rack' } })
+  })
+
+  test('a Live turn is logged with both sides in full, Gemini\'s words included, and they stay off the screen', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.debug({ heard: 'What is the power of rack R1-01?', said: 'I am unable to retrieve that.', interrupted: false })
+    expect(debugEntries()).toEqual([
+      expect.objectContaining({ kind: 'live_turn', heard: 'What is the power of rack R1-01?', said: 'I am unable to retrieve that.', interrupted: false }),
+    ])
+    expect(screen.queryByText(/unable to retrieve/)).not.toBeInTheDocument()
+  })
+
+  test('a failing Live tool is logged as an error', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    const focus = useUi.getState().focus
+    useUi.setState({
+      focus: () => {
+        throw new Error('boom')
+      },
+    })
+    try {
+      await live.emit({ type: 'heard', text: 'Show FA-01' }) // a render, so the panel picks up the swapped focus
+      await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
+    } finally {
+      useUi.setState({ focus })
+    }
+    expect(kinds()).toEqual(['tool_call', 'tool_error'])
+    expect(debugEntries()[1]).toMatchObject({ via: 'live', name: 'focus_element', error: expect.stringContaining('boom') })
+  })
+
+  test('push-to-talk is logged with what was heard, the tools the server ran, and the answer', async () => {
+    await pushToTalk({
+      transcript: 'Show R1-01',
+      answer: 'Showing R1-01.',
+      tool_results: [{ name: 'focus_element', args: { element_id: 'R1-01' }, result: { focused: 'R1-01' } }],
+    })
+    await (await conversation()).findByText(/^Rack R1-01/)
+    expect(debugEntries()).toEqual([
+      expect.objectContaining({ kind: 'ptt', transcript: 'Show R1-01', answer: 'Showing R1-01.', tools: [{ name: 'focus_element', args: { element_id: 'R1-01' } }] }),
+    ])
+  })
+})
+
+test('the conversation is filed under the project it was had in', () => {
+  renderPanel(fakeServices(), realHallA())
+  expect(useConversation.getState().project).toBe(realHallA().project.id)
 })

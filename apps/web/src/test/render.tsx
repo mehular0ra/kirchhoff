@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApiError, type ApiClient } from '@/services/apiClient'
 import { ServicesProvider, type Services } from '@/services/services'
 import { useBundleStore } from '@/store/bundles'
+import { useConversation } from '@/store/conversation'
 import { useUi } from '@/store/ui'
 import hallMini from './fixtures/hall-mini.json'
 import inbox from './fixtures/inbox.json'
@@ -63,6 +64,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services {
 export function resetStores(): void {
   useBundleStore.setState({ entries: {} })
   useUi.getState().resetWorkspaceUi()
+  useConversation.setState({ project: null, turns: [], saved: {} })
 }
 
 /** Renders `ui` at `route` (matched by `path`) inside router, services and tooltip providers. */

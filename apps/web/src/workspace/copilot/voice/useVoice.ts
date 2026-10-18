@@ -2,7 +2,7 @@
 // automatically to push-to-talk via POST /api/voice (spec §6.5).
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, describeApiError, type VoiceResponse } from '@/services/apiClient'
-import { useServices, type LiveVoiceCall, type LiveVoiceHandle } from '@/services/services'
+import { useServices, type LiveTurnRecord, type LiveVoiceCall, type LiveVoiceEvent, type LiveVoiceHandle } from '@/services/services'
 import { canRecord, startRecording, type Recording } from './pushToTalk'
 
 export type VoiceMode = 'off' | 'connecting' | 'live' | 'ptt' | 'recording' | 'thinking'
@@ -13,6 +13,12 @@ export function useVoice(opts: {
   /** What push-to-talk sends as revision_ref: the what-if revision (head unless picked in the revision bar, #37). */
   revisionRef: string | null
   onToolCall: (call: LiveVoiceCall) => Promise<Record<string, unknown>>
+  /** What the visitor said and when a turn ends, from a Live conversation (the conversation history). */
+  onLiveEvent?: (e: LiveVoiceEvent) => void
+  /** Each finished Live turn in full (the model's words too), for the debug log only. */
+  onLiveDebug?: (turn: LiveTurnRecord) => void
+  /** Facts about the design for the model, asked for each time a Live session starts. */
+  liveContext?: () => string
   /** `revisionRef` is the one this answer was asked on, so the answer can name that revision. */
   onPushToTalk: (res: VoiceResponse, revisionRef: string) => void
 }) {
@@ -49,7 +55,12 @@ export function useVoice(opts: {
     setMode('connecting')
     try {
       live.current = await Promise.race([
-        startLiveVoice({ onToolCall: (c) => optsRef.current.onToolCall(c) }),
+        startLiveVoice({
+          onToolCall: (c) => optsRef.current.onToolCall(c),
+          onEvent: (e) => optsRef.current.onLiveEvent?.(e),
+          onDebug: (t) => optsRef.current.onLiveDebug?.(t),
+          context: optsRef.current.liveContext?.(),
+        }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), LIVE_TIMEOUT_MS)),
       ])
       setMode('live')

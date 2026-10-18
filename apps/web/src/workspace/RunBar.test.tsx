@@ -47,6 +47,41 @@ test('M19: a running live run names its phase in words', () => {
   expect(screen.getByText('Running · placing racks and weighing options')).toBeInTheDocument()
 })
 
+function renderLiveBar(status: 'running' | 'at_gate' | 'done' | 'failed' | 'expired') {
+  resetStores()
+  const b = fixtureBundle()
+  b.runs = [{ ...b.runs[0], status, phase: 'p3', gate: status === 'at_gate' ? 'option' : null, finished_at: status === 'running' || status === 'at_gate' ? null : 1_000 }]
+  render(
+    <ServicesProvider services={fakeServices()}>
+      <MemoryRouter>
+        <WorkspaceProvider bundle={b} source="live">
+          <RunBar controls={null} />
+        </WorkspaceProvider>
+      </MemoryRouter>
+    </ServicesProvider>,
+  )
+}
+
+test('a finished run offers another run, and says that what-ifs only re-check and do not redesign', () => {
+  renderLiveBar('done')
+  expect(screen.getByText('Run complete')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Run Hall B again' })).toHaveAttribute('href', '/app/p/hall-b')
+  expect(screen.getByText(/What-ifs only re-check this design/)).toBeInTheDocument()
+})
+
+test('a failed run keeps Resume and also offers a new run', () => {
+  renderLiveBar('failed')
+  expect(screen.getByRole('button', { name: /Resume/ })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Start a new run' })).toHaveAttribute('href', '/app/p/hall-b')
+})
+
+test('a run in progress does not offer a second one', () => {
+  renderLiveBar('running')
+  expect(screen.queryByRole('link', { name: /again|new run/i })).not.toBeInTheDocument()
+  renderLiveBar('at_gate')
+  expect(screen.queryByRole('link', { name: /again|new run/i })).not.toBeInTheDocument()
+})
+
 test('residual: a run that appears after the first wait replaces the waiting note', () => {
   vi.useFakeTimers()
   resetStores()
