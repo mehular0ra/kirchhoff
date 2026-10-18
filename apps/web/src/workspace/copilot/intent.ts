@@ -16,6 +16,9 @@ const PROBLEM = /\b(fail\w*|wrong|caus\w*|issues?|problems?)\b/i
 // Questions about what an element is: "details of R1-01", "what is the power of rack R1-01", "how long is FA-01".
 const DETAILS = /\b(details?|describe|tell me|info(?:rmation)?|what(?:'s| is| are)|how (?:much|many|long|big)|power|load|rating|rated|capacity|feeds?|fed|length)\b/i
 
+// Questions about the whole design: "an overview", "explain the entire workflow of this hall".
+const OVERVIEW = /\b(overview|whole (?:design|hall)|entire|workflow|summary|summari[sz]e|everything|the design)\b/i
+
 export function parseIntent(text: string): Intent | null {
   const t = text.trim()
   if (/^what\s*if|^if\b/i.test(t) || /\bwhat-if\b/i.test(t)) {
@@ -31,6 +34,8 @@ export function parseIntent(text: string): Intent | null {
   }
   // A spoken id arrives with spaces around the dash ("r1 - 01"): read it as R1-01.
   const el = t.replace(/\s*-\s*/g, '-').match(ELEMENT)?.[1]?.toUpperCase()
+  // "this hall" is a question about the whole design, not about R06's check target HALL.
+  if ((!el || el === 'HALL') && OVERVIEW.test(t)) return { tool: 'focus_element', element: 'DESIGN' }
   // An explain question either starts with why/explain or names an element together with a problem word.
   if (el && (/^(why|explain)\b/i.test(t) || PROBLEM.test(t))) {
     const rule = t.match(RULE)?.[1]
@@ -38,6 +43,15 @@ export function parseIntent(text: string): Intent | null {
   }
   // Showing an element, or asking what it is (its power, rating, feeds, length, capacity): both answer from the model.
   if (el && (/^(show|focus|where|zoom|find)\b/i.test(t) || DETAILS.test(t))) return { tool: 'focus_element', element: el }
+  // A rule id on its own (R05) names a check on the design, not an element: explain it, or say what it is.
+  const ruleOnly = t.match(RULE)?.[1]
+  if (!el && ruleOnly) {
+    const rule = ruleOnly.toUpperCase().replace('B', 'b')
+    if (/\b(why|explain)\b/i.test(t) || PROBLEM.test(t)) return { tool: 'explain_finding', element: '', rule }
+    if (DETAILS.test(t)) return { tool: 'focus_element', element: rule }
+  }
+  // A question about the whole design: the overview.
+  if (OVERVIEW.test(t)) return { tool: 'focus_element', element: 'DESIGN' }
   return null
 }
 

@@ -438,18 +438,21 @@ function liveHarness(api = fakeApi()) {
   let onEvent: (e: LiveVoiceEvent) => void = () => undefined
   let onDebug: (t: LiveTurnRecord) => void = () => undefined
   const stop = vi.fn(async () => undefined)
+  let context: string | undefined
   const services = fakeServices({
     api,
     startLiveVoice: async (o) => {
       onToolCall = o.onToolCall
       onEvent = o.onEvent ?? onEvent
       onDebug = o.onDebug ?? onDebug
+      context = o.context
       return { stop }
     },
   })
   return {
     services,
     stop,
+    context: () => context,
     call: (c: LiveVoiceCall) => onToolCall(c),
     emit: (e: LiveVoiceEvent) => act(() => onEvent(e)),
     debug: (t: LiveTurnRecord) => act(() => onDebug(t)),
@@ -608,11 +611,108 @@ test('Live: a tool call that arrives before any transcript still gets a card, an
   await startLive(user)
   await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'FA-01' } })))
   const convo = within(await screen.findByRole('list', { name: 'Conversation' }))
-  expect(convo.getByText('(your words were not transcribed)')).toBeInTheDocument()
+  expect(convo.getByText('Listening for your words…')).toBeInTheDocument() // the turn is still going: not "not transcribed" yet
   await live.emit({ type: 'heard', text: 'Show me FA-01' })
   expect(convo.getByText('Show me FA-01')).toBeInTheDocument()
-  expect(convo.queryByText('(your words were not transcribed)')).not.toBeInTheDocument()
+  expect(convo.queryByText('Listening for your words…')).not.toBeInTheDocument()
   expect(turnCards()).toHaveLength(1)
+})
+
+test('Live: words that arrive after the turn has ended fill the card they belong to, not a new one', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+  await live.emit({ type: 'turn_complete' })
+  expect(useConversation.getState().turns[0]).toMatchObject({ asked: null, ended: true })
+  await live.emit({ type: 'heard', text: 'what is the power of rack R1-01' })
+  const turns = useConversation.getState().turns
+  expect(turns).toHaveLength(1)
+  expect(turns[0]).toMatchObject({ asked: 'what is the power of rack R1-01', phase: 'answered' })
+  expect(turns[0].steps).toHaveLength(1)
+})
+
+describe('Live: a model that repeats itself', () => {
+  const callWhy = (live: ReturnType<typeof liveHarness>) =>
+    act(async () => (await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })) as Record<string, unknown>)
+
+  test('the same tool call again with no new words in between is not run again, and Gemini is told it already answered', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    await callWhy(live)
+    let second: Record<string, unknown> = {}
+    await act(async () => {
+      second = await live.call({ name: 'explain_finding', args: { finding_id: 'R05:FA-01' } })
+    })
+    expect(second).toMatchObject({ already_answered: true })
+    expect(String(second.note)).toMatch(/do not repeat/i)
+    expect(useConversation.getState().turns[0].steps).toHaveLength(1) // no second identical step on the card
+  })
+
+  test('new words from the visitor make the same question a new one again', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    await callWhy(live)
+    await live.emit({ type: 'turn_complete' })
+    await live.emit({ type: 'heard', text: 'why FA-01 again' })
+    const again = await callWhy(live)
+    expect(again).not.toHaveProperty('already_answered')
+    expect(useConversation.getState().turns).toHaveLength(2)
+  })
+
+  test('after three repeats the voice conversation is stopped, and the history says why', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'why FA-01' })
+    for (let i = 0; i < 4; i++) await callWhy(live) // the answer, then three repeats
+    await waitFor(() => expect(live.stop).toHaveBeenCalled())
+    expect(useConversation.getState().turns.at(-1)).toMatchObject({ phase: 'failed', note: 'Voice was stopped because Gemini kept repeating the same answer. Press Start voice to ask again.' })
+  })
+})
+
+test('Live starts with facts about the design from the engine, so a general question has something real to be answered from', async () => {
+  const user = userEvent.setup()
+  const live = liveHarness()
+  renderPanel(live.services, realHallA())
+  await startLive(user)
+  expect(live.context()).toMatch(/^Design: topology \S+; \d+ racks/)
+  expect(live.context()).toMatch(/Rules: .*R05 /)
+})
+
+describe('Live: what Gemini said', () => {
+  test('is kept on the card of the question it answered, apart from the engine answer', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'power of R1-01' })
+    await act(async () => void (await live.call({ name: 'focus_element', args: { element_id: 'R1-01' } })))
+    await live.debug({ heard: 'power of R1-01', said: 'Rack R1-01 has a power of 132 kW.', interrupted: false })
+    await live.emit({ type: 'turn_complete' })
+    expect(useConversation.getState().turns[0]).toMatchObject({ said: 'Rack R1-01 has a power of 132 kW.' })
+    // off by default: not on the screen
+    expect(screen.queryByText(/has a power of 132 kW\./)).not.toBeInTheDocument()
+  })
+
+  test('a reply with no engine check behind it is kept too, so the history shows that something was said', async () => {
+    const user = userEvent.setup()
+    const live = liveHarness()
+    renderPanel(live.services, realHallA())
+    await startLive(user)
+    await live.emit({ type: 'heard', text: 'tell me a story' })
+    await live.debug({ heard: 'tell me a story', said: 'Once upon a time.', interrupted: false })
+    await live.emit({ type: 'turn_complete' })
+    expect(useConversation.getState().turns[0]).toMatchObject({ phase: 'unchecked', said: 'Once upon a time.' })
+  })
 })
 
 test('Live: stopping the voice mid-question closes its card as unchecked', async () => {
@@ -667,6 +767,18 @@ test('push-to-talk "what is the power of rack R1-01": the server only showed it,
   expect(convo.getByText(/^Rack R1-01 \(row R1\): [\d,.]+ kW, liquid fraction [\d.]+, fed by /)).toBeInTheDocument()
   expect(convo.queryByText('Showing R1-01.')).not.toBeInTheDocument()
   expect(convo.getByText('Showing R1-01 on the 3D hall and the SLD')).toBeInTheDocument()
+})
+
+test('push-to-talk "explain R05": a rule id is answered as a rule, not "Nothing moved: R05 is not drawn"', async () => {
+  await pushToTalk({
+    transcript: 'Explain R05',
+    answer: 'Showing R05.',
+    tool_results: [{ name: 'focus_element', args: { element_id: 'R05' }, result: { focused: 'R05' } }],
+  })
+  const convo = await conversation()
+  expect(await convo.findByText(/^Rule R05 \(/)).toBeInTheDocument()
+  expect(convo.queryByText(/Nothing moved/)).not.toBeInTheDocument()
+  expect(convo.queryByText('What changed on screen')).not.toBeInTheDocument()
 })
 
 test('push-to-talk with no engine check behind the reply says so', async () => {

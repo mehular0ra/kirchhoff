@@ -6,7 +6,7 @@ import type { Revision, WhatIfParam, WhatIfResult } from '@/lib/types'
 import { logDebug } from '@/lib/debugLog'
 import { completeItem } from '@/onboarding/checklist/checklistStore'
 import type { VoiceResponse } from '@/services/apiClient'
-import { useServices, type LiveVoiceCall, type LiveVoiceEvent } from '@/services/services'
+import { useServices, type LiveTurnRecord, type LiveVoiceCall, type LiveVoiceEvent } from '@/services/services'
 import { canvasesFor } from '@/lib/model'
 import { revisionById, revisionLabel, revisionRef } from '@/lib/select'
 import { useConversation } from '@/store/conversation'
@@ -17,7 +17,7 @@ import { RequirementsPanel } from '../RequirementsPanel'
 import { useWorkspace } from '../WorkspaceContext'
 import { ConversationLog } from './ConversationLog'
 import { INTENT_HELP, parseIntent } from './intent'
-import { elementId, executeTool, findingLabel, focusActions, lookUpElement, whatIfCheck, type ToolContext } from './tools'
+import { designBrief, elementId, executeTool, findingLabel, focusActions, lookUpElement, targetKind, whatIfCheck, type ToolContext } from './tools'
 import { useWhatIf } from './useWhatIf'
 import { canRecord, speak } from './voice/pushToTalk'
 import { useVoice } from './voice/useVoice'
@@ -27,6 +27,12 @@ import { WhatIfPanel } from './WhatIfPanel'
 const LIVE_TURN_IDLE_MS = 20_000
 const NO_TOOL_NOTE = 'Gemini replied by voice on its own, so that reply is not backed by the engine. Ask again, or type the question.'
 const STOPPED_NOTE = 'Voice was stopped before there was an answer.'
+const REPEATING_NOTE = 'Voice was stopped because Gemini kept repeating the same answer. Press Start voice to ask again.'
+/** The same tool call within this long, with no new words from the visitor, is a repeat; this many repeats stop the conversation. */
+const REPEAT_WINDOW_MS = 90_000
+const MAX_REPEATS = 3
+/** Words arriving this soon after a card was made without any belong to that card. */
+const LATE_WORDS_MS = 30_000
 
 /** What a Live conversation is doing right now, for the status line next to the mic. */
 type LiveActivity = 'idle' | 'hearing' | 'checking' | 'replying'
@@ -39,6 +45,8 @@ const LIVE_STATUS: Record<LiveActivity, { Icon: typeof Mic; text: string; motion
 }
 
 const conv = () => useConversation.getState()
+/** The clock, read in event handlers only (the lint rule against impure calls cannot tell a handler from a render). */
+const nowMs = () => Date.now()
 
 export function CoPilotPanel() {
   const view = useWorkspace()
@@ -97,19 +105,22 @@ export function CoPilotPanel() {
 
   // ---- Gemini Live: one history card per question, built from the transcript, the tool calls and the turn ends.
   const liveTurn = useRef<{ id: number; last: number } | null>(null)
+  const lastCall = useRef<{ key: string; at: number } | null>(null)
+  const repeats = useRef(0)
   const [activity, setActivity] = useState<LiveActivity>('idle')
 
   /** The card of the question being asked or answered, if there is one that is not long over. */
   const currentLiveTurn = () => {
     const t = liveTurn.current
     // Not one that was cleared away from the history meanwhile: the next words or tool call open a new card.
-    return t && Date.now() - t.last <= LIVE_TURN_IDLE_MS && conv().turns.some((x) => x.id === t.id) ? t : null
+    return t && nowMs() - t.last <= LIVE_TURN_IDLE_MS && conv().turns.some((x) => x.id === t.id) ? t : null
   }
   /** Closes the open card: with an engine answer it is answered, without one it says no engine check ran. */
   const endLiveTurn = (note: string) => {
     const t = liveTurn.current
     liveTurn.current = null
     if (!t) return
+    conv().setEnded(t.id, true)
     const turn = conv().turns.find((x) => x.id === t.id)
     if (!turn || turn.phase === 'failed') return
     if (turn.steps.length > 0) conv().setPhase(t.id, 'answered')
@@ -121,11 +132,21 @@ export function CoPilotPanel() {
       const open = currentLiveTurn()
       if (open) {
         conv().hear(open.id, e.text)
-        open.last = Date.now()
+        open.last = nowMs()
       } else {
         endLiveTurn(NO_TOOL_NOTE) // a card whose turn end never came is closed before the next one opens
-        liveTurn.current = { id: conv().start('live', e.text, 'hearing'), last: Date.now() }
+        // The service often sends the words after the tool call and the turn end: they belong to the card just made without any.
+        const last = conv().turns.at(-1)
+        if (last && last.via === 'live' && last.asked === null && nowMs() - last.at < LATE_WORDS_MS) {
+          conv().hear(last.id, e.text)
+          conv().setEnded(last.id, false)
+          liveTurn.current = { id: last.id, last: nowMs() }
+        } else {
+          liveTurn.current = { id: conv().start('live', e.text, 'hearing'), last: nowMs() }
+        }
       }
+      lastCall.current = null // new words from the visitor: the next question is a new one, even if it is the same
+      repeats.current = 0
       setActivity('hearing')
     } else if (e.type === 'speaking') {
       const open = currentLiveTurn()
@@ -140,13 +161,30 @@ export function CoPilotPanel() {
 
   const onToolCall = async (call: LiveVoiceCall) => {
     completeItem('ask_copilot')
+    // The same call again with no new words from the visitor in between is Gemini repeating itself, not a new question:
+    // it is not run (or shown) again, Gemini is told it already answered, and after a few repeats the conversation is stopped.
+    const key = `${call.name}:${JSON.stringify(call.args)}`
+    const prev = lastCall.current
+    if (prev && prev.key === key && nowMs() - prev.at < REPEAT_WINDOW_MS) {
+      repeats.current += 1
+      logDebug('tool_repeat', { name: call.name, args: call.args, count: repeats.current })
+      if (repeats.current >= MAX_REPEATS) {
+        const id = conv().start('live', null, 'failed')
+        conv().setPhase(id, 'failed', REPEATING_NOTE)
+        conv().setEnded(id, true)
+        void stopVoice()
+      }
+      return { already_answered: true, note: 'You already gave this answer. Do not repeat or rephrase it; wait for the visitor\'s next question.' }
+    }
+    lastCall.current = { key, at: nowMs() }
+    repeats.current = 0
     // A tool call with no transcript before it (the service sends none) still gets a card, with no words.
     let open = currentLiveTurn()
     if (!open) {
       endLiveTurn(NO_TOOL_NOTE)
-      open = liveTurn.current = { id: conv().start('live', null, 'working'), last: Date.now() }
+      open = liveTurn.current = { id: conv().start('live', null, 'working'), last: nowMs() }
     }
-    open.last = Date.now()
+    open.last = nowMs()
     conv().setPhase(open.id, 'working')
     setActivity('checking')
     logDebug('tool_call', { via: 'live', name: call.name, args: call.args })
@@ -164,6 +202,22 @@ export function CoPilotPanel() {
       // Answer Gemini instead of throwing: the SDK ends the whole conversation when this handler throws.
       return { error: 'unavailable' }
     }
+  }
+
+  /**
+   * A finished Live turn, both sides in full: into the debug log, and what the model said onto the card of the question it
+   * answered (shown only if the visitor switches that on). A reply with no card at all gets one, so it is not invisible.
+   */
+  const onLiveTurn = (t: LiveTurnRecord) => {
+    logDebug('live_turn', { ...t })
+    if (!t.said) return
+    let id = currentLiveTurn()?.id
+    if (id === undefined) {
+      id = conv().start('live', t.heard || null, 'unchecked')
+      conv().setPhase(id, 'unchecked', NO_TOOL_NOTE)
+      conv().setEnded(id, true)
+    }
+    conv().setSaid(id, t.said)
   }
 
   // ---- Push-to-talk: the server ran the tools; the panel applies their effects and writes them up.
@@ -188,10 +242,11 @@ export function CoPilotPanel() {
       if (t.name === 'focus_element') {
         // The server only says "Showing X"; what X is comes from the engine's model here, as for typed and Live questions.
         const id = elementId(t.args.element_id ?? t.result.element_id)
-        const drawn = focus(id)
+        const kind = targetKind(id) // a rule or the whole design is not drawn on a canvas: nothing to show
+        const drawn = kind === 'element' ? focus(id) : false
         details.push(lookUpElement(view.model, view.findings, id, drawn).summary)
-        checks.push(`Details of ${id}`)
-        actions.push(...focusActions(view.model, id, drawn))
+        checks.push(kind === 'design' ? 'Design overview' : `Details of ${id}`)
+        if (kind === 'element') actions.push(...focusActions(view.model, id, drawn))
       }
       if (t.name === 'explain_finding' && t.args.finding_id) {
         // D1, as typed and Live answers do (tools.ts): when the answer cites an earlier revision where the
@@ -219,7 +274,7 @@ export function CoPilotPanel() {
     speak(answer)
   }
 
-  const voice = useVoice({ revisionRef: whatIfRef, onToolCall, onPushToTalk, onLiveEvent, onLiveDebug: (t) => logDebug('live_turn', { ...t }) })
+  const voice = useVoice({ revisionRef: whatIfRef, onToolCall, onPushToTalk, onLiveEvent, onLiveDebug: onLiveTurn, liveContext: () => designBrief(ctxRef.current.view) })
   const pttMode = voice.mode === 'ptt' || voice.mode === 'recording' || voice.mode === 'thinking'
   const micAvailable = canRecord()
   const stopVoice = async () => {

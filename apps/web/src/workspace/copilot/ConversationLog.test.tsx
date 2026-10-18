@@ -2,6 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { clearDebugLog, debugEntries, logDebug } from '@/lib/debugLog'
 import { useConversation } from '@/store/conversation'
+import { useLayout } from '@/store/layout'
 import { ConversationLog } from './ConversationLog'
 
 beforeEach(() => act(() => useConversation.setState({ project: null, turns: [], saved: {} })))
@@ -72,6 +73,56 @@ describe('the debug log download', () => {
   })
 })
 
+describe('a spoken question\'s words', () => {
+  test('while its turn is still going the card says it is listening, not that nothing was transcribed', () => {
+    const id = store().start('live', null, 'working')
+    store().addStep(id, { check: 'Details of R1-01', answer: 'Rack R1-01 …', actions: [] })
+    render(<ConversationLog />)
+    expect(screen.getByText('Listening for your words…')).toBeInTheDocument()
+    expect(screen.queryByText('(your words were not transcribed)')).not.toBeInTheDocument()
+  })
+
+  test('once the turn has ended without words it says so', () => {
+    const id = store().start('live', null, 'working')
+    store().setEnded(id, true)
+    render(<ConversationLog />)
+    expect(screen.getByText('(your words were not transcribed)')).toBeInTheDocument()
+  })
+})
+
+describe('what Gemini said aloud', () => {
+  beforeEach(() => useLayout.setState({ showSaid: false }))
+  const withSaid = () => {
+    const id = store().start('live', 'Why FA-01', 'answered')
+    store().setSaid(id, 'The drop is a little over the limit.')
+    store().setEnded(id, true)
+  }
+
+  test('is not on the screen by default: the engine writes the answer', () => {
+    withSaid()
+    render(<ConversationLog />)
+    expect(screen.queryByText(/a little over the limit/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show what Gemini said' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('is shown, marked as spoken and not checked by the engine, when the visitor switches it on', async () => {
+    const user = userEvent.setup()
+    withSaid()
+    render(<ConversationLog />)
+    await user.click(screen.getByRole('button', { name: 'Show what Gemini said' }))
+    const card = screen.getByText(/a little over the limit/).closest('[data-turn]') as HTMLElement
+    expect(within(card).getByText('What Gemini said (spoken, not checked by the engine)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show what Gemini said' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('a card with nothing said shows no such block, whatever the switch', () => {
+    useLayout.setState({ showSaid: true })
+    store().start('typed', 'why FA-01', 'answered')
+    render(<ConversationLog />)
+    expect(screen.queryByText(/What Gemini said/)).not.toBeInTheDocument()
+  })
+})
+
 test('with no questions yet it says how to start and shows no list', () => {
   render(<ConversationLog />)
   expect(screen.getByText(/Ask by typing or by voice/)).toBeInTheDocument()
@@ -132,7 +183,7 @@ test('push-to-talk is labelled as such', () => {
 })
 
 test('a spoken question that was not transcribed says so instead of showing nothing', () => {
-  store().start('live', null, 'working')
+  store().setEnded(store().start('live', null, 'working'), true)
   render(<ConversationLog />)
   expect(screen.getByText('(your words were not transcribed)')).toBeInTheDocument()
 })

@@ -1,11 +1,12 @@
 // The co-pilot's history: one card per question, oldest first. Each card keeps together what was asked (typed, or the
 // transcript of what was said), which engine check answered, the engine's answer, and what changed on screen because
 // of it, so a spoken question is never an answer from nowhere. When no engine check ran, the card says so.
-import { Check, CircleX, Cpu, Download, Eraser, Keyboard, LoaderCircle, Mic, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, CircleX, Cpu, Download, Eraser, Keyboard, LoaderCircle, Mic, Trash2, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { clearDebugLog, exportDebugLog } from '@/lib/debugLog'
 import { useConversation, type Turn, type TurnVia } from '@/store/conversation'
+import { useLayout } from '@/store/layout'
 
 const VIA: Record<TurnVia, { label: string; Icon: typeof Mic }> = {
   typed: { label: 'You · typed', Icon: Keyboard },
@@ -15,7 +16,7 @@ const VIA: Record<TurnVia, { label: string; Icon: typeof Mic }> = {
 
 const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-function TurnCard({ turn }: { turn: Turn }) {
+function TurnCard({ turn, showSaid }: { turn: Turn; showSaid: boolean }) {
   const { label, Icon } = VIA[turn.via]
   const waiting = turn.phase === 'working' && turn.steps.length === 0
   return (
@@ -29,8 +30,11 @@ function TurnCard({ turn }: { turn: Turn }) {
       </div>
       {turn.asked ? (
         <p className="text-foreground">{turn.asked}</p>
+      ) : turn.phase === 'hearing' ? null : turn.ended ? (
+        <p className="italic text-muted-foreground">(your words were not transcribed)</p>
       ) : (
-        turn.phase !== 'hearing' && <p className="italic text-muted-foreground">(your words were not transcribed)</p>
+        // The turn is still going: the service often sends the words after the tool call, so do not say they are missing yet.
+        <p className="italic text-muted-foreground">Listening for your words…</p>
       )}
       {turn.steps.map((s, i) => (
         <div key={i} className="flex flex-col gap-1 border-l-2 border-indigo-300 pl-2">
@@ -57,6 +61,15 @@ function TurnCard({ turn }: { turn: Turn }) {
           )}
         </div>
       ))}
+      {showSaid && turn.said && (
+        <div className="flex flex-col gap-0.5 rounded border border-dashed p-1.5 text-muted-foreground">
+          <p className="flex items-center gap-1 text-[11px] font-medium">
+            <Volume2 aria-hidden className="size-3 shrink-0" />
+            <span>What Gemini said (spoken, not checked by the engine)</span>
+          </p>
+          <p className="italic">{turn.said}</p>
+        </div>
+      )}
       {waiting && (
         <p className="flex items-center gap-1 text-muted-foreground">
           <LoaderCircle aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" />
@@ -93,6 +106,8 @@ export function ConversationLog() {
   const turns = useConversation((s) => s.turns)
   const elsewhere = useConversation((s) => Object.keys(s.saved).length > 0)
   const clear = useConversation((s) => s.clear)
+  const showSaid = useLayout((s) => s.showSaid)
+  const toggleSaid = useLayout((s) => s.toggleSaid)
   /** Saves the debug log (every entry, plus the conversation as shown) as one JSON file; the engine's own words and Gemini's. */
   const download = () => {
     const { project, turns: shown, saved } = useConversation.getState()
@@ -117,6 +132,16 @@ export function ConversationLog() {
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Conversation</h3>
         {turns.length > 0 && <span className="text-[11px] text-muted-foreground">{`${turns.length} ${turns.length === 1 ? 'question' : 'questions'}`}</span>}
         <span className="ml-auto flex items-center gap-0.5">
+          <Button
+            size="icon-xs"
+            variant={showSaid ? 'secondary' : 'ghost'}
+            aria-label="Show what Gemini said"
+            aria-pressed={showSaid}
+            title={showSaid ? "Hide Gemini's spoken words" : "Show Gemini's spoken words under each question (not checked by the engine)"}
+            onClick={toggleSaid}
+          >
+            <Volume2 aria-hidden />
+          </Button>
           <Button size="icon-xs" variant="ghost" aria-label="Download debug log" title="Download the debug log: what was asked, heard and said, and what the engine answered" onClick={download}>
             <Download aria-hidden />
           </Button>
@@ -139,7 +164,7 @@ export function ConversationLog() {
       ) : (
         <ol ref={listRef} aria-label="Conversation" aria-live="polite" className="flex max-h-80 flex-col gap-2 overflow-y-auto">
           {turns.map((t) => (
-            <TurnCard key={t.id} turn={t} />
+            <TurnCard key={t.id} turn={t} showSaid={showSaid} />
           ))}
         </ol>
       )}

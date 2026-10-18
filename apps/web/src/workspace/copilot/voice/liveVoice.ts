@@ -4,11 +4,11 @@ import { AgentPlatformBackend, getAI, getLiveGenerativeModel, ResponseModality, 
 import { app } from '@/firebase'
 import type { StartLiveVoice } from '@/services/services'
 import { makeLiveObserver, teeReceive } from './liveEvents'
-import { LIVE_MODEL, LIVE_SYSTEM_INSTRUCTION, TOOL_DECLARATIONS } from './liveVoiceSpec'
+import { liveSystemInstruction, LIVE_MODEL, LIVE_SYSTEM_INSTRUCTION, TOOL_DECLARATIONS } from './liveVoiceSpec'
 
 export { LIVE_MODEL, LIVE_SYSTEM_INSTRUCTION, TOOL_DECLARATIONS }
 
-export const startLiveVoice: StartLiveVoice = async ({ onToolCall, onEvent, onDebug }) => {
+export const startLiveVoice: StartLiveVoice = async ({ onToolCall, onEvent, onDebug, context }) => {
   const ai = getAI(app, { backend: new AgentPlatformBackend('us-central1') })
   const model = getLiveGenerativeModel(ai, {
     model: LIVE_MODEL,
@@ -16,7 +16,7 @@ export const startLiveVoice: StartLiveVoice = async ({ onToolCall, onEvent, onDe
     // tells the panel that a reply is being spoken (liveEvents.ts never passes its words on).
     generationConfig: { responseModalities: [ResponseModality.AUDIO], inputAudioTranscription: {}, outputAudioTranscription: {} },
     tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-    systemInstruction: LIVE_SYSTEM_INSTRUCTION,
+    systemInstruction: liveSystemInstruction(context),
   })
   const session = await model.connect()
   // startAudioConversation reads session.receive() itself, so the panel's view of it is tee'd off before it starts.

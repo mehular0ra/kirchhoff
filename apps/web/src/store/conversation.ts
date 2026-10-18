@@ -30,6 +30,10 @@ export interface Turn {
   /** Why there is no engine answer (phase "unchecked" or "failed"); a plain sentence. */
   note: string | null
   at: number
+  /** False while a spoken question's turn is still going (its words may still arrive); typed and finished turns are ended. */
+  ended: boolean
+  /** What the model said aloud, kept apart from the engine answer; shown only if the visitor switches it on (never the answer). */
+  said: string | null
 }
 
 interface ConversationState {
@@ -46,6 +50,8 @@ interface ConversationState {
   hear(id: number, text: string): void
   setPhase(id: number, phase: TurnPhase, note?: string | null): void
   addStep(id: number, step: TurnStep): void
+  setEnded(id: number, ended: boolean): void
+  setSaid(id: number, said: string): void
   clear(): void
 }
 
@@ -74,7 +80,10 @@ const settle = (t: Turn): Turn => {
   return t
 }
 
-const turnList = (v: unknown): Turn[] => (Array.isArray(v) ? v.filter(isTurn).map(settle).slice(-MAX_TURNS) : [])
+// Whatever a page left behind is over: nothing more will arrive for it. (Turns saved before `ended` and `said` existed lack them.)
+const closed = (t: Turn): Turn => ({ ...t, ended: true, said: t.said ?? null })
+
+const turnList = (v: unknown): Turn[] => (Array.isArray(v) ? v.filter(isTurn).map(settle).map(closed).slice(-MAX_TURNS) : [])
 
 function restore(): Stored {
   const raw = readJson<Partial<Stored> | null>(KEY, null)
@@ -116,12 +125,14 @@ export const useConversation = create<ConversationState>()((set) => ({
     }),
   start: (via, asked, phase = 'working') => {
     const id = ++next
-    set((s) => ({ turns: [...s.turns, { id, via, asked, phase, steps: [], note: null, at: Date.now() }].slice(-MAX_TURNS) }))
+    set((s) => ({ turns: [...s.turns, { id, via, asked, phase, steps: [], note: null, at: Date.now(), ended: via !== 'live', said: null }].slice(-MAX_TURNS) }))
     return id
   },
   hear: (id, text) => set((s) => update(s, id, (t) => ({ ...t, asked: (t.asked ?? '') + text }))),
   setPhase: (id, phase, note = null) => set((s) => update(s, id, (t) => ({ ...t, phase, note }))),
   addStep: (id, step) => set((s) => update(s, id, (t) => ({ ...t, steps: [...t.steps, step] }))),
+  setEnded: (id, ended) => set((s) => update(s, id, (t) => ({ ...t, ended }))),
+  setSaid: (id, said) => set((s) => update(s, id, (t) => ({ ...t, said }))),
   clear: () => set({ turns: [] }),
 }))
 

@@ -41,6 +41,16 @@ test('each side panel can be hidden and shown again without losing its width', (
   expect(useLayout.getState().copilotOpen).toBe(false)
 })
 
+test('Gemini\'s spoken words are hidden until the visitor switches them on, and the choice survives a reload and a layout reset', async () => {
+  expect(useLayout.getState().showSaid).toBe(false)
+  useLayout.getState().toggleSaid()
+  useLayout.getState().reset()
+  expect(useLayout.getState().showSaid).toBe(true)
+  expect((await reload()).getState().showSaid).toBe(true)
+  useLayout.getState().toggleSaid()
+  expect(useLayout.getState().showSaid).toBe(false)
+})
+
 test('openAll shows both panels again and keeps the widths the visitor chose', () => {
   const s = useLayout.getState()
   s.setLanesW(300)

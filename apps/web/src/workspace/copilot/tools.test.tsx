@@ -2,13 +2,14 @@ import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { fmtNum, fmtQty } from '@/lib/format'
 import { revisionLabel } from '@/lib/select'
+import { ruleName } from '@/lib/status'
 import { normalizeBundle, type ProjectBundle } from '@/lib/types'
 import { ServicesProvider } from '@/services/services'
 import { useUi } from '@/store/ui'
 import hallASigned from '@/test/fixtures/hall-a-signed.json'
 import { fakeApi, fakeServices, resetStores } from '@/test/render'
 import { useWorkspace, WorkspaceProvider } from '../WorkspaceContext'
-import { executeTool, type ToolContext } from './tools'
+import { designBrief, executeTool, lookUpElement, type ToolContext } from './tools'
 
 const realHallA = () => normalizeBundle(structuredClone(hallASigned) as unknown as ProjectBundle)
 
@@ -161,6 +162,62 @@ test('while the design model is still loading the answer says so, instead of cla
   expect(out.summary).toBe('The design model is not loaded yet, so there are no details of R2-05. Ask again in a moment.')
   expect(out.data).toMatchObject({ element_id: 'R2-05', error: 'loading' })
   expect(out.summary).not.toMatch(/not in this design/)
+})
+
+// ---- "explain R05": a rule id names a check on the design, not an element, and a whole-design question has an answer too.
+
+test('a rule id is answered as a rule: its name, how many checks pass and fail, and the failing ones', async () => {
+  const view = viewOf('r1')
+  const ctx = ctxFor(view)
+  const mine = view.findings.filter((f) => f.rule_id === 'R05')
+  const fails = mine.filter((f) => f.status === 'fail')
+  const out = await executeTool('focus_element', { element_id: 'r05' }, ctx)
+  expect(out.summary).toContain(`Rule R05 (${ruleName('R05')}): ${mine.length} checks`)
+  expect(out.summary).toContain(`${fails.length} fail`)
+  expect(out.summary).toContain('FA-01 2.16% vs 2%')
+  expect(out.summary).not.toMatch(/not in this design/)
+  expect(out.data).toMatchObject({ kind: 'rule', rule: 'R05', fail: fails.length })
+  expect(out.check).toBe('Details of R05')
+  expect(out.actions).toEqual([]) // a rule is not drawn on a canvas: nothing moved, and nothing says it should have
+  expect(ctx.focus).not.toHaveBeenCalled()
+})
+
+test('explaining a rule explains its worst finding, however the model names it', async () => {
+  for (const args of [{ element_id: 'R05' }, { finding_id: 'R05' }, { rule_id: 'R05' }]) {
+    const ctx = ctxFor(viewOf('r1'))
+    const out = await executeTool('explain_finding', args, ctx)
+    expect(out.check).toBe('Explain finding R05 · FA-01')
+    expect(ctx.openFinding).toHaveBeenCalledWith('R05:FA-01')
+  }
+})
+
+test('explaining a rule that passes everywhere still answers, and a rule that does not exist says so', async () => {
+  const ok = await executeTool('explain_finding', { rule_id: 'R01' }, ctxFor(viewOf('r1')))
+  expect(ok.check).toMatch(/^Explain finding R01 · /)
+  const none = await executeTool('explain_finding', { rule_id: 'R99' }, ctxFor(viewOf('r1')))
+  expect(none.summary).toBe('No finding for R99 in this revision.')
+})
+
+test('a question about the whole design gets the design overview, from the model and its checks', async () => {
+  const view = viewOf()
+  const m = view.model!
+  const ctx = ctxFor(view)
+  const out = await executeTool('focus_element', { element_id: 'design' }, ctx)
+  expect(out.check).toBe('Design overview')
+  expect(out.summary).toContain(`${m.racks.length} racks`)
+  expect(out.summary).toContain(`${m.cooling_nodes.filter((n) => n.kind === 'cdu').length} CDUs`)
+  expect(out.summary).toMatch(/Checks: \d+ pass/)
+  expect(out.data).toMatchObject({ kind: 'design', racks: m.racks.length })
+  expect(out.actions).toEqual([])
+  expect(ctx.focus).not.toHaveBeenCalled()
+})
+
+test('the brief given to Gemini at the start has the overview and every rule with its result, from the engine\'s records', () => {
+  const view = viewOf('r1')
+  const brief = designBrief(view)
+  expect(brief).toContain(lookUpElement(view.model, view.findings, 'DESIGN', false).summary)
+  expect(brief).toMatch(new RegExp(`R05 ${ruleName('R05')}: \\d+ fail`))
+  expect(brief).toMatch(/R01 .*: all \d+ pass/)
 })
 
 test('an id that is not in the design says what the design does have, so the answer is not a dead end', async () => {

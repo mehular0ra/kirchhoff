@@ -21,9 +21,12 @@ interface Stored {
   copilotOpen: boolean
   lanesW: number
   copilotW: number
+  /** Show what Gemini said aloud on each card (spoken, not checked by the engine). Off unless the visitor asks: the engine writes the answers. */
+  showSaid: boolean
 }
 
 interface LayoutState extends Stored {
+  toggleSaid(): void
   /** The co-pilot's width as drawn (a small window may show it narrower than saved): the finding drawer docks against it. Not saved. */
   copilotUsed: number
   setCopilotUsed(px: number): void
@@ -36,14 +39,14 @@ interface LayoutState extends Stored {
   reset(): void
 }
 
-const DEFAULTS: Stored = { lanesOpen: true, copilotOpen: true, lanesW: LANES_W.def, copilotW: COPILOT_W.def }
+const DEFAULTS: Stored = { lanesOpen: true, copilotOpen: true, lanesW: LANES_W.def, copilotW: COPILOT_W.def, showSaid: false }
 
 function restore(): Stored {
   const raw = readJson<Partial<Record<keyof Stored, unknown>> | null>(KEY, null)
   if (!raw || typeof raw !== 'object') return DEFAULTS
   const width = (v: unknown, r: Range) => (typeof v === 'number' && Number.isFinite(v) ? clamp(v, r) : r.def)
   const open = (v: unknown) => (typeof v === 'boolean' ? v : true)
-  return { lanesOpen: open(raw.lanesOpen), copilotOpen: open(raw.copilotOpen), lanesW: width(raw.lanesW, LANES_W), copilotW: width(raw.copilotW, COPILOT_W) }
+  return { lanesOpen: open(raw.lanesOpen), copilotOpen: open(raw.copilotOpen), lanesW: width(raw.lanesW, LANES_W), copilotW: width(raw.copilotW, COPILOT_W), showSaid: raw.showSaid === true }
 }
 
 export const useLayout = create<LayoutState>()((set) => ({
@@ -55,9 +58,11 @@ export const useLayout = create<LayoutState>()((set) => ({
   toggleLanes: () => set((s) => ({ lanesOpen: !s.lanesOpen })),
   toggleCopilot: () => set((s) => ({ copilotOpen: !s.copilotOpen })),
   openAll: () => set({ lanesOpen: true, copilotOpen: true }),
-  reset: () => set({ ...DEFAULTS, copilotUsed: DEFAULTS.copilotW }),
+  // Puts the panels back; whether Gemini's spoken words are shown is a different choice and is left as it is.
+  reset: () => set((s) => ({ ...DEFAULTS, showSaid: s.showSaid, copilotUsed: DEFAULTS.copilotW })),
+  toggleSaid: () => set((s) => ({ showSaid: !s.showSaid })),
 }))
 
 useLayout.subscribe((s) =>
-  writeJson(KEY, { lanesOpen: s.lanesOpen, copilotOpen: s.copilotOpen, lanesW: s.lanesW, copilotW: s.copilotW } satisfies Stored),
+  writeJson(KEY, { lanesOpen: s.lanesOpen, copilotOpen: s.copilotOpen, lanesW: s.lanesW, copilotW: s.copilotW, showSaid: s.showSaid } satisfies Stored),
 )

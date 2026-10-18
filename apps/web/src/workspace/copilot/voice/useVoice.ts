@@ -17,6 +17,8 @@ export function useVoice(opts: {
   onLiveEvent?: (e: LiveVoiceEvent) => void
   /** Each finished Live turn in full (the model's words too), for the debug log only. */
   onLiveDebug?: (turn: LiveTurnRecord) => void
+  /** Facts about the design for the model, asked for each time a Live session starts. */
+  liveContext?: () => string
   /** `revisionRef` is the one this answer was asked on, so the answer can name that revision. */
   onPushToTalk: (res: VoiceResponse, revisionRef: string) => void
 }) {
@@ -57,6 +59,7 @@ export function useVoice(opts: {
           onToolCall: (c) => optsRef.current.onToolCall(c),
           onEvent: (e) => optsRef.current.onLiveEvent?.(e),
           onDebug: (t) => optsRef.current.onLiveDebug?.(t),
+          context: optsRef.current.liveContext?.(),
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), LIVE_TIMEOUT_MS)),
       ])

@@ -6,7 +6,7 @@
 import { fillPlaceholders, fmtKeyValue, fmtNum, fmtQty } from '@/lib/format'
 import { canvasesFor, type Canvas } from '@/lib/model'
 import { findingsFor, parentRevision, revisionLabel, revisionRef, shortRevisionId } from '@/lib/select'
-import { statusRank } from '@/lib/status'
+import { ruleName, statusRank } from '@/lib/status'
 import type { DesignModel, EquipmentKind, Finding, Revision, WhatIfParam } from '@/lib/types'
 import type { ApiClient } from '@/services/apiClient'
 import type { ViewRevSource } from '@/store/ui'
@@ -161,17 +161,86 @@ export function describeElement(model: DesignModel | null, id: string): ElementD
   return null
 }
 
+/** Ids that are not elements: R05 names a rule (a check on the design), DESIGN means the whole design. */
+export const DESIGN_ID = 'DESIGN'
+const isRuleId = (s: string) => /^R\d{2}b?$/i.test(s)
+const ruleKey = (s: string) => s.toUpperCase().replace('B', 'b')
+export const targetKind = (id: string): 'design' | 'rule' | 'element' => (id === DESIGN_ID ? 'design' : isRuleId(id) ? 'rule' : 'element')
+
+const countText = (pass: number, warn: number, fail: number) => [fail && `${fail} fail`, warn && `${warn} warn`, pass && `${pass} pass`].filter(Boolean).join(', ')
+
+/**
+ * What Gemini Live is told about the design when the session starts, so a general question has something real to be answered
+ * from: the overview and every rule's result on the revision on screen. Engine records only.
+ */
+export function designBrief(view: WorkspaceView): string {
+  if (!view.model) return ''
+  const overview = lookUpElement(view.model, view.findings, DESIGN_ID, false).summary
+  const rules = [...new Set(view.findings.map((f) => f.rule_id))].sort().map((r) => {
+    const mine = view.findings.filter((f) => f.rule_id === r)
+    const n = (s: Finding['status']) => mine.filter((f) => f.status === s).length
+    return `${r} ${ruleName(r)}: ${n('fail') ? `${n('fail')} fail` : n('warn') ? `${n('warn')} warn` : `all ${n('pass')} pass`}`
+  })
+  return `${overview} Rules: ${rules.join('; ')}.`
+}
+
+/** "R05" as a rule: its name, how many checks pass and fail across the design, and the failing ones with their values. */
+function ruleAnswer(findings: Finding[], rule: string): { summary: string; data: Record<string, unknown> } {
+  const mine = findings.filter((f) => f.rule_id.toUpperCase() === rule.toUpperCase())
+  if (mine.length === 0) {
+    const summary = `Rule ${rule} has no checks in this revision.`
+    return { summary, data: { element_id: rule, drawn: false, error: 'not_found', text: summary } }
+  }
+  const status = (s: Finding['status']) => mine.filter((f) => f.status === s)
+  const fail = status('fail')
+  const pass = status('pass').length
+  const warn = status('warn').length
+  const vs = (f: Finding) => `${f.element_id} ${fmtQty(f.value ?? null, f.unit)} vs ${fmtQty(f.limit ?? null, f.unit)}`
+  const failing = fail.length > 0 ? ` Failing: ${fail.slice(0, 4).map(vs).join('; ')}.` : ''
+  const summary = `Rule ${rule} (${ruleName(rule)}): ${mine.length} checks: ${countText(pass, warn, fail.length)}.${failing}`
+  const row = (f: Finding) => ({ element: f.element_id, value: f.value, limit: f.limit, unit: f.unit })
+  return { summary, data: { element_id: rule, drawn: false, kind: 'rule', rule, name: ruleName(rule), pass, warn, fail: fail.length, failing: fail.map(row), text: summary } }
+}
+
+/** The whole design in a few lines, from the model's records and the checks on screen: what a general question is answered from. */
+function designOverview(model: DesignModel, findings: Finding[]): { summary: string; data: Record<string, unknown> } {
+  const racks = model.racks
+  const rows = [...new Set(racks.map((r) => r.row))]
+  const kws = racks.map((r) => r.kw)
+  const kwText = kws.length === 0 ? '' : Math.min(...kws) === Math.max(...kws) ? `, ${fmtQty(kws[0], 'kW')} each` : `, ${fmtQty(Math.min(...kws), 'kW')} to ${fmtQty(Math.max(...kws), 'kW')} each`
+  const range = racks.length > 0 ? ` (${racks[0].id} to ${racks[racks.length - 1].id}${kwText})` : ''
+  const equipment: Record<string, number> = {}
+  for (const e of model.equipment) equipment[e.kind] = (equipment[e.kind] ?? 0) + 1
+  const equipText = Object.entries(equipment).map(([k, n]) => `${n} ${EQUIPMENT_NAME[k as EquipmentKind]}${n === 1 ? '' : 's'}`).join(', ')
+  const cdus = model.cooling_nodes.filter((n) => n.kind === 'cdu').length
+  const zones = [...new Set(model.cooling_nodes.map((n) => n.zone))]
+  const feeders = model.connections.filter((c) => c.kind !== 'internal').length
+  const count = (s: Finding['status']) => findings.filter((f) => f.status === s).length
+  const failingRules = [...new Set(findings.filter((f) => f.status === 'fail').map((f) => f.rule_id))]
+  const checks = `Checks: ${count('pass')} pass, ${count('fail')} fail${count('warn') ? `, ${count('warn')} warn` : ''}${failingRules.length > 0 ? ` (failing rules: ${failingRules.join(', ')})` : ''}.`
+  const summary =
+    `Design: topology ${model.topology}; ${racks.length} racks in ${rows.length} rows${rows.length > 0 ? ` (${rows.join(', ')})` : ''}${range}; ` +
+    `${equipText}; ${feeders} feeders and busways; ${cdus} CDUs in ${zones.length} cooling zones (${zones.join(', ')}). ${checks}`
+  return {
+    summary,
+    data: { element_id: DESIGN_ID, drawn: false, kind: 'design', topology: model.topology, racks: racks.length, rows, equipment, cdus, zones, feeders,
+            checks: { pass: count('pass'), warn: count('warn'), fail: count('fail'), failing_rules: failingRules }, text: summary },
+  }
+}
+
 /**
  * The engine's answer to "what is this element?", the same for typed, Live and push-to-talk questions: its record in the
  * model and the checks on it, or, when it is not there, what the design does have. Only engine records are spoken or shown,
  * never the language model's words (spec §6.3).
  */
 export function lookUpElement(model: DesignModel | null, findings: Finding[], id: string, drawn: boolean): { summary: string; data: Record<string, unknown> } {
+  if (isRuleId(id)) return ruleAnswer(findings, ruleKey(id))
   // A live run's model file arrives after its first snapshot: until then "not in this design" would be wrong.
   if (!model) {
     const summary = `The design model is not loaded yet, so there are no details of ${id}. Ask again in a moment.`
     return { summary, data: { element_id: id, drawn: false, error: 'loading', text: summary } }
   }
+  if (id === DESIGN_ID) return designOverview(model, findings)
   const info = describeElement(model, id)
   const checks = checksOn(findings, id)
   if (!info && !checks) {
@@ -275,9 +344,19 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     }
   }
   if (name === 'explain_finding') {
-    const id = String(args.finding_id ?? '')
-    const element = String(args.element_id ?? id.split(':')[1] ?? '')
-    const rule = (args.rule_id as string | undefined) ?? (id.includes(':') ? id.split(':')[0] : undefined)
+    let id = String(args.finding_id ?? '')
+    let element = String(args.element_id ?? id.split(':')[1] ?? '')
+    let rule = (args.rule_id as string | undefined) ?? (id.includes(':') ? id.split(':')[0] : undefined)
+    // A rule id alone ("explain R05", however the model names it): explain that rule's worst finding.
+    const ruleOnly = id.includes(':') || (element && !isRuleId(element)) ? null : [id, element, rule ?? ''].find((s) => isRuleId(s))
+    if (ruleOnly) {
+      const key = ruleKey(ruleOnly)
+      const worst = ctx.view.findings.filter((f) => f.rule_id.toUpperCase() === key.toUpperCase()).sort((a, b) => statusRank(b.status) - statusRank(a.status))[0]
+      if (!worst) return { summary: `No finding for ${key} in this revision.`, data: { error: 'not_found' }, check: `Explain finding ${key}`, actions: [] }
+      id = worst.id
+      element = worst.element_id
+      rule = worst.rule_id
+    }
     const located = locate(ctx.view, id, element, rule)
     if (!located)
       return { summary: `No finding for ${id || element} in this revision.`, data: { error: 'not_found' }, check: `Explain finding ${id.replace(':', ' · ') || element}`, actions: [] }
@@ -305,10 +384,13 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
     }
   }
   if (name === 'focus_element') {
-    const id = elementId(args.element_id)
-    const drawn = ctx.focus(id)
+    const raw = elementId(args.element_id)
+    const kind = targetKind(raw)
+    const id = kind === 'rule' ? ruleKey(raw) : raw
+    // A rule or the whole design is not drawn on a canvas: nothing to show, so nothing moves and nothing claims it should have.
+    const drawn = kind === 'element' ? ctx.focus(id) : false
     const { summary, data } = lookUpElement(ctx.view.model, ctx.view.findings, id, drawn)
-    return { summary, data, check: `Details of ${id}`, actions: focusActions(ctx.view.model, id, drawn) }
+    return { summary, data, check: kind === 'design' ? 'Design overview' : `Details of ${id}`, actions: kind === 'element' ? focusActions(ctx.view.model, id, drawn) : [] }
   }
   return { summary: `Unknown tool ${name}.`, data: { error: 'unknown_tool' }, check: name, actions: [] }
 }

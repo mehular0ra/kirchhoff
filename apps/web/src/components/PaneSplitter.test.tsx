@@ -96,6 +96,7 @@ test('a drag is held between the smallest and largest width', () => {
 test('a right-click does not start a drag, so the panel does not follow the mouse afterwards', () => {
   const { bar, onChange } = setup()
   fireEvent.pointerDown(bar, { pointerId: 1, button: 2, buttons: 2, clientX: 100 })
+  fireEvent.pointerMove(bar, { pointerId: 1, buttons: 2, clientX: 130 }) // the right button is still down
   fireEvent.pointerMove(bar, { pointerId: 1, buttons: 0, clientX: 160 })
   expect(onChange).not.toHaveBeenCalled()
 })

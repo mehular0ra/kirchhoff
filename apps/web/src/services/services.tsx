@@ -32,6 +32,8 @@ export type StartLiveVoice = (opts: {
   onEvent?: (e: LiveVoiceEvent) => void
   /** Optional: each finished turn in full, for the debug log. */
   onDebug?: (turn: LiveTurnRecord) => void
+  /** Optional: facts about the design from the engine, given to the model when the session starts. */
+  context?: string
 }) => Promise<LiveVoiceHandle>
 
 export interface Services {

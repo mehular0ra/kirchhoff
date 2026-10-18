@@ -24,6 +24,34 @@ test('an answer that comes back after the visitor moved to another project still
   expect(useConversation.getState().turns[0]).toMatchObject({ asked: 'why FA-01!', phase: 'answered', steps: [{ answer: 'late' }] })
 })
 
+test('a spoken question is open until its turn ends; a typed one never is', () => {
+  const s = useConversation.getState()
+  const spoken = s.start('live', null, 'hearing')
+  const typed = s.start('typed', 'why FA-01', 'working')
+  expect(useConversation.getState().turns.map((t) => t.ended)).toEqual([false, true])
+  s.setEnded(spoken, true)
+  expect(useConversation.getState().turns[0].ended).toBe(true)
+  s.setEnded(typed, false)
+  expect(useConversation.getState().turns[1].ended).toBe(false)
+})
+
+test('what the model said is kept on its card, apart from the engine answer', () => {
+  const s = useConversation.getState()
+  const id = s.start('live', 'Why FA-01', 'working')
+  expect(useConversation.getState().turns[0].said).toBeNull()
+  s.setSaid(id, 'It drops 2.16 percent.')
+  expect(useConversation.getState().turns[0]).toMatchObject({ said: 'It drops 2.16 percent.', steps: [] })
+})
+
+test('a spoken question restored after a reload counts as ended, so it does not claim to be listening', async () => {
+  const s = useConversation.getState()
+  s.enter('hall-a')
+  s.start('live', null, 'hearing')
+  const after = await reload()
+  after.getState().enter('hall-a')
+  expect(after.getState().turns[0].ended).toBe(true)
+})
+
 test('a turn keeps what was asked, how, and when, and starts in the phase it was given', () => {
   const id = useConversation.getState().start('typed', 'why FA-01', 'working')
   const [turn] = useConversation.getState().turns

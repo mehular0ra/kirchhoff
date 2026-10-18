@@ -25,6 +25,23 @@ test('the other tools keep their own phrasing', () => {
   expect(parseIntent('what if racks go to 200 kW')).toEqual({ tool: 'what_if', param: 'rack_kw', value: 200 })
 })
 
+test.each([
+  ['explain R05', 'R05'],
+  ['why did r05 fail', 'R05'],
+  ['Yeah, can you explain me about r05?', 'R05'],
+  ['what is wrong with R11', 'R11'],
+])('“%s” explains the rule %s', (text, rule) => {
+  expect(parseIntent(text)).toEqual({ tool: 'explain_finding', element: '', rule })
+})
+
+test('a rule id with a "what is" question is looked up as a rule', () => {
+  expect(parseIntent('what is R05')).toEqual({ tool: 'focus_element', element: 'R05' })
+})
+
+test.each(['give me an overview', 'what is in the whole design', 'explain the entire workflow of this hall', 'summarise everything'])('“%s” asks for the design overview', (text) => {
+  expect(parseIntent(text)).toEqual({ tool: 'focus_element', element: 'DESIGN' })
+})
+
 test('a question that names no element is still not understood', () => {
   expect(parseIntent('what is the power')).toBeNull()
   expect(parseIntent('tell me about the weather')).toBeNull()
