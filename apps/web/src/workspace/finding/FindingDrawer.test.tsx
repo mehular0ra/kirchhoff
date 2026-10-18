@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ServicesProvider } from '@/services/services'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { normalizeBundle, type Bundle, type ProjectBundle } from '@/lib/types'
 import { fixtureBundle } from '@/test/fixtures'
@@ -275,9 +276,29 @@ describe('beside the co-pilot', () => {
     return view
   }
 
+  beforeEach(() => {
+    localStorage.clear()
+    useLayout.getState().reset()
+  })
+
   test('on a wide screen it opens beside the co-pilot column, with no dimming layer over the page', () => {
     renderBesideCoPilot(true)
-    expect(screen.getByRole('dialog').style.right).toBe('20rem') // the authored value; computed styles report it in px
+    expect(screen.getByRole('dialog').style.right).toBe('320px') // the co-pilot's usual width
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeNull()
+  })
+
+  test('it keeps beside the co-pilot however wide the visitor has dragged it', () => {
+    useLayout.getState().setCopilotW(480)
+    renderBesideCoPilot(true)
+    expect(screen.getByRole('dialog').style.right).toBe('480px')
+    act(() => useLayout.getState().setCopilotW(400))
+    expect(screen.getByRole('dialog').style.right).toBe('400px')
+  })
+
+  test('with the co-pilot hidden it opens at the screen edge, still without dimming the page', () => {
+    useLayout.getState().toggleCopilot()
+    renderBesideCoPilot(true)
+    expect(screen.getByRole('dialog').style.right).toBe('0px')
     expect(document.querySelector('[data-slot="sheet-overlay"]')).toBeNull()
   })
 

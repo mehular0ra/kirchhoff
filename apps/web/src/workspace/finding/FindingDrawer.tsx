@@ -9,6 +9,7 @@ import { fillPlaceholders, fmtInput, fmtKeyValue, tidyTokens } from '@/lib/forma
 import { canvasesFor } from '@/lib/model'
 import { ruleName } from '@/lib/status'
 import { useServices } from '@/services/services'
+import { useLayout } from '@/store/layout'
 import { useUi } from '@/store/ui'
 import { useWorkspace } from '../WorkspaceContext'
 import { readFix, type FixView } from './fixView'
@@ -29,8 +30,6 @@ function FixCard({ title, fix, tone }: { title: string; fix: FixView; tone: stri
   )
 }
 
-/** The workspace grid's last column, where the co-pilot sits (WorkspacePage: grid-cols-[16rem_minmax(22rem,1fr)_20rem]). */
-const CO_PILOT_WIDTH = '20rem'
 /** Wide enough for the drawer to open beside the co-pilot column instead of over it. */
 const DOCK_QUERY = '(min-width: 1200px)'
 
@@ -54,6 +53,9 @@ function useDocked(): boolean {
 
 export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
   const docked = useDocked()
+  // Beside the co-pilot at whatever width the visitor has dragged it to, or at the screen edge when it is hidden.
+  const copilotOpen = useLayout((s) => s.copilotOpen)
+  const copilotW = useLayout((s) => s.copilotW)
   const view = useWorkspace()
   const { api } = useServices()
   const findingId = useUi((s) => s.findingId)
@@ -73,7 +75,7 @@ export function FindingDrawer({ onCitation }: { onCitation?: () => void }) {
         side="right"
         overlay={!docked}
         className="w-[28rem] overflow-y-auto sm:max-w-[28rem]"
-        style={docked ? { right: CO_PILOT_WIDTH } : undefined}
+        style={docked ? { right: copilotOpen ? copilotW : 0 } : undefined}
         // Beside the co-pilot, working in it (typing, the mic buttons, reading the conversation) must not close the finding.
         onInteractOutside={docked ? (e) => e.target instanceof Element && e.target.closest('[aria-label="Co-pilot"]') && e.preventDefault() : undefined}
       >
