@@ -61,6 +61,7 @@ SCENES = [
     ("s6-sign", "s6-sign.html", "", None),
     ("s7-connectors", "s7-connectors.html", "", None),
     ("s8-google-cloud", "s8-google-cloud.html", "", None),
+    ("s10-numbers", "s10-numbers.html", "", None),
     ("s9-end", "s9-end.html", "", None),
 ]
 

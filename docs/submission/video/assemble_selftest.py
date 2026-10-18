@@ -55,7 +55,7 @@ def check(name, ok, detail=""):
 
 # ---------------------------------------------------------------------------------------------------------------- synthetic media
 def grey(n):
-    """Beat n's grey level: 36 + 6 n, so 18 beats stay distinct, dark enough that the white label is the only bright thing."""
+    """Beat n's grey level: 36 + 6 n, so 22 beats stay distinct, dark enough that the white label is the only bright thing."""
     return 36 + 6 * n
 
 
@@ -158,24 +158,30 @@ def gate_verdicts(text):
 
 # ================================================================================================================ v2
 # The test's OWN copy of edit-plan-v2.md's beat table: id, seconds in the cut (footage = the body between the handles), has a voice file.
-V2 = [("1", 7, True), ("2", 3, True), ("3", 4, False), ("3b", 3, False), ("4", 3, True), ("5", 3, True), ("6", 13, True), ("7", 3, True),
-      ("8", 10, True), ("9", 3, True), ("10", 15, True), ("11", 10, True), ("12", 12, True), ("13", 3, True), ("14", 6, False),
-      ("15", 3, True), ("16", 3, True), ("17", 3, True)]
-FOOTAGE = {"1": "v01-cold-open", "6": "v04-tender-in", "8": "v05-agents-at-work", "10": "v06-checker", "11": "v07-erp-swap", "12": "v08-what-if-voice", "14": "v09-sign-off"}
+V2 = [("1", 7, True), ("2", 3, True), ("3", 4, False), ("3b", 3, False), ("4", 3, True), ("5", 3, True), ("5b", 14, True), ("6", 13, True), ("7", 3, True),
+      ("8", 10, True), ("9", 3, True), ("10", 15, True), ("10b", 12, True), ("11", 10, True), ("12", 12, True), ("13", 3, True), ("14", 6, False),
+      ("15", 3, True), ("15b", 11, True), ("16", 3, True), ("16b", 3, True), ("17", 3, True)]
+FOOTAGE = {"1": "v01-cold-open", "5b": "v12-inbox-triage", "6": "v04-tender-in", "8": "v05-agents-at-work", "10": "v06-checker", "10b": "v13-trust-quote",
+           "11": "v07-erp-swap", "12": "v08-what-if-voice", "14": "v09-sign-off", "15b": "v11-grid-solar"}
 SCENES = {"2": "s1-title", "3": "s1b-intro-mehul", "3b": "s1c-intro-jayadratha", "4": "s2-problem", "5": "s3-requirements-in", "7": "s4-agents", "9": "s5-checks",
-          "13": "s6-sign", "15": "s7-connectors", "16": "s8-google-cloud", "17": "s9-end"}
-VOICE_NAME = {"1": "cold-open", "2": "title", "4": "problem", "5": "requirements", "6": "tender", "7": "agents", "8": "agents-at-work", "9": "checks",
-              "10": "checker", "11": "erp", "12": "what-if", "13": "sign", "15": "connectors", "16": "cloud", "17": "end"}
+          "13": "s6-sign", "15": "s7-connectors", "16": "s8-google-cloud", "16b": "s10-numbers", "17": "s9-end"}
+VOICE_NAME = {"1": "cold-open", "2": "title", "4": "problem", "5": "requirements", "5b": "inbox", "6": "tender", "7": "agents", "8": "agents-at-work", "9": "checks",
+              "10": "checker", "10b": "trust", "11": "erp", "12": "what-if", "13": "sign", "15": "connectors", "15b": "platform", "16": "cloud", "16b": "numbers", "17": "end"}
+VO_NO = {"5b": 18, "10b": 19, "15b": 20, "16b": 21}   # the NN of bNN-<name>.wav where it is not the beat's own number: the extra beats of the longer cut
 INTRO_HZ, JD_HZ, V08_HZ, MUSIC_HZ = 2800, 3400, 4200, 6200
 LABEL_STRIP = (780, 56, 360, 44)             # the top-centre strip of the 1920 x 1080 picture where the label is burned in
 
 
-def vo_hz(n):
-    return 400 + 100 * int(n)
+def vo_no(i):
+    return VO_NO.get(i) or int(i)
+
+
+def vo_hz(i):
+    return 400 + 100 * vo_no(i)
 
 
 def n_of(i):
-    return 18 if i == "3b" else int(i)
+    return {"3b": 18, "5b": 19, "10b": 20, "15b": 21, "16b": 22}.get(i) or int(i)
 
 
 def make_v2_workspace(root, v08_audio=True, comp_body=40, intro_silent=False):
@@ -190,7 +196,7 @@ def make_v2_workspace(root, v08_audio=True, comp_body=40, intro_silent=False):
         else:
             solid(scenes / f"{SCENES[i]}.mp4", secs, g, {"3": "silent" if intro_silent else INTRO_HZ, "3b": JD_HZ}.get(i))
         if has_vo:
-            tone_wav(vo / f"b{int(i):02d}-{VOICE_NAME[i]}.wav", vo_hz(i), max(1.8, secs * 0.6))
+            tone_wav(vo / f"b{vo_no(i):02d}-{VOICE_NAME[i]}.wav", vo_hz(i), max(1.8, secs * 0.6))
     return work, scenes
 
 
@@ -243,7 +249,7 @@ def verify_v2(tag, work, run, with_jd, label_n, music=False, own_audio=True):
         if i not in exp:
             continue
         if v:
-            want.append((f"b{int(i):02d}-{VOICE_NAME[i]}.wav", exp[i][0]))
+            want.append((f"b{vo_no(i):02d}-{VOICE_NAME[i]}.wav", exp[i][0]))
         if i in own:
             want.append((own[i], exp[i][0]))
     ok = len(got) == len(want) and all(g[0] == w[0] and abs(g[1] - w[1]) < 0.1 for g, w in zip(got, want))
