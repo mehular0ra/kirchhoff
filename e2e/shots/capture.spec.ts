@@ -17,8 +17,9 @@ import type { Locator, Page } from '@playwright/test'
  *                      (s05-8 waits for the live sandbox, which a local run cannot reach: it times out there; run it against the deployed site)
  *   final capture      after the UI freeze and the golden-capture deploy, against the deployed site:
  *                      E2E_BASE_URL=https://kirchhoff.web.app E2E_SHOTS=1 SHOTS_WRITE=1 npx playwright test --project=shots
- *   manual shots       s05-6 (a real Gemini Live exchange) and s11-2 (a frame of a live Hall B run) are captured by hand on the deployed site, because
- *                      they need the deployed agents and a run; this spec SKIPS them always, so it can never overwrite them with a wrong screen.
+ *   manual shot        s11-2 (a frame of a live Hall B run) is captured by hand on the deployed site, because it needs the deployed agents and a
+ *                      run; this spec SKIPS it always, so it can never overwrite it with a wrong screen. (s05-6 is a typed question to the
+ *                      co-pilot and its engine card, so it is automated; the Gemini Live exchange itself is not captured.)
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..', '..')
@@ -60,16 +61,16 @@ const SHOTS: Shot[] = [
   },
   {
     file: 's05-1-intake-quotes.png',
+    // The bids inbox: the Hall B tender as the inbox agent triaged it (client, site, load, bid date, each found in the source) and the fit verdict.
     open: async (page) => {
-      await workspace(page, '?replay=1')
-      await text(page, /quote verified/i) // needs the recorded run (golden capture)
-      const lanes = page.getByRole('navigation', { name: 'Agent lanes' })
-      await lanes.getByRole('button', { name: /Intake/ }).click() // expand: the verified quotes, the DXF read and the contradiction it found
-      await text(page, 'Contradiction found')
-      await text(page, 'CDU gallery') // the replay has reached the drawn hall: until then the frame is mid-play, with a blank canvas and a running clock
-      await expect(lanes.getByRole('listitem').first()).toContainText('Done')
+      await page.goto('/app/inbox')
+      await expect(page.getByRole('heading', { name: 'Bids inbox', level: 1 })).toBeVisible(LONG)
+      await page.locator('a[href="/app/inbox/em-hall-b"]').click()
+      const detail = page.getByRole('region', { name: 'Email' })
+      await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('Pursue', LONG)
+      await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('Day-zero supply')
       await settle(page, 800)
-      return lanes.getByRole('listitem').first() // the Intake lane itself, not the whole column
+      return detail.getByRole('region', { name: 'Fit verdict' })
     },
   },
   {
@@ -111,7 +112,20 @@ const SHOTS: Shot[] = [
       return chain
     },
   },
-  { file: 's05-6-copilot-voice.png', manual: true, open: async () => {} },
+  {
+    // The co-pilot after one typed question: the card in the Conversation panel (the engine check behind the answer, what changed on screen) next to the canvas it moved.
+    file: 's05-6-copilot-voice.png',
+    open: async (page) => {
+      await workspace(page, '?tab=hall&rev=r1')
+      await page.getByRole('textbox', { name: 'Ask the co-pilot' }).fill('Show me H-Z2')
+      await page.getByRole('button', { name: 'Send' }).click()
+      await text(page, /^Pipe H-Z2 \(header, DN\d+\) in zone Z2/) // the engine's record of the pipe
+      await text(page, 'Engine check')
+      await text(page, 'What changed on screen')
+      await settle(page, 2500) // the camera flies to the pipe
+    },
+    clipOf: async () => ({ x: 700, y: 100, width: 1220, height: 813 }), // 3:2: the canvas and the whole right-hand panel
+  },
   {
     file: 's05-7-review-stamp.png',
     open: async (page) => {
@@ -257,7 +271,7 @@ const SHOTS: Shot[] = [
 const TILES = new Set(['s05-1-intake-quotes.png', 's05-2-hall-3d-tiers.png', 's05-3-compliance-matrix.png', 's05-4-option-r15-swap.png', 's05-5-impact-chain.png',
   's05-7-review-stamp.png', 's05-8-integrations.png', 's05-9-solar-field.png'])
 /** Crops are taken at 2x pixel density, so a small element is still sharp on a slide; full-screen shots stay at 1x (1920 x 1080). */
-const SHARP = new Set([...TILES, 's07-finding-drawer-r05.png'])
+const SHARP = new Set([...TILES, 's05-6-copilot-voice.png', 's07-finding-drawer-r05.png'])
 
 async function tileClip(page: Page, target: Locator, ratio = 3 / 2, pad = 16, inside = false) {
   await target.scrollIntoViewIfNeeded()
