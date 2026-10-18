@@ -70,7 +70,20 @@ const SHOTS: Shot[] = [
       await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('Pursue', LONG)
       await expect(detail.getByRole('region', { name: 'Fit verdict' })).toContainText('Day-zero supply')
       await settle(page, 800)
-      return detail.getByRole('region', { name: 'Fit verdict' })
+    },
+    // From the first extracted field (Client) to the bottom of the verdict card, widened to 3:2 about the verdict's centre: the fields stay whole
+    clipOf: async (page) => {
+      const detail = page.getByRole('region', { name: 'Email' })
+      const verdict = detail.getByRole('region', { name: 'Fit verdict' })
+      const first = detail.getByText('Client', { exact: true }).first()
+      await first.evaluate((el) => el.scrollIntoView({ block: 'start' }))
+      await verdict.scrollIntoViewIfNeeded()
+      const f = (await first.boundingBox())!
+      const v = (await verdict.boundingBox())!
+      const top = Math.max(0, Math.min(f.y, v.y) - 20)
+      const height = v.y + v.height + 16 - top
+      const width = Math.min(height * 1.5, 1920)
+      return { x: Math.max(0, Math.min(v.x + v.width / 2 - width / 2, 1920 - width)), y: top, width, height }
     },
   },
   {
@@ -124,7 +137,7 @@ const SHOTS: Shot[] = [
       await text(page, 'What changed on screen')
       await settle(page, 2500) // the camera flies to the pipe
     },
-    clipOf: async () => ({ x: 700, y: 100, width: 1220, height: 813 }), // 3:2: the canvas and the whole right-hand panel
+    clipOf: async () => ({ x: 700, y: 196, width: 1220, height: 813 }), // 3:2: the canvas and the whole right-hand panel, below the revision strip (which still shows r2 while r1 is on screen)
   },
   {
     file: 's05-7-review-stamp.png',
